@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens. One accent (indigo), neutral slate surfaces, semantic
+ * success/danger. Everything else in the UI should derive from these.
+ */
+@theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono-jb), ui-monospace, monospace;
+
+  --color-canvas: #f6f7f9;
+  --color-surface: #ffffff;
+  --color-line: #e7e9ee;
+  --color-line-strong: #d9dce3;
+  --color-ink: #0f172a;
+  --color-ink-2: #475569;
+  --color-ink-3: #8a94a6;
+
+  --color-brand: #4f46e5;
+  --color-brand-soft: #eef0ff;
+  --color-brand-ink: #3730a3;
+
+  --color-nav: #0e1526;
+  --color-nav-2: #172036;
+  --color-nav-ink: #a3adc2;
+
+  --color-up: #059669;
+  --color-down: #dc2626;
+}
+
+html {
+  font-feature-settings: "cv11", "ss01", "ss03";
+}
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+/* Numbers in KPIs and tables should not jitter when they change. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}

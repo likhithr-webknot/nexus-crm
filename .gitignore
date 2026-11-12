@@ -1,0 +1,49 @@
+# Repository-wide ignores. Each app keeps its own .gitignore for
+# toolchain-specific output (frontend/.gitignore covers Next.js).
+
+# --- Secrets and local configuration --------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p8
+*.p12
+*.jks
+*.keystore
+application-local.yml
+application-local.properties
+
+# --- Dependencies and build output ----------------------------------------
+node_modules/
+.next/
+out/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+# Maven (backend)
+target/
+.gradle/
+
+# --- Logs and runtime data -------------------------------------------------
+logs/
+log/
+*.log
+*.pid
+*.dump
+*.sql.gz
+
+# --- Editors and OS --------------------------------------------------------
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# --- Tooling ---------------------------------------------------------------
+.claude/settings.local.json
+.vercel/
