@@ -9,6 +9,9 @@ Next.js 16 (App Router) with React 19, Tailwind CSS 4 and lucide-react icons. Ch
 | `npm run dev` | Start the dev server on http://localhost:3000 |
 | `npm run build` | Production build (also type-checks) |
 | `npm run lint` | ESLint |
+| `npm run typecheck` | Generate Next.js route types, then run TypeScript |
+
+Node 22 or later (pinned in `.nvmrc`). CI runs lint, type-check and build on every push to `main` and every pull request (`.github/workflows/ci.yml`).
 
 ## Structure
 

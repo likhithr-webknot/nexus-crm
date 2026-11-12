@@ -18,6 +18,10 @@ npm run dev
 
 Open http://localhost:3000.
 
+## CI
+
+GitHub Actions (`.github/workflows/ci.yml`) runs on every push to `main` and every pull request: install, lint, type-check and production build of the frontend.
+
 ## Conventions
 
 - Secrets never go in the repo. Use `.env.local` (ignored) and commit a `.env.example` when variables are introduced.

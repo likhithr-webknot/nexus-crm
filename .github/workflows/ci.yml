@@ -1,0 +1,71 @@
+# ---------------------------------------------------------------------------
+# Nexus CRM - Continuous Integration
+#
+# What this does, in plain words:
+#   Every push to main and every pull request runs the frontend checks below.
+#   If any step fails, the run fails and the pull request shows a red cross.
+#
+#   1. Install dependencies exactly as pinned in package-lock.json
+#   2. Lint          - code style and React rules (ESLint)
+#   3. Type-check    - TypeScript errors, without building
+#   4. Build         - a full production build, the same one we would deploy
+#
+# The backend job will be added here when backend/ exists.
+# ---------------------------------------------------------------------------
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# If a newer commit is pushed to the same branch or pull request,
+# cancel the older run instead of wasting minutes on it.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: CI only needs to read the code.
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: Frontend (lint, type-check, build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Every "run:" step below executes inside frontend/.
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js (version from frontend/.nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # "npm ci" fails if package.json and package-lock.json disagree,
+      # which catches a forgotten lock-file update.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      # Generates Next.js route types first (they are not committed),
+      # then runs the TypeScript compiler without emitting files.
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
