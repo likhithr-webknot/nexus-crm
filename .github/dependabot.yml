@@ -1,0 +1,91 @@
+# ---------------------------------------------------------------------------
+# Nexus CRM - Dependabot
+#
+# What this does, in plain words:
+#   Once a week, Dependabot checks for newer versions of our dependencies and
+#   opens pull requests to update them. Each pull request runs the normal CI
+#   (lint, type-check, build), so a broken update shows a red cross before
+#   anyone merges it.
+#
+#   To keep the number of pull requests manageable:
+#     - small updates (minor and patch) are bundled into one pull request
+#     - Next.js and React always move together, because they must match
+#     - major updates get their own pull request, since they can break things
+#
+# Security fixes are separate: they arrive as soon as a vulnerability is
+# published, not weekly. They need "Dependabot security updates" switched on
+# in the repository's Settings > Code security.
+# ---------------------------------------------------------------------------
+
+version: 2
+
+updates:
+  # --- Frontend npm packages (frontend/package.json) ------------------------
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Kolkata
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    # Wait a few days before proposing a brand-new release. Most bad or
+    # malicious package versions are caught and pulled within that window.
+    cooldown:
+      default-days: 3
+      semver-major-days: 7
+    groups:
+      # Framework packages that must stay on matching versions.
+      next-and-react:
+        patterns:
+          - "next"
+          - "eslint-config-next"
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+      # Every other minor and patch update, bundled into one pull request.
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  # --- GitHub Actions used in .github/workflows/ -----------------------------
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Kolkata
+    commit-message:
+      prefix: "chore(ci)"
+    groups:
+      actions:
+        patterns:
+          - "*"
+
+  # --- Backend Maven packages -------------------------------------------------
+  # Uncomment when backend/pom.xml exists. Dependabot reports an error for a
+  # directory that has no dependency file, so it stays off until then.
+  #
+  # - package-ecosystem: maven
+  #   directory: /backend
+  #   schedule:
+  #     interval: weekly
+  #     day: monday
+  #     time: "09:00"
+  #     timezone: Asia/Kolkata
+  #   open-pull-requests-limit: 5
+  #   commit-message:
+  #     prefix: "chore(deps)"
+  #   groups:
+  #     spring:
+  #       patterns:
+  #         - "org.springframework*"
+  #     minor-and-patch:
+  #       update-types:
+  #         - minor
+  #         - patch
