@@ -2,15 +2,17 @@
 # Nexus CRM - Continuous Integration
 #
 # What this does, in plain words:
-#   Every push to main and every pull request runs the frontend checks below.
+#   Every push to main and every pull request runs the checks below.
 #   If any step fails, the run fails and the pull request shows a red cross.
 #
+#   Frontend
 #   1. Install dependencies exactly as pinned in package-lock.json
 #   2. Lint          - code style and React rules (ESLint)
 #   3. Type-check    - TypeScript errors, without building
 #   4. Build         - a full production build, the same one we would deploy
 #
-# The backend job will be added here when backend/ exists.
+#   Backend
+#   1. Build and test - compiles, runs the tests and packages the jar (Maven)
 # ---------------------------------------------------------------------------
 
 name: CI
@@ -69,3 +71,30 @@ jobs:
         run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: 1
+
+  backend:
+    name: Backend (build, test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Every "run:" step below executes inside backend/.
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+
+      # "verify" compiles, runs the tests and packages the jar.
+      # The wrapper (mvnw) pins the Maven version, so CI matches local builds.
+      - name: Build and test
+        run: ./mvnw --batch-mode --no-transfer-progress verify

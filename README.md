@@ -5,7 +5,7 @@ A CRM for one sales team: leads, contacts, companies, a deal pipeline, follow-up
 | Path | What it is | Status |
 | --- | --- | --- |
 | [`frontend/`](frontend) | Next.js 16 web app (React 19, Tailwind CSS 4) | Dashboard built on mock data; other screens are placeholders |
-| `backend/` | Spring Boot API (Java 25, PostgreSQL) | Not started; design under review |
+| [`backend/`](backend) | Spring Boot API (Java 25, PostgreSQL) | Skeleton only (health checks); design under review |
 | [`docs/`](docs) | Design documents | [Backend technical design](docs/backend-technical-design.md) (v0.2, draft) |
 
 ## Getting started

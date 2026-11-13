@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: nexus-crm
+  threads:
+    virtual:
+      enabled: true
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Only health is reachable over HTTP. Add endpoints here deliberately.
+        include: health
+  endpoint:
+    health:
+      # Exposes /actuator/health/liveness and /actuator/health/readiness.
+      probes:
+        enabled: true

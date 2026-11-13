@@ -67,25 +67,22 @@ updates:
         patterns:
           - "*"
 
-  # --- Backend Maven packages -------------------------------------------------
-  # Uncomment when backend/pom.xml exists. Dependabot reports an error for a
-  # directory that has no dependency file, so it stays off until then.
-  #
-  # - package-ecosystem: maven
-  #   directory: /backend
-  #   schedule:
-  #     interval: weekly
-  #     day: monday
-  #     time: "09:00"
-  #     timezone: Asia/Kolkata
-  #   open-pull-requests-limit: 5
-  #   commit-message:
-  #     prefix: "chore(deps)"
-  #   groups:
-  #     spring:
-  #       patterns:
-  #         - "org.springframework*"
-  #     minor-and-patch:
-  #       update-types:
-  #         - minor
-  #         - patch
+  # --- Backend Maven packages (backend/pom.xml) -------------------------------
+  - package-ecosystem: maven
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Kolkata
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      spring:
+        patterns:
+          - "org.springframework*"
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch

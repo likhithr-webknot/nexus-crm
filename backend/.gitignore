@@ -1,0 +1,4 @@
+# Backend (Maven) output. Editor, OS and secret ignores live in the
+# repository-root .gitignore.
+target/
+.mvn/wrapper/maven-wrapper.jar
