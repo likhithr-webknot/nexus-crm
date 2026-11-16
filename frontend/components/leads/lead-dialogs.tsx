@@ -1,60 +1,68 @@
 "use client";
 
 import { useState } from "react";
-import { OWNERS, SOURCES, TODAY, type Lead, type Source } from "@/lib/mock-data";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogActions, DialogBody, FormError } from "@/components/ui/dialog";
-import { Field, fieldControl } from "@/components/ui/primitives";
-import { downloadCsv, parseCsv } from "@/lib/csv";
-import { readForm } from "@/lib/format";
-import { CURRENCIES, currencyMinorUnits, decimalPlaces, isCurrencyCode } from "@/lib/currency";
+import { Field, StageBadge, buttonPrimary, buttonSecondary, fieldControl } from "@/components/ui/primitives";
+import { toast } from "@/components/ui/toast";
+import { useSession } from "@/components/auth/session";
 import { useCurrency } from "@/components/currency/currency-provider";
+import { ApiError, errorMessage } from "@/lib/api";
+import { downloadCsv, parseCsv } from "@/lib/csv";
+import { currencyMinorUnits, decimalPlaces } from "@/lib/currency";
+import { readForm, splitName } from "@/lib/format";
+import {
+  assignLead,
+  changeLeadStatus,
+  convertLead,
+  createLead,
+  importLeads,
+  type ImportRow,
+  type Lead,
+} from "@/lib/leads";
+import { SOURCES, SOURCE_LABELS, type LeadSource, type LeadStatus } from "@/lib/stages";
+import { listAssignable } from "@/lib/users";
 
 const EMAIL = /^\S+@\S+\.\S+$/;
-const nextId = (leads: Lead[], offset = 0) =>
-  `L-${Math.max(1000, ...leads.map((l) => Number(l.id.slice(2)) || 0)) + 1 + offset}`;
 
-export function AddLeadDialog({
-  open,
-  onClose,
-  leads,
-  onAdd,
-}: {
-  open: boolean;
-  onClose: () => void;
-  leads: Lead[];
-  onAdd: (lead: Lead) => void;
-}) {
-  const { reportingCurrency } = useCurrency();
-  // Set when the email belongs to an existing lead. A second submit adds it anyway.
-  const [duplicate, setDuplicate] = useState<Lead | null>(null);
+/** Reloads everything that shows leads, deals or the numbers built from them. */
+function useRefreshLeads() {
+  const queryClient = useQueryClient();
+  return () =>
+    Promise.all(
+      ["leads", "lead-summary", "deals", "pipeline", "dashboard", "overview", "activities"].map((key) =>
+        queryClient.invalidateQueries({ queryKey: [key] }),
+      ),
+    );
+}
+
+export function AddLeadDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { reportingCurrency, currencies } = useCurrency();
+  const session = useSession();
+  const refresh = useRefreshLeads();
+  const people = useQuery({ queryKey: ["assignable"], queryFn: listAssignable, enabled: open });
+  const [error, setError] = useState<string | null>(null);
+
+  const add = useMutation({
+    mutationFn: createLead,
+    onSuccess: (lead) => {
+      toast(`${lead.name} added.`);
+      void refresh();
+      onClose();
+    },
+    onError: (e) => setError(errorMessage(e)),
+  });
+
   const close = () => {
-    setDuplicate(null);
+    setError(null);
     onClose();
   };
 
   const submit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const f = readForm(e.currentTarget);
-    const rawValue = f.value ?? "";
-    const currency = f.currency ?? reportingCurrency;
-    if (!isCurrencyCode(currency)) {
-      const input = e.currentTarget.elements.namedItem("currency");
-      if (input instanceof HTMLSelectElement) {
-        input.setCustomValidity("Choose a supported currency.");
-        input.reportValidity();
-      }
-      return;
-    }
-    const enteredValue = rawValue ? Number(rawValue) : 0;
-    if (!Number.isFinite(enteredValue) || enteredValue < 0) {
-      const input = e.currentTarget.elements.namedItem("value");
-      if (input instanceof HTMLInputElement) {
-        input.setCustomValidity("Enter a non-negative amount.");
-        input.reportValidity();
-      }
-      return;
-    }
-    if (rawValue && decimalPlaces(rawValue) > currencyMinorUnits(currency)) {
+    const currency = f.currency || reportingCurrency;
+    if (f.value && decimalPlaces(f.value) > currencyMinorUnits(currency)) {
       const input = e.currentTarget.elements.namedItem("value");
       if (input instanceof HTMLInputElement) {
         input.setCustomValidity(`${currency} allows up to ${currencyMinorUnits(currency)} decimal places.`);
@@ -62,22 +70,17 @@ export function AddLeadDialog({
       }
       return;
     }
-    const existing = leads.find((l) => l.email.toLowerCase() === f.email.toLowerCase());
-    if (existing && !duplicate) return setDuplicate(existing);
-    onAdd({
-      id: nextId(leads),
-      name: f.name,
-      company: f.company,
+    setError(null);
+    add.mutate({
+      ...splitName(f.name),
       email: f.email,
-      phone: f.phone,
-      source: f.source as Source,
-      owner: f.owner || null,
-      stage: "New",
-      value: enteredValue,
-      currency,
-      createdAt: TODAY,
+      phone: f.phone || undefined,
+      companyName: f.company || undefined,
+      source: f.source as LeadSource,
+      unassigned: f.owner === "unassigned",
+      ownerId: f.owner && f.owner !== "unassigned" ? f.owner : undefined,
+      estimatedValue: f.value ? { amount: f.value, currency } : undefined,
     });
-    close();
   };
 
   return (
@@ -85,37 +88,33 @@ export function AddLeadDialog({
       <form onSubmit={submit}>
         <DialogBody className="sm:grid-cols-2">
           <Field label="Full name">
-            <input name="name" required maxLength={120} autoComplete="off" className={fieldControl} />
+            <input name="name" required maxLength={240} autoComplete="off" className={fieldControl} />
           </Field>
-          <Field label="Company">
-            <input name="company" required maxLength={120} autoComplete="off" className={fieldControl} />
+          <Field label="Company" optional>
+            <input name="company" maxLength={160} autoComplete="off" className={fieldControl} />
           </Field>
           <Field label="Email">
-            <input
-              name="email"
-              type="email"
-              required
-              maxLength={254}
-              autoComplete="off"
-              onChange={() => setDuplicate(null)}
-              className={fieldControl}
-            />
+            <input name="email" type="email" required maxLength={254} autoComplete="off" className={fieldControl} />
           </Field>
           <Field label="Phone" optional>
             <input name="phone" type="tel" maxLength={40} autoComplete="off" className={fieldControl} />
           </Field>
           <Field label="Source">
-            <select name="source" defaultValue="Manual Entry" className={fieldControl}>
-              {SOURCES.map((s) => (
-                <option key={s}>{s}</option>
+            <select name="source" defaultValue="MANUAL" className={fieldControl}>
+              {SOURCES.filter((s) => s !== "IMPORT").map((s) => (
+                <option key={s} value={s}>
+                  {SOURCE_LABELS[s]}
+                </option>
               ))}
             </select>
           </Field>
           <Field label="Assigned to">
-            <select name="owner" className={fieldControl}>
-              <option value="">Unassigned</option>
-              {OWNERS.map((o) => (
-                <option key={o}>{o}</option>
+            <select name="owner" defaultValue={session.id} className={fieldControl}>
+              <option value="unassigned">Unassigned</option>
+              {(people.data ?? [{ id: session.id, displayName: session.displayName }]).map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.displayName}
+                </option>
               ))}
             </select>
           </Field>
@@ -132,22 +131,20 @@ export function AddLeadDialog({
           </Field>
           <Field label="Currency">
             <select name="currency" defaultValue={reportingCurrency} className={fieldControl}>
-              {CURRENCIES.map(({ code, name }) => (
+              {currencies.map(({ code, name }) => (
                 <option key={code} value={code}>
                   {code} — {name}
                 </option>
               ))}
             </select>
           </Field>
-          {duplicate && (
+          {error && (
             <div className="sm:col-span-2">
-              <FormError>
-                {duplicate.name} at {duplicate.company} already uses this email. Add this lead anyway, or cancel.
-              </FormError>
+              <FormError>{error}</FormError>
             </div>
           )}
         </DialogBody>
-        <DialogActions onCancel={close} submitLabel={duplicate ? "Add anyway" : "Add lead"} />
+        <DialogActions onCancel={close} submitLabel="Add lead" pending={add.isPending} />
       </form>
     </Dialog>
   );
@@ -155,11 +152,11 @@ export function AddLeadDialog({
 
 const MAX_FILE_BYTES = 1_000_000;
 
-type Parsed = { ready: Lead[]; missing: number; badEmail: number; duplicates: number; invalidAmount: number; invalidCurrency: number };
+type Parsed = { rows: ImportRow[]; missing: number; badEmail: number; repeated: number };
 
-/** Turns CSV text into leads. Rows that cannot become a lead are counted, not imported. */
-function readLeads(text: string, existing: Lead[], defaultCurrency: string): Parsed | string {
-  const [header, ...rows] = parseCsv(text);
+/** Turns CSV text into import rows. Rows without a name or a valid email are counted, not kept. The server checks the rest. */
+function readRows(text: string, defaultCurrency: string): Parsed | string {
+  const [header, ...lines] = parseCsv(text);
   if (!header) return "The file is empty.";
   const column = (...names: string[]) => header.findIndex((h) => names.includes(h.trim().toLowerCase()));
   const at = {
@@ -173,76 +170,71 @@ function readLeads(text: string, existing: Lead[], defaultCurrency: string): Par
   };
   if (at.name < 0 || at.email < 0) return 'The first row must name the columns, and include "Name" and "Email".';
 
-  const seen = new Set(existing.map((l) => l.email.toLowerCase()));
-  const result: Parsed = { ready: [], missing: 0, badEmail: 0, duplicates: 0, invalidAmount: 0, invalidCurrency: 0 };
-  for (const row of rows) {
+  const sourceByLabel = new Map(SOURCES.map((s) => [SOURCE_LABELS[s].toLowerCase(), s]));
+  const seen = new Set<string>();
+  const result: Parsed = { rows: [], missing: 0, badEmail: 0, repeated: 0 };
+  for (const line of lines) {
     // Our own export puts a quote before cells a spreadsheet could run as a formula; take it off again.
-    const cell = (i: number) => (i < 0 ? "" : (row[i] ?? "").trim().replace(/^'(?=[=+\-@])/, ""));
+    const cell = (i: number) => (i < 0 ? "" : (line[i] ?? "").trim().replace(/^'(?=[=+\-@])/, ""));
     const name = cell(at.name);
     const email = cell(at.email).toLowerCase();
-    const rawValue = cell(at.value);
-    const value = rawValue ? Number(rawValue) : 0;
-    const currency = cell(at.currency) || defaultCurrency;
     if (!name || !email) result.missing++;
     else if (!EMAIL.test(email)) result.badEmail++;
-    else if (seen.has(email)) result.duplicates++;
-    else if (!Number.isFinite(value) || value < 0)
-      result.invalidAmount++;
-    else if (!isCurrencyCode(currency)) result.invalidCurrency++;
-    else if (decimalPlaces(rawValue) > currencyMinorUnits(currency)) result.invalidAmount++;
+    else if (seen.has(email)) result.repeated++;
     else {
       seen.add(email);
-      const source = SOURCES.find((s) => s.toLowerCase() === cell(at.source).toLowerCase()) ?? "Manual Entry";
-      result.ready.push({
-        id: nextId(existing, result.ready.length),
+      result.rows.push({
         name,
         email,
         company: cell(at.company),
         phone: cell(at.phone),
-        source,
-        owner: null,
-        stage: "New",
-        value,
-        currency,
-        createdAt: TODAY,
+        source: sourceByLabel.get(cell(at.source).toLowerCase()) ?? "IMPORT",
+        value: cell(at.value),
+        currency: cell(at.currency) || defaultCurrency,
       });
     }
   }
   return result;
 }
 
-export function ImportLeadsDialog({
-  open,
-  onClose,
-  leads,
-  onImport,
-}: {
-  open: boolean;
-  onClose: () => void;
-  leads: Lead[];
-  onImport: (leads: Lead[]) => void;
-}) {
+export function ImportLeadsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { reportingCurrency } = useCurrency();
+  const refresh = useRefreshLeads();
   const [parsed, setParsed] = useState<Parsed | string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const close = () => {
     setParsed(null);
+    setError(null);
     onClose();
   };
 
+  const upload = useMutation({
+    mutationFn: importLeads,
+    onSuccess: (result) => {
+      toast(
+        result.errors.length
+          ? `${result.imported} leads imported. ${result.errors.length} rows were skipped.`
+          : `${result.imported} leads imported.`,
+      );
+      void refresh();
+      close();
+    },
+    onError: (e) => setError(e instanceof ApiError && e.status === 413 ? "That file is too large." : errorMessage(e)),
+  });
+
   const pick = async (file: File | undefined) => {
+    setError(null);
     if (!file) return setParsed(null);
     if (file.size > MAX_FILE_BYTES) return setParsed("That file is larger than 1 MB. Split it into smaller files.");
-    setParsed(readLeads(await file.text(), leads, reportingCurrency));
+    setParsed(readRows(await file.text(), reportingCurrency));
   };
 
   const result = typeof parsed === "object" ? parsed : null;
   const skipped = result
     ? [
-        [result.duplicates, "already exist or repeat an email"],
+        [result.repeated, "repeat an email in this file"],
         [result.missing, "have no name or email"],
         [result.badEmail, "have an email that isn't valid"],
-        [result.invalidAmount, "have an invalid amount"],
-        [result.invalidCurrency, "have an unsupported currency code"],
       ].filter(([count]) => count)
     : [];
 
@@ -275,11 +267,13 @@ export function ImportLeadsDialog({
         </button>
 
         {typeof parsed === "string" && <FormError>{parsed}</FormError>}
+        {error && <FormError>{error}</FormError>}
         {result && (
           <div role="status" className="rounded-lg bg-canvas px-3.5 py-3 text-[13px] text-ink-2 ring-1 ring-line ring-inset">
             <p className="font-medium text-ink">
-              {result.ready.length === 1 ? "1 lead is" : `${result.ready.length} leads are`} ready to import.
+              {result.rows.length === 1 ? "1 row is" : `${result.rows.length} rows are`} ready to send.
             </p>
+            <p className="mt-0.5">Leads whose email is already used by an open lead are skipped when you import.</p>
             {skipped.length > 0 && (
               <ul className="mt-1.5 list-disc space-y-0.5 pl-4">
                 {skipped.map(([count, reason]) => (
@@ -294,13 +288,129 @@ export function ImportLeadsDialog({
       </DialogBody>
       <DialogActions
         onCancel={close}
-        disabled={!result?.ready.length}
-        submitLabel={result?.ready.length ? `Import ${result.ready.length}` : "Import"}
-        onSubmit={() => {
-          if (result) onImport(result.ready);
-          close();
-        }}
+        disabled={!result?.rows.length}
+        pending={upload.isPending}
+        submitLabel={result?.rows.length ? `Import ${result.rows.length}` : "Import"}
+        onSubmit={() => result && upload.mutate(result.rows)}
       />
+    </Dialog>
+  );
+}
+
+const NEXT_STATUSES: LeadStatus[] = ["NEW", "CONTACTED", "QUALIFIED"];
+
+/** Everything you can do with one lead: change its status, give it to someone, or turn it into a deal. */
+export function LeadActionsDialog({ lead, onClose }: { lead: Lead | null; onClose: () => void }) {
+  const session = useSession();
+  const refresh = useRefreshLeads();
+  const people = useQuery({ queryKey: ["assignable"], queryFn: listAssignable, enabled: lead !== null });
+  const [error, setError] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
+  const [disqualifying, setDisqualifying] = useState(false);
+  const close = () => {
+    setError(null);
+    setReason("");
+    setDisqualifying(false);
+    onClose();
+  };
+
+  const run = useMutation({
+    mutationFn: (action: () => Promise<unknown>) => action(),
+    onSuccess: () => {
+      void refresh();
+      close();
+    },
+    onError: (e) => setError(errorMessage(e)),
+  });
+
+  if (!lead) return null;
+  const open = lead.status === "NEW" || lead.status === "CONTACTED" || lead.status === "QUALIFIED";
+  const canAssign = session.role !== "REP";
+
+  return (
+    <Dialog open onClose={close} title={lead.name} description={lead.companyName ?? undefined}>
+      <DialogBody>
+        <div className="flex items-center gap-2 text-[13px] text-ink-2">
+          Status: <StageBadge stage={lead.status} />
+          {lead.disqualifyReason && <span className="text-ink-3">· {lead.disqualifyReason}</span>}
+        </div>
+
+        {open && (
+          <Field label="Move to">
+            <div className="mt-1.5 flex flex-wrap gap-2">
+              {NEXT_STATUSES.filter((s) => s !== lead.status).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  className={buttonSecondary}
+                  disabled={run.isPending}
+                  onClick={() => run.mutate(() => changeLeadStatus(lead.id, s))}
+                >
+                  <StageBadge stage={s} />
+                </button>
+              ))}
+              <button type="button" className={buttonSecondary} onClick={() => setDisqualifying(true)}>
+                Disqualify…
+              </button>
+            </div>
+          </Field>
+        )}
+        {disqualifying && (
+          <Field label="Why is this lead not a fit?">
+            <div className="mt-1.5 flex gap-2">
+              <input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} className={fieldControl + " mt-0"} />
+              <button
+                type="button"
+                className={buttonPrimary}
+                disabled={!reason.trim() || run.isPending}
+                onClick={() => run.mutate(() => changeLeadStatus(lead.id, "DISQUALIFIED", reason.trim()))}
+              >
+                Disqualify
+              </button>
+            </div>
+          </Field>
+        )}
+
+        {canAssign && open && (
+          <Field label="Assigned to">
+            <select
+              value={lead.owner?.id ?? ""}
+              disabled={run.isPending}
+              onChange={(e) => run.mutate(() => assignLead(lead.id, e.target.value || null))}
+              className={fieldControl}
+            >
+              <option value="">Unassigned</option>
+              {(people.data ?? []).map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.displayName}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
+
+        {open && (
+          <div className="rounded-lg bg-canvas p-3.5 text-[13px] text-ink-2 ring-1 ring-line ring-inset">
+            <p className="font-medium text-ink">Convert to a deal</p>
+            <p className="mt-0.5">Creates the company, the contact and a deal in the pipeline from this lead.</p>
+            <button
+              type="button"
+              className={buttonPrimary + " mt-3"}
+              disabled={run.isPending}
+              onClick={() =>
+                run.mutate(async () => {
+                  await convertLead(lead.id);
+                  toast(`${lead.name} is now a deal.`);
+                })
+              }
+            >
+              Convert to deal
+            </button>
+          </div>
+        )}
+        {lead.status === "CONVERTED" && <p className="text-[13px] text-ink-3">This lead has already become a deal.</p>}
+        {error && <FormError>{error}</FormError>}
+      </DialogBody>
     </Dialog>
   );
 }

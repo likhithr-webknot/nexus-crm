@@ -5,7 +5,24 @@ Spring Boot 4 application on Java 25, built with Maven. The design is in
 
 Built so far: the foundations (PostgreSQL, Flyway, one error format, request
 IDs) and the **identity** module: Google sign-in, sessions, roles and users.
-The business modules (leads, deals and so on) are not started.
+
+Every module has its tables, entities, services and REST endpoints under `/api/v1`:
+identity (users, teams), leads (with CSV import and conversion), contacts and
+companies, deals and the pipeline, activities, follow-ups, notifications, search,
+reporting (dashboard, reports, revenue targets), audit, and currencies with daily
+exchange rates. Each module is one flat package, for example `com.nexus.crm.leads`.
+A module refers to another module's records by ID only, never by entity, and tells
+other modules what happened through events (`LeadEvents`, `DealEvents`).
+
+What a user can see is decided in one place, `UserService.visibleOwnerIds`: a rep sees
+their own records, a manager their team's, an admin everyone's. A record outside that
+is reported as "not found".
+
+Differences from the design doc: lists use page numbers and totals instead of cursors
+(the screens show "1-10 of 120"), the lead CSV import runs inside the request instead of
+as a background job, and ShedLock and Spring Modulith are not used (one instance).
+The audit and history tables are append-only only if the app's database role is given
+INSERT and SELECT but not UPDATE or DELETE on them. Do that when deploying.
 
 ## Requirements
 

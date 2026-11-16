@@ -10,13 +10,11 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
-import { LEADS } from "@/lib/mock-data";
 
 export type NavItem = {
   href: string;
   label: string;
   icon: LucideIcon;
-  badge?: number;
   /** Section heading in the sidebar. */
   group: "Overview" | "Sales" | "Engage" | "Admin";
 };
@@ -24,7 +22,7 @@ export type NavItem = {
 export const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutGrid, group: "Overview" },
   { href: "/reports", label: "Reports & Analytics", icon: BarChart3, group: "Overview" },
-  { href: "/leads", label: "Leads", icon: UserPlus, badge: LEADS.length, group: "Sales" },
+  { href: "/leads", label: "Leads", icon: UserPlus, group: "Sales" },
   { href: "/contacts", label: "Contacts", icon: Contact, group: "Sales" },
   { href: "/pipeline", label: "Sales Pipeline", icon: Filter, group: "Sales" },
   { href: "/follow-ups", label: "Follow-ups", icon: CalendarCheck, group: "Engage" },

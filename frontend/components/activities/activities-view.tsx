@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarDays, Inbox, Mail, Phone, Plus, StickyNote, Zap, type LucideIcon } from "lucide-react";
-import { CONTACTS, TODAY, type Activity, type ActivityType } from "@/lib/mock-data";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { CalendarDays, Inbox, Mail, Phone, Plus, StickyNote, WifiOff, Zap, type LucideIcon } from "lucide-react";
 import {
   Avatar,
   Card,
@@ -10,41 +10,53 @@ import {
   Field,
   Page,
   PageHeader,
-  SESSION_ONLY,
   buttonPrimary,
   buttonSecondary,
   control,
   fieldControl,
 } from "@/components/ui/primitives";
-import { useSession } from "@/components/auth/session";
-import { Dialog, DialogActions, DialogBody } from "@/components/ui/dialog";
+import { Dialog, DialogActions, DialogBody, FormError } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toast";
-import { cn, daysBetween, formatLongDay, formatTime, readForm } from "@/lib/format";
+import { cn, daysBetween, formatLongDay, formatTime, localIso, readForm, todayLocal } from "@/lib/format";
+import { errorMessage } from "@/lib/api";
+import { activityCounts, listActivities, logActivity, type Activity, type ActivityType } from "@/lib/activities";
+import { listContacts } from "@/lib/contacts";
+import { listAssignable } from "@/lib/users";
 
-const TYPES: Record<ActivityType, { icon: LucideIcon; tone: string; plural: string }> = {
-  Call: { icon: Phone, tone: "bg-sky-50 text-sky-700 ring-sky-200", plural: "Calls" },
-  Email: { icon: Mail, tone: "bg-amber-50 text-amber-800 ring-amber-200", plural: "Emails" },
-  Meeting: { icon: CalendarDays, tone: "bg-violet-50 text-violet-700 ring-violet-200", plural: "Meetings" },
-  Note: { icon: StickyNote, tone: "bg-emerald-50 text-emerald-700 ring-emerald-200", plural: "Notes" },
-  System: { icon: Zap, tone: "bg-slate-100 text-slate-600 ring-slate-200", plural: "System" },
+const TYPES: Record<ActivityType, { icon: LucideIcon; tone: string; plural: string; label: string }> = {
+  CALL: { icon: Phone, tone: "bg-sky-50 text-sky-700 ring-sky-200", plural: "Calls", label: "Call" },
+  EMAIL_LOG: { icon: Mail, tone: "bg-amber-50 text-amber-800 ring-amber-200", plural: "Emails", label: "Email" },
+  MEETING: { icon: CalendarDays, tone: "bg-violet-50 text-violet-700 ring-violet-200", plural: "Meetings", label: "Meeting" },
+  NOTE: { icon: StickyNote, tone: "bg-emerald-50 text-emerald-700 ring-emerald-200", plural: "Notes", label: "Note" },
+  SYSTEM: { icon: Zap, tone: "bg-slate-100 text-slate-600 ring-slate-200", plural: "System", label: "System" },
 };
 
 function dayHeading(iso: string) {
-  const ago = daysBetween(iso, TODAY);
+  const ago = daysBetween(iso, todayLocal());
   return ago === 0 ? "Today" : ago === 1 ? "Yesterday" : formatLongDay(iso);
 }
 
-export function ActivitiesView({ activities: initial }: { activities: Activity[] }) {
-  const [activities, setActivities] = useState(initial);
+export function ActivitiesView() {
   const [adding, setAdding] = useState(false);
   const [type, setType] = useState<ActivityType | "">("");
   const [actor, setActor] = useState("");
 
-  const actors = [...new Set(activities.flatMap((a) => (a.actor ? [a.actor] : [])))].sort();
-  const byActor = activities.filter((a) => !actor || a.actor === actor);
-  const shown = byActor.filter((a) => !type || a.type === type);
+  const people = useQuery({ queryKey: ["assignable"], queryFn: listAssignable });
+  const counts = useQuery({ queryKey: ["activities", "counts", actor], queryFn: () => activityCounts(actor || undefined) });
+  const feed = useInfiniteQuery({
+    queryKey: ["activities", "feed", type, actor],
+    queryFn: ({ pageParam }) => listActivities({ type, actorId: actor || undefined, page: pageParam, size: 50 }),
+    initialPageParam: 1,
+    getNextPageParam: (last) => (last.page * last.size < last.total ? last.page + 1 : undefined),
+  });
   // Activities arrive newest first, so each day's entries are already together.
-  const days = [...new Set(shown.map((a) => a.at.slice(0, 10)))];
+  const shown: (Activity & { local: string })[] = (feed.data?.pages.flatMap((p) => p.items) ?? []).map((a) => ({
+    ...a,
+    local: localIso(a.occurredAt),
+  }));
+  const days = [...new Set(shown.map((a) => a.local.slice(0, 10)))];
+  const countFor = (t: ActivityType | "") =>
+    t ? (counts.data?.[t] ?? 0) : Object.values(counts.data ?? {}).reduce((sum, n) => sum + (n ?? 0), 0);
   const clear = () => {
     setType("");
     setActor("");
@@ -75,7 +87,7 @@ export function ActivitiesView({ activities: initial }: { activities: Activity[]
                 )}
               >
                 {t ? TYPES[t].plural : "All"}
-                <span className="tnum text-ink-3">{byActor.filter((a) => !t || a.type === t).length}</span>
+                <span className="tnum text-ink-3">{countFor(t)}</span>
               </button>
             ))}
           </div>
@@ -86,13 +98,27 @@ export function ActivitiesView({ activities: initial }: { activities: Activity[]
             className={cn(control, "px-2.5 sm:ml-auto")}
           >
             <option value="">Everyone</option>
-            {actors.map((a) => (
-              <option key={a}>{a}</option>
+            {(people.data ?? []).map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.displayName}
+              </option>
             ))}
           </select>
         </div>
 
-        {shown.length === 0 ? (
+        {feed.isError && !feed.data ? (
+          <div className="border-t border-line">
+            <EmptyState icon={WifiOff} title="Couldn't load activity" body="Check your connection, then try again.">
+              <button onClick={() => feed.refetch()} className={buttonSecondary}>
+                Try again
+              </button>
+            </EmptyState>
+          </div>
+        ) : feed.isPending ? (
+          <p className="border-t border-line px-5 py-10 text-center text-[13px] text-ink-3" role="status">
+            Loading activity…
+          </p>
+        ) : shown.length === 0 ? (
           <div className="border-t border-line">
             <EmptyState icon={Inbox} title="No activity matches" body="Nothing has been logged for this combination of filters.">
               <button onClick={clear} className={buttonSecondary}>
@@ -108,7 +134,7 @@ export function ActivitiesView({ activities: initial }: { activities: Activity[]
               </h2>
               <ol className="px-5 py-2">
                 {shown
-                  .filter((a) => a.at.startsWith(d))
+                  .filter((a) => a.local.startsWith(d))
                   .map((a, i, list) => {
                     const { icon: Icon, tone } = TYPES[a.type];
                     return (
@@ -120,25 +146,28 @@ export function ActivitiesView({ activities: initial }: { activities: Activity[]
                         </span>
                         <div className="min-w-0 flex-1">
                           <p className="flex flex-wrap items-baseline gap-x-2">
-                            <span className="text-[13.5px] font-medium text-ink">{a.title}</span>
-                            <span className="text-[12.5px] text-ink-3">
-                              {a.contact} · {a.company}
-                            </span>
+                            <span className="text-[13.5px] font-medium text-ink">{a.subject}</span>
+                            {a.about && (
+                              <span className="text-[12.5px] text-ink-3">
+                                {a.about.name}
+                                {a.about.company ? ` · ${a.about.company}` : ""}
+                              </span>
+                            )}
                           </p>
-                          <p className="mt-0.5 max-w-prose text-[13px] text-ink-2">{a.detail}</p>
+                          {a.body && <p className="mt-0.5 max-w-prose text-[13px] text-ink-2">{a.body}</p>}
                           <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-ink-3">
-                            {a.actor ? (
+                            {a.actorName ? (
                               <>
-                                <Avatar name={a.actor} />
-                                {a.actor}
+                                <Avatar name={a.actorName} />
+                                {a.actorName}
                               </>
                             ) : (
                               "Automatic"
                             )}
                           </p>
                         </div>
-                        <time dateTime={a.at} className="tnum shrink-0 pt-0.5 text-[12px] text-ink-3">
-                          {formatTime(a.at)}
+                        <time dateTime={a.occurredAt} className="tnum shrink-0 pt-0.5 text-[12px] text-ink-3">
+                          {formatTime(a.local)}
                         </time>
                       </li>
                     );
@@ -147,42 +176,41 @@ export function ActivitiesView({ activities: initial }: { activities: Activity[]
             </section>
           ))
         )}
+        {feed.hasNextPage && (
+          <div className="border-t border-line p-3 text-center">
+            <button onClick={() => feed.fetchNextPage()} disabled={feed.isFetchingNextPage} className={buttonSecondary}>
+              {feed.isFetchingNextPage ? "Loading…" : "Load older activity"}
+            </button>
+          </div>
+        )}
       </Card>
 
-      <LogActivityDialog
-        open={adding}
-        onClose={() => setAdding(false)}
-        onAdd={(activity) => {
-          setActivities((all) => [activity, ...all]);
-          clear();
-          toast(`${activity.type} logged. ${SESSION_ONLY}`);
-        }}
-      />
+      <LogActivityDialog open={adding} onClose={() => setAdding(false)} onLogged={clear} />
     </Page>
   );
 }
 
-function LogActivityDialog({ open, onClose, onAdd }: { open: boolean; onClose: () => void; onAdd: (activity: Activity) => void }) {
-  const user = useSession();
+function LogActivityDialog({ open, onClose, onLogged }: { open: boolean; onClose: () => void; onLogged: () => void }) {
+  const queryClient = useQueryClient();
+  const [error, setError] = useState<string | null>(null);
+  const contacts = useQuery({ queryKey: ["contacts", ""], queryFn: () => listContacts({ size: 100 }), enabled: open });
+
+  const log = useMutation({
+    mutationFn: logActivity,
+    onSuccess: (activity) => {
+      toast(`${TYPES[activity.type].label} logged.`);
+      void queryClient.invalidateQueries({ queryKey: ["activities"] });
+      onLogged();
+      onClose();
+    },
+    onError: (e) => setError(errorMessage(e)),
+  });
 
   const submit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const f = readForm(e.currentTarget);
-    const contact = CONTACTS.find((c) => c.id === f.contact)!;
-    // The fixtures live on one fixed day; the time is the real time it was logged.
-    const now = new Date();
-    const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    onAdd({
-      id: `a-${now.getTime()}`,
-      type: f.type as ActivityType,
-      title: f.title,
-      detail: f.detail,
-      contact: contact.name,
-      company: contact.company,
-      actor: user.displayName,
-      at: `${TODAY}T${time}`,
-    });
-    onClose();
+    setError(null);
+    log.mutate({ type: f.type as ActivityType, subject: f.title, body: f.detail, contactId: f.contact });
   };
 
   return (
@@ -193,9 +221,11 @@ function LogActivityDialog({ open, onClose, onAdd }: { open: boolean; onClose: (
             <select name="type" className={fieldControl}>
               {/* System entries are written by the app, never by hand. */}
               {(Object.keys(TYPES) as ActivityType[])
-                .filter((t) => t !== "System")
+                .filter((t) => t !== "SYSTEM")
                 .map((t) => (
-                  <option key={t}>{t}</option>
+                  <option key={t} value={t}>
+                    {TYPES[t].label}
+                  </option>
                 ))}
             </select>
           </Field>
@@ -204,21 +234,27 @@ function LogActivityDialog({ open, onClose, onAdd }: { open: boolean; onClose: (
               <option value="" disabled>
                 Choose a contact
               </option>
-              {CONTACTS.map((c) => (
+              {contacts.data?.items.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name}, {c.company}
+                  {c.name}
+                  {c.company ? `, ${c.company.name}` : ""}
                 </option>
               ))}
             </select>
           </Field>
           <Field label="Summary" className="sm:col-span-2">
-            <input name="title" required maxLength={120} autoComplete="off" placeholder="Pricing call" className={fieldControl} />
+            <input name="title" required maxLength={160} autoComplete="off" placeholder="Pricing call" className={fieldControl} />
           </Field>
           <Field label="Notes" className="sm:col-span-2">
-            <textarea name="detail" required maxLength={2000} rows={4} className={`${fieldControl} h-auto py-2`} />
+            <textarea name="detail" required maxLength={5000} rows={4} className={`${fieldControl} h-auto py-2`} />
           </Field>
+          {error && (
+            <div className="sm:col-span-2">
+              <FormError>{error}</FormError>
+            </div>
+          )}
         </DialogBody>
-        <DialogActions onCancel={onClose} submitLabel="Log activity" />
+        <DialogActions onCancel={onClose} submitLabel="Log activity" pending={log.isPending} />
       </form>
     </Dialog>
   );

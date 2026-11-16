@@ -1,10 +1,12 @@
-import type { LeadSource } from "@/lib/mock-data";
+import { SOURCE_COLORS, sourceLabel } from "@/lib/stages";
+
+export type SourceSlice = { source: string; share: number };
 
 const R = 54;
 const C = 2 * Math.PI * R;
 const GAP = 3; // px gap between segments along the circumference
 
-export function LeadSourcesDonut({ sources, total }: { sources: LeadSource[]; total: string }) {
+export function LeadSourcesDonut({ sources, total }: { sources: SourceSlice[]; total: string }) {
   const segments = sources.map((s, i) => ({
     ...s,
     len: (s.share / 100) * C,
@@ -17,12 +19,12 @@ export function LeadSourcesDonut({ sources, total }: { sources: LeadSource[]; to
           <circle cx={70} cy={70} r={R} fill="none" stroke="var(--color-canvas)" strokeWidth={16} />
           {segments.map((s) => (
               <circle
-                key={s.label}
+                key={s.source}
                 cx={70}
                 cy={70}
                 r={R}
                 fill="none"
-                stroke={s.color}
+                stroke={SOURCE_COLORS[s.source] ?? "#94a3b8"}
                 strokeWidth={16}
                 strokeDasharray={`${Math.max(s.len - GAP, 0)} ${C}`}
                 strokeDashoffset={-s.start}
@@ -37,9 +39,9 @@ export function LeadSourcesDonut({ sources, total }: { sources: LeadSource[]; to
 
       <ul className="w-full space-y-2.5">
         {sources.map((s) => (
-          <li key={s.label} className="flex items-center gap-2.5 text-[13px]">
-            <span className="size-2.5 shrink-0 rounded-sm" style={{ background: s.color }} aria-hidden />
-            <span className="text-ink-2">{s.label}</span>
+          <li key={s.source} className="flex items-center gap-2.5 text-[13px]">
+            <span className="size-2.5 shrink-0 rounded-sm" style={{ background: SOURCE_COLORS[s.source] ?? "#94a3b8" }} aria-hidden />
+            <span className="text-ink-2">{sourceLabel(s.source)}</span>
             <span className="tnum ml-auto font-semibold text-ink">{s.share}%</span>
           </li>
         ))}

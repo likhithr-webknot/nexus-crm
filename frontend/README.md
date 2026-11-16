@@ -20,7 +20,7 @@ app/                 routes; app/page.tsx is the dashboard
 components/shell/    sidebar, top bar, app shell
 components/dashboard dashboard widgets
 components/ui/       shared primitives (Card, Avatar, StageBadge, Popover)
-lib/                 navigation, formatting helpers, mock data
+lib/                 API clients (one file per backend area), navigation, formatting helpers
 ```
 
-All data currently comes from `lib/mock-data.ts`. Its shapes mirror the planned API (see `../docs/backend-technical-design.md`), so components should not need to change when the backend is connected.
+All data comes from the backend API through the clients in `lib/` (`leads.ts`, `deals.ts`, `contacts.ts` and so on), read with TanStack Query. `lib/api.ts` sends the session cookies and CSRF header. Start the backend first (`../backend/README.md`), then set `NEXT_PUBLIC_API_BASE_URL` as in `.env.example`. There is no mock data.

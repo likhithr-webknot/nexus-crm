@@ -1,5 +1,9 @@
 # Settings for the "test" profile.
 spring:
+  jpa:
+    hibernate:
+      # Fails startup if an entity does not match the tables the migrations create.
+      ddl-auto: validate
   security:
     oauth2:
       client:
@@ -10,6 +14,8 @@ spring:
             client-secret: test-secret
 
 nexus:
+  fx:
+    enabled: false
   auth:
     jwt:
       allow-ephemeral-key: true

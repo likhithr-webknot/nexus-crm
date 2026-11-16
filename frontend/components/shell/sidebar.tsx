@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { leadSummary } from "@/lib/leads";
 import { LogOut, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { NAV_ITEMS, findNavItem } from "@/lib/nav";
 import { ROLE_LABELS } from "@/lib/auth";
@@ -21,6 +23,9 @@ export function Sidebar({
   onClose?: () => void;
 }) {
   const pathname = usePathname();
+  const leads = useQuery({ queryKey: ["lead-summary"], queryFn: leadSummary });
+  /** The number shown beside a menu item. Only Leads has one: how many are still being worked. */
+  const badge = (href: string) => (href === "/leads" ? leads.data?.active : undefined);
   const active = findNavItem(pathname);
   const user = useSession();
   const { signOut, pending, failed } = useSignOut();
@@ -69,12 +74,12 @@ export function Sidebar({
                       )}
                       <Icon className={cn("size-[18px] shrink-0", isActive && "text-indigo-300")} aria-hidden />
                       {!collapsed && <span className="truncate">{item.label}</span>}
-                      {item.badge != null &&
+                      {badge(item.href) != null &&
                         (collapsed ? (
                           <span className="absolute top-2 right-3 size-1.5 rounded-full bg-indigo-400" aria-hidden />
                         ) : (
                           <span className="tnum ml-auto rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-semibold text-white">
-                            {item.badge}
+                            {badge(item.href)}
                           </span>
                         ))}
                     </Link>

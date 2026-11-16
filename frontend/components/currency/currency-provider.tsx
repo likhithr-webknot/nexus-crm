@@ -1,6 +1,8 @@
 "use client";
 
-import { createContext, use, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { createContext, use, useCallback, useMemo, useSyncExternalStore } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { latestRates, listCurrencies, type CurrencyInfo } from "@/lib/currencies";
 import {
   DEFAULT_REPORTING_CURRENCY,
   convertCurrency,
@@ -11,7 +13,6 @@ import {
 } from "@/lib/currency";
 
 const PREFERENCE_KEY = "nexus.currency.reporting";
-const RATES_URL = "https://open.er-api.com/v6/latest/USD";
 const preferenceListeners = new Set<() => void>();
 
 const currencyPreferenceStore = {
@@ -38,21 +39,17 @@ const currencyPreferenceStore = {
   },
 };
 
-type RateResponse = {
-  result?: unknown;
-  rates?: Record<string, unknown>;
-  time_last_update_utc?: unknown;
-};
-
 type RateState =
-  | { status: "loading"; rates: null; updatedAt: null; error: null }
-  | { status: "ready"; rates: Record<string, number>; updatedAt: string; error: null }
-  | { status: "error"; rates: null; updatedAt: null; error: string };
+  | { status: "loading"; rates: null; updatedAt: null; stale: false; error: null }
+  | { status: "ready"; rates: Record<string, number>; updatedAt: string; stale: boolean; error: null }
+  | { status: "error"; rates: null; updatedAt: null; stale: false; error: string };
 
 type CurrencyContextValue = {
   reportingCurrency: CurrencyCode;
   setReportingCurrency: (currency: CurrencyCode) => void;
   rateState: RateState;
+  /** The currencies an admin has enabled, for pickers. */
+  currencies: CurrencyInfo[];
   format: (amount: number, currency: CurrencyCode) => string;
   formatReporting: (amount: number, currency: CurrencyCode) => string | null;
   formatCompactReporting: (amount: number, currency: CurrencyCode) => string | null;
@@ -68,62 +65,31 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     currencyPreferenceStore.get,
     currencyPreferenceStore.getServerSnapshot,
   );
-  const [rateState, setRateState] = useState<RateState>({
-    status: "loading",
-    rates: null,
-    updatedAt: null,
-    error: null,
-  });
-  const [refreshKey, setRefreshKey] = useState(0);
+  const ratesQuery = useQuery({ queryKey: ["exchange-rates"], queryFn: latestRates, staleTime: 5 * 60_000 });
+  const currenciesQuery = useQuery({ queryKey: ["currencies"], queryFn: listCurrencies, staleTime: 5 * 60_000 });
 
-  useEffect(() => {
-    const controller = new AbortController();
-    let active = true;
-    const timeout = window.setTimeout(() => controller.abort(), 10_000);
-    const loadRates = async () => {
-      try {
-        const response = await fetch(RATES_URL, { signal: controller.signal });
-        if (!response.ok) throw new Error(`Exchange-rate service returned ${response.status}.`);
-        const data = (await response.json()) as RateResponse;
-        if (data.result !== "success" || !data.rates || typeof data.time_last_update_utc !== "string") {
-          throw new Error("Exchange-rate service returned an invalid response.");
-        }
-
-        const rates = Object.fromEntries(
-          Object.entries(data.rates)
-            .filter((entry): entry is [string, number] => typeof entry[1] === "number" && Number.isFinite(entry[1]) && entry[1] > 0),
-        );
-        rates.USD = 1;
-        setRateState({ status: "ready", rates, updatedAt: data.time_last_update_utc, error: null });
-      } catch (error) {
-        if (!active) return;
-        setRateState({
-          status: "error",
-          rates: null,
-          updatedAt: null,
-          error: error instanceof Error ? error.message : "Could not load exchange rates.",
-        });
-      } finally {
-        window.clearTimeout(timeout);
-      }
-    };
-
-    void loadRates();
-    return () => {
-      active = false;
-      controller.abort();
-      window.clearTimeout(timeout);
-    };
-  }, [refreshKey]);
+  // The API gives each rate as "1 unit = N INR". The conversion works with "units per INR", so invert them.
+  const rateState = useMemo<RateState>(() => {
+    if (ratesQuery.isError) {
+      return { status: "error", rates: null, updatedAt: null, stale: false, error: "The server could not provide exchange rates." };
+    }
+    if (!ratesQuery.data) return { status: "loading", rates: null, updatedAt: null, stale: false, error: null };
+    const base = currenciesQuery.data?.find((c) => c.base)?.code ?? DEFAULT_REPORTING_CURRENCY;
+    const rates: Record<string, number> = { [base]: 1 };
+    for (const rate of ratesQuery.data) {
+      const perBase = 1 / Number(rate.rateToBase);
+      if (Number.isFinite(perBase) && perBase > 0) rates[rate.currency] = perBase;
+    }
+    const newest = ratesQuery.data.map((r) => r.rateDate).sort().at(-1) ?? "";
+    return { status: "ready", rates, updatedAt: newest, stale: ratesQuery.data.some((r) => r.stale), error: null };
+  }, [ratesQuery.data, ratesQuery.isError, currenciesQuery.data]);
+  const currencies = useMemo(() => (currenciesQuery.data ?? []).filter((c) => c.enabled), [currenciesQuery.data]);
 
   const setReportingCurrency = useCallback((currency: CurrencyCode) => {
     if (!isCurrencyCode(currency)) throw new Error(`Unsupported currency: ${currency}`);
     currencyPreferenceStore.set(currency);
   }, []);
-  const refreshRates = useCallback(() => {
-    setRateState({ status: "loading", rates: null, updatedAt: null, error: null });
-    setRefreshKey((key) => key + 1);
-  }, []);
+  const refreshRates = useCallback(() => void ratesQuery.refetch(), [ratesQuery]);
 
   const convertToReporting = useMemo(
     () => (amount: number, currency: CurrencyCode) =>
@@ -135,6 +101,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
       reportingCurrency,
       setReportingCurrency,
       rateState,
+      currencies,
       refreshRates,
       format: formatCurrency,
       formatReporting: (amount, currency) => {
@@ -147,7 +114,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
       },
       convertToReporting,
     }),
-    [reportingCurrency, rateState, convertToReporting, refreshRates, setReportingCurrency],
+    [reportingCurrency, rateState, currencies, convertToReporting, refreshRates, setReportingCurrency],
   );
 
   return <CurrencyContext value={value}>{children}</CurrencyContext>;

@@ -15,12 +15,12 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MockMvcTester.MockMvcRequestBuilder;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
-import com.nexus.crm.identity.SessionService;
-import com.nexus.crm.identity.SessionService.ClientInfo;
-import com.nexus.crm.identity.SessionService.SessionTokens;
-import com.nexus.crm.identity.SignInService;
-import com.nexus.crm.identity.UserService;
-import com.nexus.crm.identity.AppUser;
+import com.nexus.crm.identity.auth.SessionService;
+import com.nexus.crm.identity.auth.SessionService.ClientInfo;
+import com.nexus.crm.identity.auth.SessionService.SessionTokens;
+import com.nexus.crm.identity.auth.SignInService;
+import com.nexus.crm.identity.user.UserService;
+import com.nexus.crm.identity.user.AppUser;
 import com.nexus.crm.shared.Role;
 
 /**

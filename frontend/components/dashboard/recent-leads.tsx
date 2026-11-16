@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { UserPlus } from "lucide-react";
-import type { Lead } from "@/lib/mock-data";
+import type { Lead } from "@/lib/leads";
+import { moneyValue } from "@/lib/money";
 import { Avatar, StageBadge } from "@/components/ui/primitives";
 import { formatDate } from "@/lib/format";
 import { useCurrency } from "@/components/currency/currency-provider";
@@ -38,27 +39,27 @@ export function RecentLeadsTable({ leads }: { leads: Lead[] }) {
                 <div className="flex items-center gap-3">
                   <Avatar name={lead.name} />
                   <div className="min-w-0">
-                    <Link href={`/leads?id=${lead.id}`} className="font-medium text-ink hover:text-brand">
+                    <Link href="/leads" className="font-medium text-ink hover:text-brand">
                       {lead.name}
                     </Link>
-                    <p className="truncate text-[12px] text-ink-3">{lead.company}</p>
+                    <p className="truncate text-[12px] text-ink-3">{lead.companyName}</p>
                   </div>
                 </div>
               </td>
               <td className="px-3 py-3 whitespace-nowrap">
                 {lead.owner ? (
                   <div className="flex items-center gap-2 text-ink-2">
-                    <Avatar name={lead.owner} />
-                    {lead.owner}
+                    <Avatar name={lead.owner.name} />
+                    {lead.owner.name}
                   </div>
                 ) : (
                   <span className="text-ink-3">Unassigned</span>
                 )}
               </td>
               <td className="px-3 py-3">
-                <StageBadge stage={lead.stage} />
+                <StageBadge stage={lead.status} />
               </td>
-              <td className="tnum px-3 py-3 text-right font-medium">{format(lead.value, lead.currency)}</td>
+              <td className="tnum px-3 py-3 text-right font-medium">{lead.estimatedValue ? format(moneyValue(lead.estimatedValue), lead.estimatedValue.currency) : "—"}</td>
               <td className="tnum py-3 pr-5 pl-3 text-right whitespace-nowrap text-ink-2">{formatDate(lead.createdAt)}</td>
             </tr>
           ))}

@@ -58,6 +58,22 @@ function refresh() {
   return refreshing;
 }
 
+/** Builds "?a=1&b=2" from the values that are set. Empty strings, null and undefined are left out. */
+export function qs(params: Record<string, string | number | boolean | null | undefined>) {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== "") query.set(key, String(value));
+  }
+  const text = query.toString();
+  return text ? `?${text}` : "";
+}
+
+/** A message that is safe to show for any error from the API. */
+export function errorMessage(error: unknown, fallback = "Something went wrong. Try again.") {
+  if (error instanceof ApiError && error.code !== "internal_error" && error.code !== "unknown") return error.message;
+  return fallback;
+}
+
 /** Calls the API and returns the parsed body (undefined when there is none). Throws ApiError on failure. */
 export async function api<T = void>(path: string, init: RequestInit = {}): Promise<T> {
   let response = await send(path, init);

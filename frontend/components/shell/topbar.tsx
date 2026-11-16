@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, ChevronDown, ChevronRight, CircleHelp, LogOut, Menu, Search, Settings, User } from "lucide-react";
@@ -9,12 +10,29 @@ import { ROLE_LABELS } from "@/lib/auth";
 import { UserAvatar, useSession, useSignOut } from "@/components/auth/session";
 import { Dialog, DialogBody } from "@/components/ui/dialog";
 import { Popover } from "@/components/ui/popover";
+import { listNotifications, markRead, search, unreadCount } from "@/lib/notifications";
+import { cn, localIso } from "@/lib/format";
 
-const NOTIFICATIONS = [
-  { id: 1, title: "Sophia Rodriguez moved to Proposal", time: "12 min ago", unread: true },
-  { id: 2, title: "Follow-up overdue: Vertex Labs", time: "1 h ago", unread: true },
-  { id: 3, title: "Ravi Menon — deal won ($94,000)", time: "Yesterday", unread: false },
-];
+/** "12 min ago", "3 h ago", or the date for anything older than a day. */
+function timeAgo(instant: string) {
+  const minutes = Math.max(0, Math.round((Date.now() - new Date(instant).getTime()) / 60_000));
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes} min ago`;
+  if (minutes < 24 * 60) return `${Math.round(minutes / 60)} h ago`;
+  return localIso(instant).slice(0, 10);
+}
+
+/** The bell: the unread count is checked every minute, and the list loads when the menu opens. */
+function useNotifications() {
+  const queryClient = useQueryClient();
+  const count = useQuery({ queryKey: ["notifications", "count"], queryFn: unreadCount, refetchInterval: 60_000 });
+  const list = useQuery({ queryKey: ["notifications", "list"], queryFn: listNotifications, staleTime: 30_000 });
+  const read = useMutation({
+    mutationFn: (ids?: string[]) => markRead(ids),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+  });
+  return { unread: count.data?.count ?? 0, list, read };
+}
 
 const SHORTCUTS: [keys: string[], what: string][] = [
   [["⌘", "K"], "Jump to search (Ctrl K on Windows and Linux)"],
@@ -27,9 +45,11 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
   const pathname = usePathname();
   const current = findNavItem(pathname);
   const searchRef = useRef<HTMLInputElement>(null);
-  const [read, setRead] = useState(false);
+  const [query, setQuery] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
-  const unread = read ? 0 : NOTIFICATIONS.filter((n) => n.unread).length;
+  const { unread, list, read } = useNotifications();
+  const term = query.trim();
+  const hits = useQuery({ queryKey: ["search", term], queryFn: () => search(term), enabled: term.length >= 2, staleTime: 30_000 });
   const user = useSession();
   const { signOut, pending, failed } = useSignOut();
 
@@ -64,19 +84,52 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
       </nav>
 
       <div className="ml-auto flex items-center gap-1 sm:gap-2">
-        <label className="relative hidden md:block">
-          <span className="sr-only">Search</span>
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-3" />
-          <input
-            ref={searchRef}
-            type="search"
-            placeholder="Search leads, contacts, deals…"
-            className="h-9 w-64 rounded-lg border border-line bg-canvas pr-12 pl-9 text-[13px] text-ink placeholder:text-ink-3 focus:border-brand focus:bg-surface focus:outline-none lg:w-80"
-          />
-          <kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded border border-line bg-surface px-1.5 py-0.5 font-mono text-[10px] text-ink-3">
-            ⌘K
-          </kbd>
-        </label>
+        <div className="relative hidden md:block">
+          <label>
+            <span className="sr-only">Search</span>
+            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-3" />
+            <input
+              ref={searchRef}
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Escape" && setQuery("")}
+              placeholder="Search leads, contacts, deals…"
+              className="h-9 w-64 rounded-lg border border-line bg-canvas pr-12 pl-9 text-[13px] text-ink placeholder:text-ink-3 focus:border-brand focus:bg-surface focus:outline-none lg:w-80"
+            />
+            <kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded border border-line bg-surface px-1.5 py-0.5 font-mono text-[10px] text-ink-3">
+              ⌘K
+            </kbd>
+          </label>
+          {term.length >= 2 && (
+            <div className="absolute top-11 left-0 z-40 max-h-96 w-full min-w-80 overflow-y-auto rounded-xl border border-line bg-surface py-1.5 shadow-lg" role="listbox" aria-label="Search results">
+              {hits.isPending ? (
+                <p className="px-4 py-3 text-[13px] text-ink-3">Searching…</p>
+              ) : hits.isError ? (
+                <p className="px-4 py-3 text-[13px] text-down">Search isn&apos;t available right now.</p>
+              ) : hits.data.length === 0 ? (
+                <p className="px-4 py-3 text-[13px] text-ink-3">Nothing matches &ldquo;{term}&rdquo;.</p>
+              ) : (
+                hits.data.map((hit) => (
+                  <Link
+                    key={`${hit.type}-${hit.id}`}
+                    href={hit.href}
+                    onClick={() => setQuery("")}
+                    role="option"
+                    aria-selected={false}
+                    className="flex items-baseline gap-3 px-4 py-2 hover:bg-canvas"
+                  >
+                    <span className="w-14 shrink-0 text-[11px] font-semibold tracking-wide text-ink-3 uppercase">{hit.type}</span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-[13px] font-medium text-ink">{hit.title}</span>
+                      {hit.subtitle && <span className="block truncate text-[12px] text-ink-3">{hit.subtitle}</span>}
+                    </span>
+                  </Link>
+                ))
+              )}
+            </div>
+          )}
+        </div>
 
         <Popover
           label={`Notifications, ${unread} unread`}
@@ -93,27 +146,47 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
           <div className="flex items-center justify-between border-b border-line px-4 py-3">
             <p className="text-[14px] font-semibold">Notifications</p>
             <button
-              onClick={() => setRead(true)}
-              disabled={unread === 0}
+              onClick={() => read.mutate(undefined)}
+              disabled={unread === 0 || read.isPending}
               className="text-[12px] font-medium text-brand hover:underline disabled:text-ink-3 disabled:no-underline"
             >
               Mark all read
             </button>
           </div>
-          <ul className="max-h-80 divide-y divide-line overflow-y-auto">
-            {NOTIFICATIONS.map((n) => (
-              <li key={n.id} className="flex gap-3 px-4 py-3 hover:bg-canvas">
-                <span
-                  className={`mt-1.5 size-2 shrink-0 rounded-full ${n.unread && !read ? "bg-brand" : "bg-transparent"}`}
-                  aria-hidden
-                />
-                <div>
-                  <p className="text-[13px] text-ink">{n.title}</p>
-                  <p className="mt-0.5 text-[12px] text-ink-3">{n.time}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
+          {list.isPending ? (
+            <p className="px-4 py-6 text-center text-[13px] text-ink-3">Loading…</p>
+          ) : list.isError ? (
+            <p className="px-4 py-6 text-center text-[13px] text-down">Couldn&apos;t load notifications.</p>
+          ) : list.data.length === 0 ? (
+            <p className="px-4 py-8 text-center text-[13px] text-ink-3">You&apos;re all caught up.</p>
+          ) : (
+            <ul className="max-h-80 divide-y divide-line overflow-y-auto">
+              {list.data.map((n) => {
+                const body = (
+                  <>
+                    <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", n.read ? "bg-transparent" : "bg-brand")} aria-hidden />
+                    <div>
+                      <p className="text-[13px] text-ink">{n.title}</p>
+                      <p className="mt-0.5 text-[12px] text-ink-3">{timeAgo(n.createdAt)}</p>
+                    </div>
+                  </>
+                );
+                return (
+                  <li key={n.id}>
+                    {n.link ? (
+                      <Link href={n.link} onClick={() => !n.read && read.mutate([n.id])} className="flex gap-3 px-4 py-3 hover:bg-canvas">
+                        {body}
+                      </Link>
+                    ) : (
+                      <button onClick={() => !n.read && read.mutate([n.id])} className="flex w-full gap-3 px-4 py-3 text-left hover:bg-canvas">
+                        {body}
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </Popover>
 
         <button

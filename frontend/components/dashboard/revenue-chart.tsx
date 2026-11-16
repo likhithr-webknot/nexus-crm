@@ -1,9 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import type { RevenuePoint } from "@/lib/mock-data";
 import { useCurrency } from "@/components/currency/currency-provider";
 
+/** One month on the chart. Amounts are in INR, the base currency. The target is null when none is set or the user cannot see it. */
+export type RevenuePoint = { month: string; label: string; revenue: number; target: number | null };
+
+/** A round step (1, 2, 5 times a power of ten) so the grid lines land on tidy numbers. */
+function niceStep(rough: number) {
+  const power = 10 ** Math.floor(Math.log10(rough));
+  const f = rough / power;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * power;
+}
+
+const BASE = "INR";
 const W = 720;
 const H = 240;
 const PAD = { top: 12, right: 16, bottom: 28, left: 44 };
@@ -22,22 +32,25 @@ export function RevenueChart({ data }: { data: RevenuePoint[] }) {
   const [hover, setHover] = useState<number | null>(null);
   const { formatReporting, formatCompactReporting } = useCurrency();
 
-  const max = Math.ceil(Math.max(...data.flatMap((d) => [d.revenue, d.target])) / 100_000) * 100_000;
-  const ticks = Array.from({ length: max / 100_000 + 1 }, (_, i) => i * 100_000);
+  const peak = Math.max(1, ...data.flatMap((d) => [d.revenue, d.target ?? 0]));
+  const step = niceStep(peak / 4);
+  const max = Math.ceil(peak / step) * step;
+  const ticks = Array.from({ length: Math.round(max / step) + 1 }, (_, i) => i * step);
   const innerW = W - PAD.left - PAD.right;
   const innerH = H - PAD.top - PAD.bottom;
-  const x = (i: number) => PAD.left + (i / (data.length - 1)) * innerW;
+  const x = (i: number) => PAD.left + (data.length === 1 ? 0.5 : i / (data.length - 1)) * innerW;
   const y = (v: number) => PAD.top + innerH - (v / max) * innerH;
 
   const rev = data.map((d, i) => [x(i), y(d.revenue)] as [number, number]);
-  const tgt = data.map((d, i) => [x(i), y(d.target)] as [number, number]);
+  const tgt = data.map((d, i) => [x(i), y(d.target ?? 0)] as [number, number]);
+  const hasTarget = data.some((d) => d.target != null);
   const revLine = smoothPath(rev);
   const baseline = PAD.top + innerH;
 
   const onMove = (e: React.PointerEvent<SVGSVGElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const px = ((e.clientX - rect.left) / rect.width) * W;
-    const i = Math.round(((px - PAD.left) / innerW) * (data.length - 1));
+    const i = data.length === 1 ? 0 : Math.round(((px - PAD.left) / innerW) * (data.length - 1));
     setHover(Math.max(0, Math.min(data.length - 1, i)));
   };
 
@@ -49,7 +62,7 @@ export function RevenueChart({ data }: { data: RevenuePoint[] }) {
         viewBox={`0 0 ${W} ${H}`}
         className="h-auto w-full touch-none select-none"
         role="img"
-        aria-label={`Monthly revenue vs target, ${data[0].month} to ${data.at(-1)!.month}`}
+        aria-label={`Monthly revenue${hasTarget ? " vs target" : ""}, ${data[0].label} to ${data.at(-1)!.label}`}
         onPointerMove={onMove}
         onPointerLeave={() => setHover(null)}
       >
@@ -64,18 +77,18 @@ export function RevenueChart({ data }: { data: RevenuePoint[] }) {
           <g key={t}>
             <line x1={PAD.left} x2={W - PAD.right} y1={y(t)} y2={y(t)} stroke="var(--color-line)" />
             <text x={PAD.left - 10} y={y(t)} dy="0.32em" textAnchor="end" className="fill-ink-3 text-[11px]">
-              {formatCompactReporting(t, "USD") ?? "—"}
+              {formatCompactReporting(t, BASE) ?? "—"}
             </text>
           </g>
         ))}
         {data.map((d, i) => (
           <text key={d.month} x={x(i)} y={H - 6} textAnchor="middle" className="fill-ink-3 text-[11px]">
-            {d.month}
+            {d.label}
           </text>
         ))}
 
         <path d={`${revLine}L${x(data.length - 1)},${baseline}L${x(0)},${baseline}Z`} fill="url(#rev-fill)" />
-        <path d={smoothPath(tgt)} fill="none" stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="5 5" />
+        {hasTarget && <path d={smoothPath(tgt)} fill="none" stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="5 5" />}
         <path d={revLine} fill="none" stroke="var(--color-brand)" strokeWidth={2.25} strokeLinecap="round" />
 
         {hover != null && (
@@ -99,13 +112,15 @@ export function RevenueChart({ data }: { data: RevenuePoint[] }) {
           className="pointer-events-none absolute top-0 z-10 w-40 -translate-x-1/2 rounded-lg border border-line bg-surface px-3 py-2 text-[12px] shadow-lg"
           style={{ left: `clamp(80px, ${(x(hover) / W) * 100}%, calc(100% - 80px))` }}
         >
-          <p className="font-semibold text-ink">{active.month} 2025</p>
+          <p className="font-semibold text-ink">{active.month}</p>
           <p className="mt-1 flex justify-between text-ink-2">
-            Revenue <span className="tnum font-medium text-ink">{formatReporting(active.revenue, "USD") ?? "—"}</span>
+            Revenue <span className="tnum font-medium text-ink">{formatReporting(active.revenue, BASE) ?? "—"}</span>
           </p>
-          <p className="flex justify-between text-ink-2">
-            Target <span className="tnum font-medium text-ink">{formatReporting(active.target, "USD") ?? "—"}</span>
-          </p>
+          {active.target != null && (
+            <p className="flex justify-between text-ink-2">
+              Target <span className="tnum font-medium text-ink">{formatReporting(active.target, BASE) ?? "—"}</span>
+            </p>
+          )}
         </div>
       )}
     </div>

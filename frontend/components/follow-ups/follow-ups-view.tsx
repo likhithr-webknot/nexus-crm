@@ -1,18 +1,35 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarCheck, Check, ChevronLeft, ChevronRight, Plus } from "lucide-react";
-import { CONTACTS, OWNERS, TODAY, type FollowUp, type FollowUpType } from "@/lib/mock-data";
-import { Avatar, Card, Field, Page, PageHeader, SESSION_ONLY, buttonPrimary, fieldControl } from "@/components/ui/primitives";
-import { Dialog, DialogActions, DialogBody } from "@/components/ui/dialog";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { CalendarCheck, Check, ChevronLeft, ChevronRight, Plus, WifiOff } from "lucide-react";
+import { Avatar, Card, EmptyState, Field, Page, PageHeader, buttonPrimary, buttonSecondary, fieldControl } from "@/components/ui/primitives";
+import { Dialog, DialogActions, DialogBody, FormError } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toast";
-import { cn, daysBetween, formatDay, formatLongDay, formatTime, readForm } from "@/lib/format";
+import { cn, formatDay, formatLongDay, formatTime, localIso, readForm, todayLocal, toInstant } from "@/lib/format";
+import { errorMessage } from "@/lib/api";
+import { listContacts } from "@/lib/contacts";
+import {
+  FOLLOW_UP_TYPE_LABELS,
+  createFollowUp,
+  followUpSummary,
+  listFollowUps,
+  setFollowUpDone,
+  type FollowUp,
+  type FollowUpType,
+} from "@/lib/follow-ups";
+import { listAssignable } from "@/lib/users";
+import { useSession } from "@/components/auth/session";
+
+type Item = FollowUp & { local: string; done: boolean };
+
+const withLocal = (f: FollowUp): Item => ({ ...f, local: localIso(f.dueAt), done: f.status === "DONE" });
 
 const TYPE_STYLES: Record<FollowUpType, { bar: string; chip: string }> = {
-  Call: { bar: "bg-sky-500", chip: "border-sky-500 bg-sky-50 text-sky-800" },
-  Meeting: { bar: "bg-violet-500", chip: "border-violet-500 bg-violet-50 text-violet-800" },
-  Email: { bar: "bg-amber-500", chip: "border-amber-500 bg-amber-50 text-amber-900" },
-  Task: { bar: "bg-slate-400", chip: "border-slate-400 bg-slate-100 text-slate-700" },
+  CALL: { bar: "bg-sky-500", chip: "border-sky-500 bg-sky-50 text-sky-800" },
+  MEETING: { bar: "bg-violet-500", chip: "border-violet-500 bg-violet-50 text-violet-800" },
+  EMAIL: { bar: "bg-amber-500", chip: "border-amber-500 bg-amber-50 text-amber-900" },
+  TASK: { bar: "bg-slate-400", chip: "border-slate-400 bg-slate-100 text-slate-700" },
 };
 
 const navButton =
@@ -20,7 +37,7 @@ const navButton =
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const monthLabel = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
-const day = (f: FollowUp) => f.dueAt.slice(0, 10);
+const day = (f: Item) => f.local.slice(0, 10);
 
 /** Every date shown for a month, padded to whole weeks. All maths in UTC so the server and browser agree. */
 function monthGrid(year: number, month: number) {
@@ -33,19 +50,15 @@ function monthGrid(year: number, month: number) {
   });
 }
 
-export function FollowUpsView({ followUps: initial }: { followUps: FollowUp[] }) {
-  const [followUps, setFollowUps] = useState(initial);
+const addDays = (iso: string, by: number) => new Date(Date.parse(iso) + by * 86_400_000).toISOString().slice(0, 10);
+
+export function FollowUpsView() {
+  const queryClient = useQueryClient();
+  const TODAY = todayLocal();
   const [adding, setAdding] = useState(false);
-  const [done, setDone] = useState<ReadonlySet<string>>(() => new Set(initial.filter((f) => f.done).map((f) => f.id)));
   const [selected, setSelected] = useState(TODAY);
   const [cursor, setCursor] = useState(() => ({ year: Number(TODAY.slice(0, 4)), month: Number(TODAY.slice(5, 7)) - 1 }));
 
-  const toggle = (id: string) =>
-    setDone((prev) => {
-      const next = new Set(prev);
-      if (!next.delete(id)) next.add(id);
-      return next;
-    });
   const shiftMonth = (by: number) =>
     setCursor(({ year, month }) => {
       const d = new Date(Date.UTC(year, month + by, 1));
@@ -56,20 +69,63 @@ export function FollowUpsView({ followUps: initial }: { followUps: FollowUp[] })
     setCursor({ year: Number(TODAY.slice(0, 4)), month: Number(TODAY.slice(5, 7)) - 1 });
   };
 
-  const sorted = [...followUps].sort((a, b) => a.dueAt.localeCompare(b.dueAt));
-  const open = sorted.filter((f) => !done.has(f.id));
-  const today = sorted.filter((f) => day(f) === TODAY);
-  const overdue = open.filter((f) => day(f) < TODAY);
-  const upcoming = open.filter((f) => day(f) > TODAY && daysBetween(TODAY, day(f)) <= 7);
-  const completed = sorted.filter((f) => done.has(f.id) && day(f).startsWith(TODAY.slice(0, 7)));
-  const agenda = sorted.filter((f) => day(f) === selected);
+  // The calendar loads every day it shows, including the greyed days around the month.
+  const grid = monthGrid(cursor.year, cursor.month);
+  const gridFrom = toInstant(grid[0].iso);
+  const gridTo = toInstant(addDays(grid[grid.length - 1].iso, 1));
+  const calendar = useQuery({
+    queryKey: ["follow-ups", "calendar", gridFrom, gridTo],
+    queryFn: () => listFollowUps({ from: gridFrom, to: gridTo, size: 500 }),
+  });
+  const overdueQuery = useQuery({
+    queryKey: ["follow-ups", "overdue", TODAY],
+    queryFn: () => listFollowUps({ status: "OPEN", to: toInstant(TODAY), size: 200 }),
+  });
+  const summary = useQuery({
+    queryKey: ["follow-ups", "summary", TODAY],
+    queryFn: () => followUpSummary(toInstant(TODAY), toInstant(addDays(TODAY, 1)), toInstant(`${TODAY.slice(0, 7)}-01`)),
+  });
+
+  const toggle = useMutation({
+    mutationFn: (f: Item) => setFollowUpDone(f.id, !f.done),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["follow-ups"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard-followups"] });
+    },
+    onError: (e) => toast(errorMessage(e, "Couldn't update the follow-up.")),
+  });
+
+  const sorted = (calendar.data?.items ?? []).map(withLocal).sort((a, b) => a.local.localeCompare(b.local));
+  const overdue = (overdueQuery.data?.items ?? []).map(withLocal).sort((a, b) => a.local.localeCompare(b.local));
+  const agenda = sorted.filter((f) => day(f) === selected && f.status !== "CANCELLED");
+  const monthLabelText = monthLabel.format(new Date(Date.UTC(cursor.year, cursor.month, 1)));
 
   const tiles = [
-    { label: "Today", note: `${today.filter((f) => !done.has(f.id)).length} remaining`, value: today.length, bar: "bg-sky-500" },
-    { label: "Upcoming", note: "Next 7 days", value: upcoming.length, bar: "bg-violet-500" },
-    { label: "Overdue", note: overdue.length ? "Needs attention" : "All caught up", value: overdue.length, bar: "bg-rose-500" },
-    { label: "Completed", note: "This month", value: completed.length, bar: "bg-emerald-500" },
+    { label: "Today", note: `${summary.data?.todayRemaining ?? 0} remaining`, value: summary.data?.today ?? 0, bar: "bg-sky-500" },
+    { label: "Upcoming", note: "Next 7 days", value: summary.data?.upcoming ?? 0, bar: "bg-violet-500" },
+    {
+      label: "Overdue",
+      note: (summary.data?.overdue ?? 0) ? "Needs attention" : "All caught up",
+      value: summary.data?.overdue ?? 0,
+      bar: "bg-rose-500",
+    },
+    { label: "Completed", note: "This month", value: summary.data?.completedThisMonth ?? 0, bar: "bg-emerald-500" },
   ];
+
+  if (calendar.isError && !calendar.data) {
+    return (
+      <Page>
+        <PageHeader title="Follow-ups" subtitle="Stay on top of every customer conversation." />
+        <Card>
+          <EmptyState icon={WifiOff} title="Couldn't load follow-ups" body="Check your connection, then try again.">
+            <button onClick={() => calendar.refetch()} className={buttonSecondary}>
+              Try again
+            </button>
+          </EmptyState>
+        </Card>
+      </Page>
+    );
+  }
 
   return (
     <Page>
@@ -97,7 +153,7 @@ export function FollowUpsView({ followUps: initial }: { followUps: FollowUp[] })
         <Card className="overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-3">
             <h2 className="mr-auto text-[15px] font-semibold tracking-[-0.01em] text-ink">
-              {monthLabel.format(new Date(Date.UTC(cursor.year, cursor.month, 1)))}
+              {monthLabelText}
             </h2>
             <button onClick={goToday} className={cn(navButton, "w-auto px-3 text-[13px] font-medium")}>
               Today
@@ -120,7 +176,7 @@ export function FollowUpsView({ followUps: initial }: { followUps: FollowUp[] })
 
           {/* The 1px gaps show the grid colour underneath, which draws the cell borders. */}
           <div className="grid grid-cols-7 gap-px bg-line">
-            {monthGrid(cursor.year, cursor.month).map((cell) => {
+            {grid.map((cell) => {
               const items = sorted.filter((f) => day(f) === cell.iso);
               const isToday = cell.iso === TODAY;
               return (
@@ -145,7 +201,7 @@ export function FollowUpsView({ followUps: initial }: { followUps: FollowUp[] })
                   {/* Phones get dots; wider screens get readable chips. */}
                   <span className="flex gap-1 sm:hidden" aria-hidden>
                     {items.slice(0, 4).map((f) => (
-                      <span key={f.id} className={cn("size-1.5 rounded-full", done.has(f.id) ? "bg-slate-300" : TYPE_STYLES[f.type].bar)} />
+                      <span key={f.id} className={cn("size-1.5 rounded-full", f.done ? "bg-slate-300" : TYPE_STYLES[f.type].bar)} />
                     ))}
                   </span>
                   <span className="hidden w-full flex-col gap-1 sm:flex" aria-hidden>
@@ -154,10 +210,10 @@ export function FollowUpsView({ followUps: initial }: { followUps: FollowUp[] })
                         key={f.id}
                         className={cn(
                           "truncate rounded border-l-2 px-1.5 py-0.5 text-[11.5px]",
-                          done.has(f.id) ? "border-slate-300 bg-slate-50 text-ink-3 line-through" : TYPE_STYLES[f.type].chip,
+                          f.done ? "border-slate-300 bg-slate-50 text-ink-3 line-through" : TYPE_STYLES[f.type].chip,
                         )}
                       >
-                        <span className="tnum font-semibold">{formatTime(f.dueAt)}</span> {f.contact.split(" ")[0]}
+                        <span className="tnum font-semibold">{formatTime(f.local)}</span> {(f.about?.name ?? f.title).split(" ")[0]}
                       </span>
                     ))}
                     {items.length > 2 && <span className="px-1.5 text-[11.5px] text-ink-3">+{items.length - 2} more</span>}
@@ -183,7 +239,7 @@ export function FollowUpsView({ followUps: initial }: { followUps: FollowUp[] })
           ) : (
             <ul className="divide-y divide-line">
               {agenda.map((f) => (
-                <AgendaItem key={f.id} item={f} done={done.has(f.id)} onToggle={toggle} when={formatTime(f.dueAt)} />
+                <AgendaItem key={f.id} item={f} onToggle={(item) => toggle.mutate(item)} when={formatTime(f.local)} />
               ))}
             </ul>
           )}
@@ -195,7 +251,7 @@ export function FollowUpsView({ followUps: initial }: { followUps: FollowUp[] })
               </h3>
               <ul className="divide-y divide-line">
                 {overdue.map((f) => (
-                  <AgendaItem key={f.id} item={f} done={false} onToggle={toggle} when={formatDay(f.dueAt)} late />
+                  <AgendaItem key={f.id} item={f} onToggle={(item) => toggle.mutate(item)} when={formatDay(f.local)} late />
                 ))}
               </ul>
             </>
@@ -207,12 +263,12 @@ export function FollowUpsView({ followUps: initial }: { followUps: FollowUp[] })
         open={adding}
         onClose={() => setAdding(false)}
         defaultDay={selected}
-        onAdd={(followUp) => {
-          setFollowUps((all) => [...all, followUp]);
+        onAdded={(followUp) => {
           // Show the day it landed on, so the new entry is visible straight away.
-          setSelected(day(followUp));
-          setCursor({ year: Number(followUp.dueAt.slice(0, 4)), month: Number(followUp.dueAt.slice(5, 7)) - 1 });
-          toast(`Follow-up scheduled for ${formatDay(followUp.dueAt)}. ${SESSION_ONLY}`);
+          const local = localIso(followUp.dueAt);
+          setSelected(local.slice(0, 10));
+          setCursor({ year: Number(local.slice(0, 4)), month: Number(local.slice(5, 7)) - 1 });
+          toast(`Follow-up scheduled for ${formatDay(local)}.`);
         }}
       />
     </Page>
@@ -221,17 +277,16 @@ export function FollowUpsView({ followUps: initial }: { followUps: FollowUp[] })
 
 function AgendaItem({
   item,
-  done,
   onToggle,
   when,
   late,
 }: {
-  item: FollowUp;
-  done: boolean;
-  onToggle: (id: string) => void;
+  item: Item;
+  onToggle: (item: Item) => void;
   when: string;
   late?: boolean;
 }) {
+  const done = item.done;
   return (
     <li className="flex gap-3 px-5 py-3.5">
       <span className={cn("tnum w-11 shrink-0 pt-0.5 text-[12px]", late ? "font-medium text-down" : "text-ink-3")}>{when}</span>
@@ -239,18 +294,19 @@ function AgendaItem({
       <div className="min-w-0 flex-1">
         <p className={cn("truncate text-[13.5px] font-medium", done ? "text-ink-3 line-through" : "text-ink")}>{item.title}</p>
         <p className="truncate text-[12.5px] text-ink-3">
-          {item.type} · {item.contact}, {item.company}
+          {FOLLOW_UP_TYPE_LABELS[item.type]}
+          {item.about ? ` · ${item.about.name}${item.about.company ? `, ${item.about.company}` : ""}` : ""}
         </p>
         <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-ink-2">
-          <Avatar name={item.owner} />
-          {item.owner}
+          <Avatar name={item.assigneeName ?? "?"} />
+          {item.assigneeName}
         </p>
       </div>
       <button
         role="checkbox"
         aria-checked={done}
         aria-label={`Mark "${item.title}" as done`}
-        onClick={() => onToggle(item.id)}
+        onClick={() => onToggle(item)}
         className={cn(
           "grid size-7 shrink-0 place-items-center rounded-md border transition-colors",
           done ? "border-up bg-up text-white" : "border-line-strong text-ink-3 hover:border-brand hover:text-brand",
@@ -266,28 +322,41 @@ function NewFollowUpDialog({
   open,
   onClose,
   defaultDay,
-  onAdd,
+  onAdded,
 }: {
   open: boolean;
   onClose: () => void;
   defaultDay: string;
-  onAdd: (followUp: FollowUp) => void;
+  onAdded: (followUp: FollowUp) => void;
 }) {
+  const queryClient = useQueryClient();
+  const session = useSession();
+  const [error, setError] = useState<string | null>(null);
+  const people = useQuery({ queryKey: ["assignable"], queryFn: listAssignable, enabled: open });
+  const contacts = useQuery({ queryKey: ["contacts", ""], queryFn: () => listContacts({ size: 100 }), enabled: open });
+
+  const add = useMutation({
+    mutationFn: createFollowUp,
+    onSuccess: (followUp) => {
+      void queryClient.invalidateQueries({ queryKey: ["follow-ups"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard-followups"] });
+      onAdded(followUp);
+      onClose();
+    },
+    onError: (e) => setError(errorMessage(e)),
+  });
+
   const submit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const f = readForm(e.currentTarget);
-    const contact = CONTACTS.find((c) => c.id === f.contact)!;
-    onAdd({
-      id: `f-${Date.now()}`,
+    setError(null);
+    add.mutate({
       title: f.title,
       type: f.type as FollowUpType,
-      contact: contact.name,
-      company: contact.company,
-      owner: f.owner,
-      dueAt: `${f.date}T${f.time}`,
-      done: false,
+      contactId: f.contact,
+      assigneeId: f.owner || undefined,
+      dueAt: toInstant(f.date, f.time),
     });
-    onClose();
   };
 
   return (
@@ -295,12 +364,14 @@ function NewFollowUpDialog({
       <form onSubmit={submit}>
         <DialogBody className="sm:grid-cols-2">
           <Field label="What needs doing" className="sm:col-span-2">
-            <input name="title" required maxLength={120} autoComplete="off" placeholder="Send revised proposal" className={fieldControl} />
+            <input name="title" required maxLength={160} autoComplete="off" placeholder="Send revised proposal" className={fieldControl} />
           </Field>
           <Field label="Type">
             <select name="type" className={fieldControl}>
-              {Object.keys(TYPE_STYLES).map((t) => (
-                <option key={t}>{t}</option>
+              {(Object.keys(TYPE_STYLES) as FollowUpType[]).map((t) => (
+                <option key={t} value={t}>
+                  {FOLLOW_UP_TYPE_LABELS[t]}
+                </option>
               ))}
             </select>
           </Field>
@@ -309,9 +380,10 @@ function NewFollowUpDialog({
               <option value="" disabled>
                 Choose a contact
               </option>
-              {CONTACTS.map((c) => (
+              {contacts.data?.items.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name}, {c.company}
+                  {c.name}
+                  {c.company ? `, ${c.company.name}` : ""}
                 </option>
               ))}
             </select>
@@ -323,14 +395,21 @@ function NewFollowUpDialog({
             <input name="time" type="time" required defaultValue="09:00" className={fieldControl} />
           </Field>
           <Field label="Assigned to" className="sm:col-span-2">
-            <select name="owner" className={fieldControl}>
-              {OWNERS.map((o) => (
-                <option key={o}>{o}</option>
+            <select name="owner" defaultValue={session.id} className={fieldControl}>
+              {(people.data ?? [{ id: session.id, displayName: session.displayName }]).map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.displayName}
+                </option>
               ))}
             </select>
           </Field>
+          {error && (
+            <div className="sm:col-span-2">
+              <FormError>{error}</FormError>
+            </div>
+          )}
         </DialogBody>
-        <DialogActions onCancel={onClose} submitLabel="Schedule" />
+        <DialogActions onCancel={onClose} submitLabel="Schedule" pending={add.isPending} />
       </form>
     </Dialog>
   );

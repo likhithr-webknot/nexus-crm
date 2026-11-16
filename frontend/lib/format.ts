@@ -33,3 +33,27 @@ export function cn(...parts: Array<string | false | null | undefined>) {
 export function readForm(form: HTMLFormElement): Record<string, string> {
   return Object.fromEntries([...new FormData(form)].map(([name, value]) => [name, String(value).trim()]));
 }
+
+// ---- Dates and times ----------------------------------------------------------
+// The API sends instants in UTC ("2026-11-12T09:30:00Z"). Screens show local time.
+
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/** "2026-11-12T15:00" in the browser's time zone, from an instant or a Date. */
+export function localIso(value: string | Date) {
+  const d = typeof value === "string" ? new Date(value) : value;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** Today in the browser's time zone, as "2026-11-12". */
+export const todayLocal = () => localIso(new Date()).slice(0, 10);
+
+/** The instant for a local date ("2026-11-12") and time ("09:30"), as the API expects it. */
+export const toInstant = (date: string, time = "00:00") => new Date(`${date}T${time}`).toISOString();
+
+/** Splits a full name at the last space: "Mary Jane Watson" is first name "Mary Jane", last name "Watson". */
+export function splitName(fullName: string) {
+  const name = fullName.trim();
+  const space = name.lastIndexOf(" ");
+  return space < 0 ? { firstName: name, lastName: "" } : { firstName: name.slice(0, space).trim(), lastName: name.slice(space + 1) };
+}

@@ -2,42 +2,55 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Plus, Settings2 } from "lucide-react";
-import { OWNERS, STAGES, STAGE_PROBABILITY, TODAY, type Deal, type Priority, type Stage } from "@/lib/mock-data";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus, Settings2, WifiOff } from "lucide-react";
 import {
   Avatar,
-  Badge,
   Card,
+  EmptyState,
   Field,
   Page,
   PageHeader,
-  SESSION_ONLY,
   STAGE_DOT,
   buttonPrimary,
   buttonSecondary,
   control,
   fieldControl,
 } from "@/components/ui/primitives";
-import { Dialog, DialogActions, DialogBody } from "@/components/ui/dialog";
+import { Dialog, DialogActions, DialogBody, FormError } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toast";
-import { cn, formatDay, readForm } from "@/lib/format";
-import { CURRENCIES, currencyMinorUnits, decimalPlaces, formatCompactCurrency, isCurrencyCode } from "@/lib/currency";
+import { cn, formatDay, localIso, readForm } from "@/lib/format";
+import { currencyMinorUnits, decimalPlaces, formatCompactCurrency } from "@/lib/currency";
 import { useCurrency } from "@/components/currency/currency-provider";
+import { errorMessage } from "@/lib/api";
+import { createDeal, listStages, moveDeal, pipelineBoard, type Deal } from "@/lib/deals";
+import { createCompany, listCompanies, listContacts } from "@/lib/contacts";
+import { moneyValue } from "@/lib/money";
+import { listAssignable } from "@/lib/users";
+import { useSession } from "@/components/auth/session";
 
-const PRIORITY_TONE: Record<Priority, "red" | "amber" | "neutral"> = { High: "red", Medium: "amber", Low: "neutral" };
 const UNASSIGNED = "unassigned";
-const isOpen = (d: Deal) => d.stage !== "Won" && d.stage !== "Lost";
-export function PipelineBoard({ deals: initial }: { deals: Deal[] }) {
+
+export function PipelineBoard() {
   const { reportingCurrency, convertToReporting, format } = useCurrency();
-  const [deals, setDeals] = useState(initial);
+  const queryClient = useQueryClient();
   const [owner, setOwner] = useState("");
   const [sort, setSort] = useState<"value" | "recent">("value");
   const [dragging, setDragging] = useState<string | null>(null);
-  const [dropStage, setDropStage] = useState<Stage | null>(null);
+  const [dropStage, setDropStage] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const [adding, setAdding] = useState(false);
+  // A deal that is being marked lost waits here until the reason is given.
+  const [losing, setLosing] = useState<Deal | null>(null);
   // A card moved with the keyboard is re-created in its new column; this puts focus back on it.
   const refocus = useRef<string | null>(null);
+
+  const stagesQuery = useQuery({ queryKey: ["pipeline", "stages"], queryFn: listStages, staleTime: Infinity });
+  const boardQuery = useQuery({ queryKey: ["pipeline", "board"], queryFn: () => pipelineBoard() });
+  const people = useQuery({ queryKey: ["assignable"], queryFn: listAssignable });
+  const stages = stagesQuery.data ?? [];
+  const deals = boardQuery.data ?? [];
+  const stageByCode = new Map(stages.map((s) => [s.code, s]));
 
   useEffect(() => {
     if (!refocus.current) return;
@@ -45,38 +58,80 @@ export function PipelineBoard({ deals: initial }: { deals: Deal[] }) {
     refocus.current = null;
   });
 
-  const move = (id: string, stage: Stage) => {
-    const deal = deals.find((d) => d.id === id);
-    if (!deal || deal.stage === stage) return;
-    setDeals(deals.map((d) => (d.id === id ? { ...d, stage } : d)));
-    setAnnouncement(`${deal.company} moved to ${stage}.`);
+  const refresh = () => {
+    for (const key of ["pipeline", "deals", "dashboard", "overview", "activities"]) void queryClient.invalidateQueries({ queryKey: [key] });
   };
 
-  const owners = [...new Set(initial.flatMap((d) => (d.owner ? [d.owner] : [])))].sort();
-  const visible = deals.filter((d) => !owner || (owner === UNASSIGNED ? d.owner === null : d.owner === owner));
+  const move = useMutation({
+    mutationFn: (v: { deal: Deal; stageCode: string; lostReason?: string }) =>
+      moveDeal(v.deal.id, { stageCode: v.stageCode, version: v.deal.version, lostReason: v.lostReason }),
+    onSuccess: (deal, v) => {
+      setAnnouncement(`${deal.company.name} moved to ${stageByCode.get(v.stageCode)?.name ?? v.stageCode}.`);
+      setLosing(null);
+      refresh();
+    },
+    onError: (e) => {
+      toast(errorMessage(e, "The deal could not be moved."));
+      // Someone else may have changed the deal, so show what it looks like now.
+      refresh();
+    },
+  });
+
+  const requestMove = (id: string, stageCode: string) => {
+    const deal = deals.find((d) => d.id === id);
+    if (!deal || deal.stageCode === stageCode) return;
+    if (deal.closedAt) return toast("A won or lost deal can't move to another stage.");
+    if (stageByCode.get(stageCode)?.kind === "LOST") return setLosing(deal);
+    move.mutate({ deal, stageCode });
+  };
+
+  const visible = deals.filter((d) => !owner || (owner === UNASSIGNED ? false : d.owner.id === owner));
+  const isOpen = (d: Deal) => !d.closedAt;
   const open = visible.filter(isOpen);
-  const won = visible.filter((d) => d.stage === "Won");
-  const closed = won.length + visible.filter((d) => d.stage === "Lost").length;
+  const won = visible.filter((d) => d.stageCode === "WON");
+  const closed = won.length + visible.filter((d) => d.stageCode === "LOST").length;
   const reportSum = (items: Deal[]) => {
     let total = 0;
     for (const deal of items) {
-      const converted = convertToReporting(deal.value, deal.currency);
+      const converted = convertToReporting(moneyValue(deal.amount), deal.amount.currency);
       if (converted == null) return null;
       total += converted;
     }
     return total;
   };
   const weighted = open.reduce((total, deal) => {
-    const converted = convertToReporting(deal.value, deal.currency);
-    return total == null || converted == null ? null : total + (converted * STAGE_PROBABILITY[deal.stage]) / 100;
+    const converted = convertToReporting(moneyValue(deal.amount), deal.amount.currency);
+    const chance = stageByCode.get(deal.stageCode)?.winProbability ?? 0;
+    return total == null || converted == null ? null : total + (converted * chance) / 100;
   }, 0 as number | null);
 
   const figures = [
     { label: "Open pipeline", value: reportSum(open) == null ? "—" : format(reportSum(open)!, reportingCurrency), note: `${open.length} deals` },
     { label: "Weighted forecast", value: weighted == null ? "—" : format(Math.round(weighted), reportingCurrency), note: "Value × chance to win" },
-    { label: "Won", value: reportSum(won) == null ? "—" : format(reportSum(won)!, reportingCurrency), note: `${won.length} deals` },
+    { label: "Won", value: reportSum(won) == null ? "—" : format(reportSum(won)!, reportingCurrency), note: `${won.length} deals, last 90 days` },
     { label: "Win rate", value: closed ? `${Math.round((won.length / closed) * 100)}%` : "–", note: "Of closed deals" },
   ];
+
+  if (boardQuery.isError || stagesQuery.isError) {
+    return (
+      <Page>
+        <PageHeader title="Sales Pipeline" subtitle="Track every deal from first contact to close." />
+        <Card>
+          <EmptyState icon={WifiOff} title="Couldn't load the pipeline" body="Check your connection, then try again.">
+            <button
+              onClick={() => {
+                void boardQuery.refetch();
+                void stagesQuery.refetch();
+              }}
+              className={buttonSecondary}
+            >
+              Try again
+            </button>
+          </EmptyState>
+        </Card>
+      </Page>
+    );
+  }
 
   return (
     <Page>
@@ -104,9 +159,10 @@ export function PipelineBoard({ deals: initial }: { deals: Deal[] }) {
         <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
           <select aria-label="Owner" value={owner} onChange={(e) => setOwner(e.target.value)} className={cn(control, "px-2.5")}>
             <option value="">All owners</option>
-            <option value={UNASSIGNED}>Unassigned</option>
-            {owners.map((o) => (
-              <option key={o}>{o}</option>
+            {(people.data ?? []).map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.displayName}
+              </option>
             ))}
           </select>
           <select
@@ -132,20 +188,21 @@ export function PipelineBoard({ deals: initial }: { deals: Deal[] }) {
       {/* Negative margins let the board scroll to the edge of the screen. */}
       <div className="-mx-4 overflow-x-auto px-4 pb-3 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
         <div className="flex min-w-max gap-3">
-          {STAGES.map((stage, index) => {
+          {stages.map((stageInfo, index) => {
+            const stage = stageInfo.code;
             const cards = visible
-              .filter((d) => d.stage === stage)
+              .filter((d) => d.stageCode === stage)
               .sort((a, b) => {
                 if (sort === "recent") return b.updatedAt.localeCompare(a.updatedAt);
-                const aValue = convertToReporting(a.value, a.currency);
-                const bValue = convertToReporting(b.value, b.currency);
+                const aValue = convertToReporting(moneyValue(a.amount), a.amount.currency);
+                const bValue = convertToReporting(moneyValue(b.amount), b.amount.currency);
                 return aValue == null || bValue == null ? b.updatedAt.localeCompare(a.updatedAt) : bValue - aValue;
               });
             const stageTotal = reportSum(cards);
             return (
               <section
                 key={stage}
-                aria-label={`${stage}, ${cards.length} deals`}
+                aria-label={`${stageInfo.name}, ${cards.length} deals`}
                 onDragOver={(e) => {
                   e.preventDefault();
                   setDropStage(stage);
@@ -154,7 +211,7 @@ export function PipelineBoard({ deals: initial }: { deals: Deal[] }) {
                   if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropStage(null);
                 }}
                 onDrop={() => {
-                  if (dragging) move(dragging, stage);
+                  if (dragging) requestMove(dragging, stage);
                   setDragging(null);
                   setDropStage(null);
                 }}
@@ -166,7 +223,7 @@ export function PipelineBoard({ deals: initial }: { deals: Deal[] }) {
                 <header className="px-3 pt-3 pb-2">
                   <div className="flex items-center gap-2">
                     <span className={cn("size-2 rounded-full", STAGE_DOT[stage])} aria-hidden />
-                    <h2 className="text-[13px] font-semibold text-ink">{stage}</h2>
+                    <h2 className="text-[13px] font-semibold text-ink">{stageInfo.name}</h2>
                     <span className="tnum rounded-full bg-surface px-1.5 text-[11.5px] font-medium text-ink-2 ring-1 ring-line">
                       {cards.length}
                     </span>
@@ -174,7 +231,7 @@ export function PipelineBoard({ deals: initial }: { deals: Deal[] }) {
                       {stageTotal == null ? "—" : formatCompactCurrency(stageTotal, reportingCurrency)}
                     </span>
                   </div>
-                  <p className="mt-1 text-[11.5px] text-ink-3">{STAGE_PROBABILITY[stage]}% chance to win</p>
+                  <p className="mt-1 text-[11.5px] text-ink-3">{stageInfo.winProbability}% chance to win</p>
                 </header>
 
                 <ul className="flex min-h-24 flex-1 flex-col gap-2 p-2 pt-1">
@@ -184,18 +241,18 @@ export function PipelineBoard({ deals: initial }: { deals: Deal[] }) {
                       id={`deal-${deal.id}`}
                       tabIndex={0}
                       draggable
-                      aria-label={`${deal.company}, ${deal.contact}, ${format(deal.value, deal.currency)}, ${deal.priority} priority. Arrow keys move it between stages.`}
+                      aria-label={`${deal.company.name}, ${deal.primaryContact?.name ?? "no contact"}, ${format(moneyValue(deal.amount), deal.amount.currency)}. Arrow keys move it between stages.`}
                       onDragStart={() => setDragging(deal.id)}
                       onDragEnd={() => {
                         setDragging(null);
                         setDropStage(null);
                       }}
                       onKeyDown={(e) => {
-                        const target = STAGES[index + (e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0)];
+                        const target = stages[index + (e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0)]?.code;
                         if (!target || target === stage) return;
                         e.preventDefault();
                         refocus.current = deal.id;
-                        move(deal.id, target);
+                        requestMove(deal.id, target);
                       }}
                       className={cn(
                         "cursor-grab rounded-lg border border-line bg-surface p-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-shadow hover:shadow-[0_4px_12px_-4px_rgba(15,23,42,0.16)] active:cursor-grabbing",
@@ -203,23 +260,19 @@ export function PipelineBoard({ deals: initial }: { deals: Deal[] }) {
                       )}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <Badge tone={PRIORITY_TONE[deal.priority]}>{deal.priority}</Badge>
-                        <span className="tnum text-[11.5px] text-ink-3">{formatDay(deal.updatedAt)}</span>
+                        <span className="truncate text-[11.5px] text-ink-3">{deal.name}</span>
+                        <span className="tnum shrink-0 text-[11.5px] text-ink-3">{formatDay(localIso(deal.updatedAt))}</span>
                       </div>
-                      <p className="mt-2.5 truncate text-[13.5px] font-semibold text-ink">{deal.company}</p>
-                      <p className="truncate text-[12.5px] text-ink-3">{deal.contact}</p>
+                      <p className="mt-2.5 truncate text-[13.5px] font-semibold text-ink">{deal.company.name}</p>
+                      <p className="truncate text-[12.5px] text-ink-3">{deal.primaryContact?.name ?? "No contact"}</p>
                       <div className="mt-3 flex min-h-[38px] items-center justify-between gap-2 border-t border-line pt-2.5">
                         <span className="tnum text-[15px] font-semibold tracking-[-0.01em] text-ink">
-                          {format(deal.value, deal.currency)}
+                          {format(moneyValue(deal.amount), deal.amount.currency)}
                         </span>
-                        {deal.owner ? (
-                          <span className="flex items-center gap-1.5 text-[12px] text-ink-2">
-                            <Avatar name={deal.owner} />
-                            {deal.owner.split(" ")[0]}
-                          </span>
-                        ) : (
-                          <span className="text-[12px] text-ink-3">Unassigned</span>
-                        )}
+                        <span className="flex items-center gap-1.5 text-[12px] text-ink-2">
+                          <Avatar name={deal.owner.name} />
+                          {deal.owner.name.split(" ")[0]}
+                        </span>
                       </div>
                     </li>
                   ))}
@@ -235,70 +288,91 @@ export function PipelineBoard({ deals: initial }: { deals: Deal[] }) {
         </div>
       </div>
 
-      <AddDealDialog
-        open={adding}
-        onClose={() => setAdding(false)}
-        onAdd={(deal) => {
-          setDeals((all) => [...all, { ...deal, id: `D-${Date.now()}` }]);
-          toast(`${deal.company} added to ${deal.stage}. ${SESSION_ONLY}`);
-        }}
-        defaultCurrency={reportingCurrency}
+      <AddDealDialog open={adding} onClose={() => setAdding(false)} onAdded={refresh} />
+      <LostDialog
+        deal={losing}
+        pending={move.isPending}
+        onClose={() => setLosing(null)}
+        onConfirm={(reason) => losing && move.mutate({ deal: losing, stageCode: "LOST", lostReason: reason })}
       />
     </Page>
   );
 }
 
-function AddDealDialog({
-  open,
+function LostDialog({
+  deal,
+  pending,
   onClose,
-  onAdd,
-  defaultCurrency,
+  onConfirm,
 }: {
-  open: boolean;
+  deal: Deal | null;
+  pending: boolean;
   onClose: () => void;
-  onAdd: (deal: Omit<Deal, "id">) => void;
-  defaultCurrency: string;
+  onConfirm: (reason: string) => void;
 }) {
+  return (
+    <Dialog open={deal !== null} onClose={onClose} title="Mark deal as lost" description={deal ? `${deal.company.name} · ${deal.name}` : undefined} size="sm">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          onConfirm(readForm(e.currentTarget).reason);
+        }}
+      >
+        <DialogBody>
+          <Field label="Why was it lost?">
+            <input name="reason" required maxLength={500} autoComplete="off" placeholder="Went with a competitor on price" className={fieldControl} />
+          </Field>
+        </DialogBody>
+        <DialogActions onCancel={onClose} submitLabel="Mark as lost" danger pending={pending} />
+      </form>
+    </Dialog>
+  );
+}
+
+function AddDealDialog({ open, onClose, onAdded }: { open: boolean; onClose: () => void; onAdded: () => void }) {
+  const { reportingCurrency, currencies } = useCurrency();
+  const session = useSession();
+  const [error, setError] = useState<string | null>(null);
+  const people = useQuery({ queryKey: ["assignable"], queryFn: listAssignable, enabled: open });
+  const companies = useQuery({ queryKey: ["companies", "all"], queryFn: () => listCompanies({ size: 100 }), enabled: open });
+  const contacts = useQuery({ queryKey: ["contacts", ""], queryFn: () => listContacts({ size: 100 }), enabled: open });
+  const stages = useQuery({ queryKey: ["pipeline", "stages"], queryFn: listStages, staleTime: Infinity });
+
+  const add = useMutation({
+    mutationFn: async (f: Record<string, string>) => {
+      // The deal belongs to a company: use the one with this name, or create it.
+      const existing = companies.data?.items.find((c) => c.name.toLowerCase() === f.company.toLowerCase());
+      const companyId = existing?.id ?? (await createCompany({ name: f.company })).id;
+      return createDeal({
+        name: f.name || f.company,
+        companyId,
+        primaryContactId: f.contact || undefined,
+        ownerId: f.owner || undefined,
+        stageCode: f.stage,
+        amount: { amount: f.value, currency: f.currency },
+      });
+    },
+    onSuccess: (deal) => {
+      toast(`${deal.company.name} added to the pipeline.`);
+      onAdded();
+      onClose();
+    },
+    onError: (e) => setError(errorMessage(e)),
+  });
+
   const submit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const f = readForm(e.currentTarget);
-    const currency = f.currency ?? "";
-    if (!isCurrencyCode(currency)) {
-      const input = e.currentTarget.elements.namedItem("currency");
-      if (input instanceof HTMLSelectElement) {
-        input.setCustomValidity("Choose a supported currency.");
-        input.reportValidity();
-      }
-      return;
-    }
-    const value = Number(f.value);
-    if (!Number.isFinite(value) || value < 0) {
+    if (decimalPlaces(f.value ?? "") > currencyMinorUnits(f.currency)) {
       const input = e.currentTarget.elements.namedItem("value");
       if (input instanceof HTMLInputElement) {
-        input.setCustomValidity("Enter a non-negative amount.");
+        input.setCustomValidity(`${f.currency} allows up to ${currencyMinorUnits(f.currency)} decimal places.`);
         input.reportValidity();
       }
       return;
     }
-    if (decimalPlaces(f.value ?? "") > currencyMinorUnits(currency)) {
-      const input = e.currentTarget.elements.namedItem("value");
-      if (input instanceof HTMLInputElement) {
-        input.setCustomValidity(`${currency} allows up to ${currencyMinorUnits(currency)} decimal places.`);
-        input.reportValidity();
-      }
-      return;
-    }
-    onAdd({
-      company: f.company,
-      contact: f.contact,
-      value,
-      currency,
-      stage: f.stage as Stage,
-      priority: f.priority as Priority,
-      owner: f.owner || null,
-      updatedAt: TODAY,
-    });
-    onClose();
+    setError(null);
+    add.mutate(f);
   };
 
   return (
@@ -306,10 +380,26 @@ function AddDealDialog({
       <form onSubmit={submit}>
         <DialogBody className="sm:grid-cols-2">
           <Field label="Company">
-            <input name="company" required maxLength={120} autoComplete="off" className={fieldControl} />
+            <input name="company" list="deal-companies" required maxLength={160} autoComplete="off" className={fieldControl} />
+            <datalist id="deal-companies">
+              {companies.data?.items.map((c) => (
+                <option key={c.id} value={c.name} />
+              ))}
+            </datalist>
           </Field>
-          <Field label="Contact name">
-            <input name="contact" required maxLength={120} autoComplete="off" className={fieldControl} />
+          <Field label="Deal name" optional>
+            <input name="name" maxLength={160} autoComplete="off" placeholder="Defaults to the company name" className={fieldControl} />
+          </Field>
+          <Field label="Contact" optional>
+            <select name="contact" defaultValue="" className={fieldControl}>
+              <option value="">No contact</option>
+              {contacts.data?.items.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                  {c.company ? `, ${c.company.name}` : ""}
+                </option>
+              ))}
+            </select>
           </Field>
           <Field label="Value">
             <input
@@ -324,8 +414,8 @@ function AddDealDialog({
             />
           </Field>
           <Field label="Currency">
-            <select name="currency" defaultValue={defaultCurrency} className={fieldControl}>
-              {CURRENCIES.map(({ code, name }) => (
+            <select name="currency" defaultValue={reportingCurrency} className={fieldControl}>
+              {currencies.map(({ code, name }) => (
                 <option key={code} value={code}>
                   {code} — {name}
                 </option>
@@ -333,29 +423,32 @@ function AddDealDialog({
             </select>
           </Field>
           <Field label="Stage">
-            <select name="stage" className={fieldControl}>
-              {STAGES.map((s) => (
-                <option key={s}>{s}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Priority">
-            <select name="priority" defaultValue="Medium" className={fieldControl}>
-              <option>High</option>
-              <option>Medium</option>
-              <option>Low</option>
+            <select name="stage" defaultValue="QUALIFIED" className={fieldControl}>
+              {stages.data
+                ?.filter((s) => s.kind === "OPEN")
+                .map((s) => (
+                  <option key={s.code} value={s.code}>
+                    {s.name}
+                  </option>
+                ))}
             </select>
           </Field>
           <Field label="Owner">
-            <select name="owner" className={fieldControl}>
-              <option value="">Unassigned</option>
-              {OWNERS.map((o) => (
-                <option key={o}>{o}</option>
+            <select name="owner" defaultValue={session.id} className={fieldControl}>
+              {(people.data ?? [{ id: session.id, displayName: session.displayName }]).map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.displayName}
+                </option>
               ))}
             </select>
           </Field>
+          {error && (
+            <div className="sm:col-span-2">
+              <FormError>{error}</FormError>
+            </div>
+          )}
         </DialogBody>
-        <DialogActions onCancel={onClose} submitLabel="Add deal" />
+        <DialogActions onCancel={onClose} submitLabel="Add deal" pending={add.isPending} />
       </form>
     </Dialog>
   );

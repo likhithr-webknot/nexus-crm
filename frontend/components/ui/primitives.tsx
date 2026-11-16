@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { Stage } from "@/lib/mock-data";
+import { stageLabel } from "@/lib/stages";
 import { cn, initials } from "@/lib/format";
 
 /* Shared control styles, so every button, input and select looks the same. */
@@ -14,9 +14,6 @@ export const control =
 
 /** For inputs and selects inside a Field. Turns red once the user leaves it invalid. */
 export const fieldControl = `${control} mt-1.5 block w-full px-3 placeholder:text-ink-3 user-invalid:border-down`;
-
-/** Shown after creating something that has no backend yet, so nobody expects it to survive a reload. */
-export const SESSION_ONLY = "It stays until you reload, because this part of the API isn't built yet.";
 
 /** A labelled form field. Wrapping the control in the label ties the two together. */
 export function Field({
@@ -185,38 +182,43 @@ export function Avatar({ name, size = "sm" }: { name: string; size?: "sm" | "md"
   );
 }
 
-const STAGE_STYLES: Record<Stage, string> = {
-  New: "bg-slate-100 text-slate-700 ring-slate-200",
-  Contacted: "bg-sky-50 text-sky-700 ring-sky-200",
-  Qualified: "bg-indigo-50 text-indigo-700 ring-indigo-200",
-  Demo: "bg-violet-50 text-violet-700 ring-violet-200",
-  Proposal: "bg-amber-50 text-amber-800 ring-amber-200",
-  Negotiation: "bg-orange-50 text-orange-700 ring-orange-200",
-  Won: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-  Lost: "bg-rose-50 text-rose-700 ring-rose-200",
+const STAGE_STYLES: Record<string, string> = {
+  NEW: "bg-slate-100 text-slate-700 ring-slate-200",
+  CONTACTED: "bg-sky-50 text-sky-700 ring-sky-200",
+  QUALIFIED: "bg-indigo-50 text-indigo-700 ring-indigo-200",
+  DISQUALIFIED: "bg-slate-100 text-slate-500 ring-slate-200",
+  CONVERTED: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  DEMO: "bg-violet-50 text-violet-700 ring-violet-200",
+  PROPOSAL: "bg-amber-50 text-amber-800 ring-amber-200",
+  NEGOTIATION: "bg-orange-50 text-orange-700 ring-orange-200",
+  WON: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  LOST: "bg-rose-50 text-rose-700 ring-rose-200",
 };
 
 /** Solid colour per stage, for dots and bars. */
-export const STAGE_DOT: Record<Stage, string> = {
-  New: "bg-slate-400",
-  Contacted: "bg-sky-500",
-  Qualified: "bg-indigo-500",
-  Demo: "bg-violet-500",
-  Proposal: "bg-amber-500",
-  Negotiation: "bg-orange-500",
-  Won: "bg-emerald-500",
-  Lost: "bg-rose-500",
+export const STAGE_DOT: Record<string, string> = {
+  NEW: "bg-slate-400",
+  CONTACTED: "bg-sky-500",
+  QUALIFIED: "bg-indigo-500",
+  DISQUALIFIED: "bg-slate-400",
+  CONVERTED: "bg-emerald-500",
+  DEMO: "bg-violet-500",
+  PROPOSAL: "bg-amber-500",
+  NEGOTIATION: "bg-orange-500",
+  WON: "bg-emerald-500",
+  LOST: "bg-rose-500",
 };
 
-export function StageBadge({ stage }: { stage: Stage }) {
+/** A coloured label for a lead status or a deal stage, from its code (for example "QUALIFIED"). */
+export function StageBadge({ stage }: { stage: string }) {
   return (
     <span
       className={cn(
         "inline-flex items-center rounded-md px-2 py-0.5 text-[12px] font-medium ring-1 ring-inset",
-        STAGE_STYLES[stage],
+        STAGE_STYLES[stage] ?? STAGE_STYLES.NEW,
       )}
     >
-      {stage}
+      {stageLabel(stage)}
     </span>
   );
 }
