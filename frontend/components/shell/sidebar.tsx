@@ -6,6 +6,7 @@ import { LogOut, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { NAV_ITEMS, findNavItem } from "@/lib/nav";
 import { CURRENT_USER } from "@/lib/mock-data";
 import { cn } from "@/lib/format";
+import { Logo } from "@/components/ui/logo";
 
 export function Sidebar({
   collapsed,
@@ -22,14 +23,7 @@ export function Sidebar({
   return (
     <aside className="flex h-full flex-col bg-nav text-nav-ink">
       <div className={cn("flex h-16 items-center gap-2.5 px-5", collapsed && "justify-center px-0")}>
-        <span className="grid size-8 place-items-center rounded-lg bg-brand text-[15px] font-bold text-white">
-          N
-        </span>
-        {!collapsed && (
-          <span className="text-[17px] font-semibold tracking-[-0.02em] text-white">
-            Nexus<span className="ml-1 text-[11px] font-medium tracking-wider text-nav-ink">CRM</span>
-          </span>
-        )}
+        <Logo tone="dark" wordmark={!collapsed} />
         {onClose && (
           <button
             onClick={onClose}

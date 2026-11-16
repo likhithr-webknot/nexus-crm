@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
-import { AppShell } from "@/components/shell/app-shell";
 import "./globals.css";
 
 const inter = Inter({
@@ -18,12 +17,12 @@ export const metadata: Metadata = {
   description: "Leads, pipeline and revenue in one place.",
 };
 
+// The signed-in shell (sidebar, top bar) lives in app/(app)/layout.tsx so that
+// routes outside it, such as /login, render without it.
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${inter.variable} ${mono.variable} h-full antialiased`}>
-      <body className="h-full font-sans text-[14px]">
-        <AppShell>{children}</AppShell>
-      </body>
+      <body className="h-full font-sans text-[14px]">{children}</body>
     </html>
   );
 }

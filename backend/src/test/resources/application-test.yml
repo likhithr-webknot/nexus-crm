@@ -1,0 +1,15 @@
+# Settings for the "test" profile.
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            # Placeholders so the app can start. The tests never contact Google.
+            client-id: test-client
+            client-secret: test-secret
+
+nexus:
+  auth:
+    jwt:
+      allow-ephemeral-key: true

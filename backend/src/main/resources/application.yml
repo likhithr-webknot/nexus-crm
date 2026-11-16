@@ -5,9 +5,38 @@ spring:
     virtual:
       enabled: true
 
+  # Database. Flyway owns the schema; Hibernate neither creates nor alters it.
+  datasource:
+    url: ${NEXUS_DB_URL:jdbc:postgresql://localhost:5432/nexus_crm}
+    username: ${NEXUS_DB_USERNAME:nexus_crm}
+    password: ${NEXUS_DB_PASSWORD:}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate.jdbc.time_zone: UTC
+
+  # Google sign-in (OpenID Connect). The credentials have no default on purpose:
+  # the application refuses to start without them.
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            scope: openid, email, profile
+            # Must be registered, character for character, as an authorised redirect URI in Google Cloud.
+            redirect-uri: "{baseUrl}/api/v1/auth/login/oauth2/code/{registrationId}"
+
 server:
   port: 8080
   shutdown: graceful
+  # Behind the reverse proxy set this to "framework", so that {baseUrl} above and the
+  # client IP come from the X-Forwarded-* headers. Leave it off when the port is reachable
+  # directly, or any caller could spoof those headers.
+  forward-headers-strategy: ${NEXUS_FORWARD_HEADERS:none}
 
 management:
   endpoints:
@@ -20,3 +49,24 @@ management:
       # Exposes /actuator/health/liveness and /actuator/health/readiness.
       probes:
         enabled: true
+
+nexus:
+  auth:
+    # The frontend's origin: sign-in redirects back to it, and it is the only origin CORS allows.
+    frontend-url: ${NEXUS_FRONTEND_URL:http://localhost:3000}
+    # Invited as the first admin when there are no users yet. Ignored afterwards.
+    bootstrap-admin-email: ${NEXUS_BOOTSTRAP_ADMIN_EMAIL:}
+    jwt:
+      issuer: nexus-crm
+      # EC P-256 key pair in PEM, from the platform's secret store. See backend/README.md.
+      private-key: ${NEXUS_JWT_PRIVATE_KEY:}
+      public-key: ${NEXUS_JWT_PUBLIC_KEY:}
+      # Local development only: generate a throwaway key when none is configured.
+      allow-ephemeral-key: ${NEXUS_JWT_ALLOW_EPHEMERAL_KEY:false}
+      access-token-ttl: 15m
+    refresh-token:
+      ttl: 14d
+      # Covers two browser tabs refreshing at the same moment.
+      reuse-grace: 10s
+    cookies:
+      secure: ${NEXUS_COOKIES_SECURE:true}
