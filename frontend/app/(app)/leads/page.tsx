@@ -1,7 +1,8 @@
-import { ComingSoon } from "@/components/ui/coming-soon";
+import { LeadsView } from "@/components/leads/leads-view";
+import { LEADS } from "@/lib/mock-data";
 
 export const metadata = { title: "Leads" };
 
 export default function LeadsPage() {
-  return <ComingSoon title="Leads" description="Search, filter and qualify every inbound lead in one table." />;
+  return <LeadsView leads={LEADS} />;
 }

@@ -1,7 +1,8 @@
-import { ComingSoon } from "@/components/ui/coming-soon";
+import { FollowUpsView } from "@/components/follow-ups/follow-ups-view";
+import { FOLLOW_UPS } from "@/lib/mock-data";
 
 export const metadata = { title: "Follow-ups" };
 
 export default function FollowUpsPage() {
-  return <ComingSoon title="Follow-ups" description="Create, schedule and complete follow-ups so no lead goes cold." />;
+  return <FollowUpsView followUps={FOLLOW_UPS} />;
 }

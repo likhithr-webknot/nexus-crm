@@ -5,7 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, ChevronDown, ChevronRight, CircleHelp, LogOut, Menu, Search, Settings, User } from "lucide-react";
 import { findNavItem } from "@/lib/nav";
-import { CURRENT_USER } from "@/lib/mock-data";
+import { ROLE_LABELS } from "@/lib/auth";
+import { UserAvatar, useSession, useSignOut } from "@/components/auth/session";
 import { Popover } from "@/components/ui/popover";
 
 const NOTIFICATIONS = [
@@ -19,6 +20,8 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
   const current = findNavItem(pathname);
   const searchRef = useRef<HTMLInputElement>(null);
   const unread = NOTIFICATIONS.filter((n) => n.unread).length;
+  const user = useSession();
+  const { signOut, pending, failed } = useSignOut();
 
   // ⌘K / Ctrl+K focuses search.
   useEffect(() => {
@@ -105,13 +108,11 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
 
         <Popover
           label="Account menu"
-          className="w-56 py-1.5"
+          className="w-60 py-1.5"
           trigger={
             <span className="flex items-center gap-2 py-1 pr-1.5 pl-1">
-              <span className="grid size-8 place-items-center rounded-full bg-brand-soft text-[12px] font-semibold text-brand-ink">
-                {CURRENT_USER.initials}
-              </span>
-              <span className="hidden text-[13px] font-medium text-ink sm:block">{CURRENT_USER.name}</span>
+              <UserAvatar user={user} />
+              <span className="hidden max-w-40 truncate text-[13px] font-medium text-ink sm:block">{user.displayName}</span>
               <ChevronDown className="hidden size-4 text-ink-3 sm:block" />
             </span>
           }
@@ -119,8 +120,9 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
           {(close) => (
             <>
               <div className="border-b border-line px-3.5 pt-1.5 pb-2.5">
-                <p className="text-[13px] font-semibold">{CURRENT_USER.name}</p>
-                <p className="text-[12px] text-ink-3">{CURRENT_USER.role}</p>
+                <p className="truncate text-[13px] font-semibold">{user.displayName}</p>
+                <p className="truncate text-[12px] text-ink-3">{user.email}</p>
+                <p className="mt-1 text-[12px] text-ink-3">{ROLE_LABELS[user.role]}</p>
               </div>
               <div className="p-1.5">
                 {[
@@ -136,9 +138,18 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
                     <Icon className="size-4" /> {label}
                   </Link>
                 ))}
-                <button className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] text-rose-600 hover:bg-rose-50">
-                  <LogOut className="size-4" /> Log out
+                <button
+                  onClick={() => signOut()}
+                  disabled={pending}
+                  className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] text-rose-600 hover:bg-rose-50 disabled:opacity-50"
+                >
+                  <LogOut className="size-4" /> {pending ? "Signing out…" : "Sign out"}
                 </button>
+                {failed && (
+                  <p role="alert" className="px-2 pt-1 text-[12px] text-rose-600">
+                    Couldn&apos;t reach the server. Try again.
+                  </p>
+                )}
               </div>
             </>
           )}

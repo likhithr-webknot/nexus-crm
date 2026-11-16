@@ -1,7 +1,7 @@
-import { ComingSoon } from "@/components/ui/coming-soon";
+import { ReportsView } from "@/components/reports/reports-view";
 
 export const metadata = { title: "Reports & Analytics" };
 
 export default function ReportsPage() {
-  return <ComingSoon title="Reports & Analytics" description="Revenue, conversion and source performance over time." />;
+  return <ReportsView />;
 }

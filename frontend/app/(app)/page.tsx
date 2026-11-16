@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CalendarDays, Plus } from "lucide-react";
+import { SessionFirstName } from "@/components/auth/session";
 import { Card, CardHeader, CardLink } from "@/components/ui/primitives";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
@@ -8,13 +9,13 @@ import { RecentLeadsTable } from "@/components/dashboard/recent-leads";
 import { PipelineOverview } from "@/components/dashboard/pipeline-overview";
 import { FollowUpList } from "@/components/dashboard/follow-ups";
 import {
-  CURRENT_USER,
   FOLLOW_UPS,
   KPIS,
   LEAD_SOURCES,
   PIPELINE,
   RECENT_LEADS,
   REVENUE,
+  TODAY,
 } from "@/lib/mock-data";
 import { formatUsd } from "@/lib/format";
 
@@ -25,13 +26,17 @@ export default function DashboardPage() {
   const totalTarget = REVENUE.reduce((a, r) => a + r.target, 0);
   const attainment = Math.round((totalRevenue / totalTarget) * 100);
   const pipelineValue = PIPELINE.reduce((a, s) => a + s.value, 0);
-  const firstName = CURRENT_USER.name.split(" ")[0];
+  // Open follow-ups that are due today or already late, most overdue first.
+  const dueNow = FOLLOW_UPS.filter((f) => !f.done && f.dueAt.slice(0, 10) <= TODAY).sort((a, b) =>
+    a.dueAt.localeCompare(b.dueAt),
+  );
+  const overdue = dueNow.filter((f) => f.dueAt.slice(0, 10) < TODAY).length;
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-5 px-4 py-6 sm:px-6 lg:px-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-[24px] font-semibold tracking-[-0.025em] text-ink">Welcome back, {firstName}</h1>
+          <h1 className="text-[24px] font-semibold tracking-[-0.025em] text-ink">Welcome back, <SessionFirstName /></h1>
           <p className="mt-1 text-[14px] text-ink-2">Here&apos;s how your pipeline is tracking this month.</p>
         </div>
         <div className="flex items-center gap-2">
@@ -49,9 +54,10 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(156px,1fr))] gap-3">
-        {KPIS.map((kpi) => (
-          <KpiCard key={kpi.id} kpi={kpi} />
+      {/* Revenue leads and is double width, so the seven tiles fill whole rows: 2 or 4 across, 7 on very wide screens. */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 2xl:grid-cols-7">
+        {[...KPIS].sort((a, b) => Number(b.id === "revenue") - Number(a.id === "revenue")).map((kpi) => (
+          <KpiCard key={kpi.id} kpi={kpi} className={kpi.id === "revenue" ? "col-span-2 2xl:col-span-1" : undefined} />
         ))}
       </div>
 
@@ -123,10 +129,10 @@ export default function DashboardPage() {
           <Card>
             <CardHeader
               title="Today's follow-ups"
-              subtitle={`${FOLLOW_UPS.length} scheduled · ${FOLLOW_UPS.filter((t) => t.overdue).length} overdue`}
+              subtitle={`${dueNow.length - overdue} due today · ${overdue} overdue`}
               action={<CardLink href="/follow-ups">All</CardLink>}
             />
-            <FollowUpList tasks={FOLLOW_UPS} />
+            <FollowUpList tasks={dueNow} />
           </Card>
         </div>
       </div>

@@ -24,13 +24,13 @@ function Sparkline({ data, positive }: { data: number[]; positive: boolean }) {
   );
 }
 
-export function KpiCard({ kpi }: { kpi: Kpi }) {
+export function KpiCard({ kpi, className }: { kpi: Kpi; className?: string }) {
   // "Good" direction depends on the metric: fewer lost deals is positive.
   const good = kpi.invert ? kpi.delta <= 0 : kpi.delta >= 0;
   const Arrow = kpi.delta >= 0 ? ArrowUpRight : ArrowDownRight;
 
   return (
-    <div className="@container rounded-xl border border-line bg-surface px-4 py-3.5">
+    <div className={cn("@container rounded-xl border border-line bg-surface px-4 py-3.5", className)}>
       <p className="truncate text-[12.5px] font-medium text-ink-2">{kpi.label}</p>
       <div className="mt-2 flex items-end justify-between gap-2">
         <p className="tnum text-[24px] leading-none font-semibold tracking-[-0.02em] text-ink">{kpi.value}</p>

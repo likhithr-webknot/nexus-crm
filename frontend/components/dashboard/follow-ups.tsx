@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { Check } from "lucide-react";
-import type { Task } from "@/lib/mock-data";
-import { cn } from "@/lib/format";
+import { TODAY, type FollowUp } from "@/lib/mock-data";
+import { cn, formatDay, formatTime } from "@/lib/format";
 
-export function FollowUpList({ tasks }: { tasks: Task[] }) {
+export function FollowUpList({ tasks }: { tasks: FollowUp[] }) {
   const [done, setDone] = useState<Set<string>>(new Set());
 
   const toggle = (id: string) =>
@@ -24,6 +24,7 @@ export function FollowUpList({ tasks }: { tasks: Task[] }) {
     <ul className="divide-y divide-line">
       {tasks.map((t) => {
         const isDone = done.has(t.id);
+        const overdue = t.dueAt.slice(0, 10) < TODAY;
         return (
           <li key={t.id} className="flex items-start gap-3 px-5 py-3">
             <button
@@ -42,15 +43,17 @@ export function FollowUpList({ tasks }: { tasks: Task[] }) {
               <p className={cn("text-[13px] font-medium", isDone ? "text-ink-3 line-through" : "text-ink")}>
                 {t.title}
               </p>
-              <p className="mt-0.5 text-[12px] text-ink-3">{t.who}</p>
+              <p className="mt-0.5 text-[12px] text-ink-3">
+                {t.contact} · {t.company}
+              </p>
             </div>
             <span
               className={cn(
-                "shrink-0 text-[12px]",
-                t.overdue && !isDone ? "font-medium text-down" : "text-ink-3",
+                "tnum shrink-0 text-[12px]",
+                overdue && !isDone ? "font-medium text-down" : "text-ink-3",
               )}
             >
-              {t.due}
+              {overdue ? `Due ${formatDay(t.dueAt)}` : formatTime(t.dueAt)}
             </span>
           </li>
         );

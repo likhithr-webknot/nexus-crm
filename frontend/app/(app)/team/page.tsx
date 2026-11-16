@@ -1,7 +1,8 @@
-import { ComingSoon } from "@/components/ui/coming-soon";
+import { TeamView } from "@/components/team/team-view";
+import { TEAM } from "@/lib/mock-data";
 
 export const metadata = { title: "Team Management" };
 
 export default function TeamPage() {
-  return <ComingSoon title="Team Management" description="Invite reps, assign territories and track quota attainment." />;
+  return <TeamView members={TEAM} />;
 }

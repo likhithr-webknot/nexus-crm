@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { CircleAlert, Info } from "lucide-react";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
+import { RedirectIfSignedIn } from "@/components/auth/session";
 import { PipelinePreview } from "@/components/auth/pipeline-preview";
 import { Logo } from "@/components/ui/logo";
 import { GOOGLE_SIGN_IN_URL, resolveSignInNotice, type SignInNotice } from "@/lib/auth";
@@ -15,6 +16,7 @@ export const metadata: Metadata = {
 export default function LoginPage({ searchParams }: PageProps<"/login">) {
   return (
     <div className="grid min-h-full lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
+      <RedirectIfSignedIn />
       <main className="flex min-h-full flex-col bg-surface px-6 py-7 sm:px-10">
         <Logo />
 

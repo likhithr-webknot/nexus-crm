@@ -19,7 +19,7 @@ export function RecentLeadsTable({ leads }: { leads: Lead[] }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[720px] text-left text-[13px]">
+      <table className="w-full min-w-[640px] text-left text-[13px]">
         <thead>
           <tr className="border-y border-line bg-canvas/60 text-[11.5px] font-medium tracking-wide text-ink-3 uppercase">
             <th className="py-2.5 pr-3 pl-5 font-medium">Lead</th>
@@ -39,23 +39,25 @@ export function RecentLeadsTable({ leads }: { leads: Lead[] }) {
                     <Link href={`/leads?id=${lead.id}`} className="font-medium text-ink hover:text-brand">
                       {lead.name}
                     </Link>
-                    <p className="truncate text-[12px] text-ink-3">
-                      {lead.company} · {lead.email}
-                    </p>
+                    <p className="truncate text-[12px] text-ink-3">{lead.company}</p>
                   </div>
                 </div>
               </td>
-              <td className="px-3 py-3">
-                <div className="flex items-center gap-2 text-ink-2">
-                  <Avatar name={lead.owner} />
-                  {lead.owner}
-                </div>
+              <td className="px-3 py-3 whitespace-nowrap">
+                {lead.owner ? (
+                  <div className="flex items-center gap-2 text-ink-2">
+                    <Avatar name={lead.owner} />
+                    {lead.owner}
+                  </div>
+                ) : (
+                  <span className="text-ink-3">Unassigned</span>
+                )}
               </td>
               <td className="px-3 py-3">
                 <StageBadge stage={lead.stage} />
               </td>
               <td className="tnum px-3 py-3 text-right font-medium">{formatUsd(lead.value)}</td>
-              <td className="tnum py-3 pr-5 pl-3 text-right text-ink-2">{formatDate(lead.createdAt)}</td>
+              <td className="tnum py-3 pr-5 pl-3 text-right whitespace-nowrap text-ink-2">{formatDate(lead.createdAt)}</td>
             </tr>
           ))}
         </tbody>

@@ -1,7 +1,8 @@
-import { ComingSoon } from "@/components/ui/coming-soon";
+import { ActivitiesView } from "@/components/activities/activities-view";
+import { ACTIVITIES } from "@/lib/mock-data";
 
 export const metadata = { title: "Activities" };
 
 export default function ActivitiesPage() {
-  return <ComingSoon title="Activities" description="Calls, emails and meetings logged across your team." />;
+  return <ActivitiesView activities={ACTIVITIES} />;
 }

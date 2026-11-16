@@ -10,24 +10,27 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
+import { LEADS } from "@/lib/mock-data";
 
 export type NavItem = {
   href: string;
   label: string;
   icon: LucideIcon;
   badge?: number;
+  /** Section heading in the sidebar. */
+  group: "Overview" | "Sales" | "Engage" | "Admin";
 };
 
 export const NAV_ITEMS: NavItem[] = [
-  { href: "/", label: "Dashboard", icon: LayoutGrid },
-  { href: "/leads", label: "Leads", icon: UserPlus, badge: 24 },
-  { href: "/contacts", label: "Contacts", icon: Contact },
-  { href: "/pipeline", label: "Sales Pipeline", icon: Filter },
-  { href: "/follow-ups", label: "Follow-ups", icon: CalendarCheck },
-  { href: "/activities", label: "Activities", icon: Activity },
-  { href: "/reports", label: "Reports & Analytics", icon: BarChart3 },
-  { href: "/team", label: "Team Management", icon: Users },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/", label: "Dashboard", icon: LayoutGrid, group: "Overview" },
+  { href: "/reports", label: "Reports & Analytics", icon: BarChart3, group: "Overview" },
+  { href: "/leads", label: "Leads", icon: UserPlus, badge: LEADS.length, group: "Sales" },
+  { href: "/contacts", label: "Contacts", icon: Contact, group: "Sales" },
+  { href: "/pipeline", label: "Sales Pipeline", icon: Filter, group: "Sales" },
+  { href: "/follow-ups", label: "Follow-ups", icon: CalendarCheck, group: "Engage" },
+  { href: "/activities", label: "Activities", icon: Activity, group: "Engage" },
+  { href: "/team", label: "Team Management", icon: Users, group: "Admin" },
+  { href: "/settings", label: "Settings", icon: Settings, group: "Admin" },
 ];
 
 export function findNavItem(pathname: string): NavItem | undefined {

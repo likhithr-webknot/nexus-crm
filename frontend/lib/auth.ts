@@ -4,11 +4,36 @@
  * whole OIDC flow and sets the session cookies; the frontend never sees a token.
  */
 
-// Same-origin by default (reverse proxy routes /api to the backend). Local
-// development points this at the backend's own port via .env.local.
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1").replace(/\/+$/, "");
+import { API_BASE_URL, api } from "@/lib/api";
 
 export const GOOGLE_SIGN_IN_URL = `${API_BASE_URL}/auth/oauth2/authorization/google`;
+
+export type Role = "ADMIN" | "MANAGER" | "REP";
+
+/** The signed-in user, as GET /me returns it. */
+export type SessionUser = {
+  id: string;
+  email: string;
+  displayName: string;
+  avatarUrl: string | null;
+  role: Role;
+};
+
+export const ROLE_LABELS: Record<Role, string> = { ADMIN: "Admin", MANAGER: "Manager", REP: "Sales rep" };
+
+export const fetchMe = () => api<SessionUser>("/me");
+
+/** A full page load, so nothing from the session stays in memory, and Back does not return to the app. */
+export const leaveSignedOut = () => window.location.replace("/login?notice=signed_out");
+
+/**
+ * Ends the session on the server, then leaves for the login page. `everywhere`
+ * also signs out every other browser and device.
+ */
+export async function signOut({ everywhere = false } = {}) {
+  await api(everywhere ? "/auth/logout-all" : "/auth/logout", { method: "POST" });
+  leaveSignedOut();
+}
 
 export type SignInNotice = {
   tone: "error" | "info";
