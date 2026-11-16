@@ -1,6 +1,5 @@
 package com.nexus.crm.audit;
 
-import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -13,9 +12,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
+import com.nexus.crm.audit.dto.AuditResponse;
 import com.nexus.crm.identity.user.UserService;
 import com.nexus.crm.shared.web.PageResponse;
 
@@ -24,10 +23,6 @@ import com.nexus.crm.shared.web.PageResponse;
 @RequestMapping("/api/v1/audit")
 @RequiredArgsConstructor
 class AuditController {
-
-	record AuditResponse(long id, Instant occurredAt, UUID actorId, String actorName, String entityType, UUID entityId,
-			AuditLog.Action action, JsonNode changes) {
-	}
 
 	private final AuditService audit;
 

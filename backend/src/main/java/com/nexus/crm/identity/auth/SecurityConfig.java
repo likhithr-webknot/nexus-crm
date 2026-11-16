@@ -48,8 +48,8 @@ import org.springframework.web.servlet.HandlerExceptionResolver;
 
 import com.nexus.crm.identity.user.UserService;
 import com.nexus.crm.shared.CurrentUser;
-import com.nexus.crm.shared.web.RequestIdFilter;
 import com.nexus.crm.shared.Role;
+import com.nexus.crm.shared.web.RequestIdFilter;
 
 /** Security rules: sign-in and token refresh are open; everything else needs a signed-in user, and changes need the CSRF token. */
 @Configuration(proxyBeanMethods = false)

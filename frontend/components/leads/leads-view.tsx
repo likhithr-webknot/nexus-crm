@@ -1,16 +1,20 @@
 "use client";
 
+import { DeleteDialog } from "@/components/ui/delete-dialog";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { LoadFailed, LoadingNote } from "@/components/ui/load-state";
 import { Pagination } from "@/components/ui/pagination";
 import { Card, EmptyState, Page, PageHeader, buttonPrimary, buttonSecondary } from "@/components/ui/primitives";
 import { toast } from "@/components/ui/toast";
 import { useAssignableUsers } from "@/hooks/use-people";
+import { useRefresh } from "@/hooks/use-refresh";
 import { errorMessage } from "@/lib/api";
-import { listAllLeads, type Lead } from "@/lib/leads";
+import { deleteLeads, listAllLeads, type Lead } from "@/lib/leads";
+import { AFTER } from "@/lib/query-keys";
 import { Download, Plus, SearchX, Upload } from "lucide-react";
 import { useState } from "react";
 import { AddLeadDialog } from "./add-lead-dialog";
+import { EditLeadDialog } from "./edit-lead-dialog";
 import { ImportLeadsDialog } from "./import-leads-dialog";
 import { LeadActionsDialog } from "./lead-actions-dialog";
 import { exportLeads } from "./lead-export";
@@ -25,6 +29,9 @@ import { useDeleteLeads, useLeadList, useLeadSummary } from "./use-leads";
 export function LeadsView() {
   const [dialog, setDialog] = useState<"add" | "import" | "delete" | null>(null);
   const [acting, setActing] = useState<Lead | null>(null);
+  const [editing, setEditing] = useState<Lead | null>(null);
+  const [deleting, setDeleting] = useState<Lead | null>(null);
+  const refresh = useRefresh();
 
   const { view, filters, page, setPage, apiFilters, update, changeView, clearAll, active } = useLeadFilters();
   const list = useLeadList(apiFilters, page, PAGE_SIZE);
@@ -132,7 +139,17 @@ export function LeadsView() {
 
       <AddLeadDialog open={dialog === "add"} onClose={() => setDialog(null)} />
       <ImportLeadsDialog open={dialog === "import"} onClose={() => setDialog(null)} />
-      <LeadActionsDialog lead={acting} onClose={() => setActing(null)} />
+      <LeadActionsDialog lead={acting} onClose={() => setActing(null)} onEdit={setEditing} onDelete={setDeleting} />
+      <EditLeadDialog lead={editing} onClose={() => setEditing(null)} />
+      <DeleteDialog
+        target={deleting}
+        title={(l) => `Delete ${l.name}?`}
+        body="The lead is removed from the list. An admin can recover it from the database if this was a mistake."
+        successMessage={(l) => `${l.name} deleted.`}
+        action={(l) => deleteLeads([l.id])}
+        onClose={() => setDeleting(null)}
+        onDeleted={() => void refresh(AFTER.lead)}
+      />
       <ConfirmDialog
         open={dialog === "delete"}
         onClose={() => setDialog(null)}

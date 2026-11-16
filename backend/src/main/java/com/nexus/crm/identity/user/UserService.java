@@ -5,10 +5,10 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -21,14 +21,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import com.nexus.crm.shared.error.ApiException;
-import com.nexus.crm.shared.CurrentUser;
-import com.nexus.crm.shared.error.ErrorCode;
-import com.nexus.crm.shared.Role;
 import com.nexus.crm.identity.auth.AuthProperties;
 import com.nexus.crm.identity.auth.SessionService;
 import com.nexus.crm.identity.team.Team;
 import com.nexus.crm.identity.team.TeamRepository;
+import com.nexus.crm.shared.CurrentUser;
+import com.nexus.crm.shared.Role;
+import com.nexus.crm.shared.error.ApiException;
+import com.nexus.crm.shared.error.ErrorCode;
 
 /** Invites users, changes their role and disables them. The controllers decide who may call this. */
 @Slf4j

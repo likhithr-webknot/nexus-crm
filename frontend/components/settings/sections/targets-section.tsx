@@ -6,7 +6,7 @@ import { useRefresh } from "@/hooks/use-refresh";
 import { errorMessage } from "@/lib/api";
 import { cn } from "@/lib/format";
 import { AFTER, KEYS } from "@/lib/query-keys";
-import { listTargets, setTarget } from "@/lib/reports";
+import { deleteTarget, listTargets, setTarget } from "@/lib/reports";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -19,6 +19,15 @@ export function TargetsSection() {
   const [year, setYear] = useState(new Date().getFullYear());
   const targets = useQuery({ queryKey: [...KEYS.targets, year], queryFn: () => listTargets(year) });
   const saved = new Map((targets.data ?? []).map((t) => [t.month, t.amount]));
+
+  const clear = useMutation({
+    mutationFn: (month: string) => deleteTarget(month),
+    onSuccess: () => {
+      toast("Target cleared.");
+      void refresh(AFTER.target);
+    },
+    onError: (e) => toast(errorMessage(e)),
+  });
 
   const save = useMutation({
     mutationFn: (v: { month: string; amount: string }) => setTarget(v.month, v.amount),
@@ -71,6 +80,11 @@ export function TargetsSection() {
                 <button type="submit" className={buttonSecondary} disabled={save.isPending}>
                   Save
                 </button>
+                {saved.has(month) && (
+                  <button type="button" onClick={() => clear.mutate(month)} disabled={clear.isPending} aria-label={`Clear the ${name} target`} className="text-[12px] font-medium text-down hover:underline">
+                    Clear
+                  </button>
+                )}
               </form>
             );
           })}

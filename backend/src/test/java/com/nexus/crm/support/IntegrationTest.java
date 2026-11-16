@@ -11,23 +11,22 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MockMvcTester.MockMvcRequestBuilder;
+import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import com.nexus.crm.identity.auth.SessionService;
-import com.nexus.crm.identity.auth.SessionService.ClientInfo;
-import com.nexus.crm.identity.auth.SessionService.SessionTokens;
 import com.nexus.crm.identity.auth.SignInService;
-import com.nexus.crm.identity.user.UserService;
+import com.nexus.crm.identity.auth.dto.ClientInfo;
+import com.nexus.crm.identity.auth.dto.SessionTokens;
 import com.nexus.crm.identity.user.AppUser;
+import com.nexus.crm.identity.user.UserService;
 import com.nexus.crm.shared.Role;
 
 /** Base class for tests that run the whole app against a real PostgreSQL (started with Testcontainers, so Docker must be running). */
-@SpringBootTest
+@SpringBootTest(properties = {"spring.datasource.url=jdbc:postgresql://localhost:5432/scratch_nexus","spring.datasource.username=scratch_owner","spring.datasource.password=x"})
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import(IntegrationTest.Containers.class)
 public abstract class IntegrationTest {
 
 	protected static final String FRONTEND = "http://localhost:3000";

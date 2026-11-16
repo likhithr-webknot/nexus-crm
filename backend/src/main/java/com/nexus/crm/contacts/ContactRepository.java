@@ -14,4 +14,6 @@ public interface ContactRepository extends JpaRepository<Contact, UUID>, JpaSpec
 
 	List<Contact> findByCompanyId(UUID companyId);
 
+	long countByCompanyId(UUID companyId);
+
 }

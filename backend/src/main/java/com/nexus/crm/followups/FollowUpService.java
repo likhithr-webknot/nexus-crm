@@ -23,43 +23,23 @@ import com.nexus.crm.audit.AuditLog;
 import com.nexus.crm.audit.AuditService;
 import com.nexus.crm.contacts.ContactService;
 import com.nexus.crm.deals.DealService;
+import com.nexus.crm.followups.dto.FollowUpFilter;
+import com.nexus.crm.followups.dto.FollowUpInput;
+import com.nexus.crm.followups.dto.FollowUpNames;
+import com.nexus.crm.followups.dto.FollowUpSummary;
+import com.nexus.crm.followups.event.FollowUpAssigned;
+import com.nexus.crm.followups.event.FollowUpDue;
 import com.nexus.crm.identity.user.UserService;
 import com.nexus.crm.leads.LeadService;
-import com.nexus.crm.shared.error.ApiException;
 import com.nexus.crm.shared.CurrentUser;
+import com.nexus.crm.shared.error.ApiException;
 import com.nexus.crm.shared.error.ErrorCode;
-import com.nexus.crm.shared.Who;
 
 /** Tasks with a due time, given to one person. A reminder goes to the person once the task is due. */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class FollowUpService {
-
-	public record FollowUpInput(String title, FollowUp.Type type, String notes, Instant dueAt, UUID assigneeId,
-			UUID leadId, UUID contactId, UUID dealId) {
-	}
-
-	/** Any may be null. {@code from} is included and {@code to} is not. */
-	public record Filter(Instant from, Instant to, FollowUp.Status status, UUID assigneeId, UUID leadId, UUID contactId,
-			UUID dealId) {
-	}
-
-	/** The tiles on the follow-ups page. */
-	public record Summary(long today, long todayRemaining, long upcoming, long overdue, long completedThisMonth) {
-	}
-
-	public record Names(java.util.Map<UUID, Who> leads, java.util.Map<UUID, Who> contacts,
-			java.util.Map<UUID, Who> deals, java.util.Map<UUID, String> assignees) {
-
-		public Who about(FollowUp f) {
-			if (f.getContactId() != null) {
-				return this.contacts.get(f.getContactId());
-			}
-			return (f.getLeadId() != null) ? this.leads.get(f.getLeadId()) : this.deals.get(f.getDealId());
-		}
-
-	}
 
 	private final FollowUpRepository followUps;
 
@@ -76,24 +56,24 @@ public class FollowUpService {
 	private final ApplicationEventPublisher events;
 
 	@Transactional(readOnly = true)
-	public Page<FollowUp> list(CurrentUser user, Filter filter, int page, int size) {
+	public Page<FollowUp> list(CurrentUser user, FollowUpFilter filter, int page, int size) {
 		return this.followUps.findAll(visible(user).and(matching(filter)),
 				PageRequest.of(Math.max(0, page - 1), size, Sort.by("dueAt", "id")));
 	}
 
 	/** Counts for the tiles. */
 	@Transactional(readOnly = true)
-	public Summary summary(CurrentUser user, Instant dayStart, Instant dayEnd, Instant monthStart) {
+	public FollowUpSummary summary(CurrentUser user, Instant dayStart, Instant dayEnd, Instant monthStart) {
 		Specification<FollowUp> mine = visible(user);
 		Instant weekEnd = dayEnd.plus(java.time.Duration.ofDays(7));
-		long today = this.followUps.count(mine.and(matching(new Filter(dayStart, dayEnd, null, null, null, null, null)))
+		long today = this.followUps.count(mine.and(matching(new FollowUpFilter(dayStart, dayEnd, null, null, null, null, null)))
 			.and(notCancelled()));
-		long remaining = this.followUps.count(mine.and(matching(new Filter(dayStart, dayEnd, FollowUp.Status.OPEN, null, null, null, null))));
-		long upcoming = this.followUps.count(mine.and(matching(new Filter(dayEnd, weekEnd, FollowUp.Status.OPEN, null, null, null, null))));
-		long overdue = this.followUps.count(mine.and(matching(new Filter(null, dayStart, FollowUp.Status.OPEN, null, null, null, null))));
+		long remaining = this.followUps.count(mine.and(matching(new FollowUpFilter(dayStart, dayEnd, FollowUp.Status.OPEN, null, null, null, null))));
+		long upcoming = this.followUps.count(mine.and(matching(new FollowUpFilter(dayEnd, weekEnd, FollowUp.Status.OPEN, null, null, null, null))));
+		long overdue = this.followUps.count(mine.and(matching(new FollowUpFilter(null, dayStart, FollowUp.Status.OPEN, null, null, null, null))));
 		long completed = this.followUps.count(mine.and((root, q, cb) -> cb.and(cb.equal(root.get("status"), FollowUp.Status.DONE),
 				cb.greaterThanOrEqualTo(root.get("completedAt"), monthStart))));
-		return new Summary(today, remaining, upcoming, overdue, completed);
+		return new FollowUpSummary(today, remaining, upcoming, overdue, completed);
 	}
 
 	@Transactional(readOnly = true)
@@ -116,7 +96,7 @@ public class FollowUpService {
 		this.followUps.save(followUp);
 		this.audit.record(user.id(), "FollowUp", followUp.getId(), AuditLog.Action.CREATE, null);
 		if (!assignee.equals(user.id())) {
-			this.events.publishEvent(new FollowUpEvents.Assigned(followUp.getId(), followUp.getTitle(), assignee, user.id()));
+			this.events.publishEvent(new FollowUpAssigned(followUp.getId(), followUp.getTitle(), assignee, user.id()));
 		}
 		return followUp;
 	}
@@ -148,7 +128,7 @@ public class FollowUpService {
 			changes.field("assigneeId", followUp.getAssigneeId(), assignee);
 			followUp.setAssigneeId(assignee);
 			if (!assignee.equals(user.id())) {
-				this.events.publishEvent(new FollowUpEvents.Assigned(id, followUp.getTitle(), assignee, user.id()));
+				this.events.publishEvent(new FollowUpAssigned(id, followUp.getTitle(), assignee, user.id()));
 			}
 		}
 		this.followUps.save(followUp);
@@ -171,6 +151,13 @@ public class FollowUpService {
 		return change(user, id, FollowUp::cancel);
 	}
 
+	@Transactional
+	public void delete(CurrentUser user, UUID id) {
+		FollowUp followUp = get(user, id);
+		followUp.softDelete(Instant.now());
+		this.audit.record(user.id(), "FollowUp", id, AuditLog.Action.DELETE, null);
+	}
+
 	/** Sends the reminder for every follow-up that has come due. Runs every minute. */
 	@Scheduled(fixedDelay = 60_000, initialDelay = 30_000)
 	@Transactional
@@ -178,13 +165,13 @@ public class FollowUpService {
 		Instant now = Instant.now();
 		for (FollowUp followUp : this.followUps.findByStatusAndRemindedAtIsNullAndDueAtLessThanEqual(FollowUp.Status.OPEN, now)) {
 			followUp.markReminded(now);
-			this.events.publishEvent(new FollowUpEvents.Due(followUp.getId(), followUp.getTitle(), followUp.getAssigneeId()));
+			this.events.publishEvent(new FollowUpDue(followUp.getId(), followUp.getTitle(), followUp.getAssigneeId()));
 		}
 	}
 
 	@Transactional(readOnly = true)
-	public Names names(List<FollowUp> list) {
-		return new Names(this.leads.leadSummaries(ids(list, FollowUp::getLeadId)),
+	public FollowUpNames names(List<FollowUp> list) {
+		return new FollowUpNames(this.leads.leadSummaries(ids(list, FollowUp::getLeadId)),
 				this.contacts.contactSummaries(ids(list, FollowUp::getContactId)),
 				this.deals.dealSummaries(ids(list, FollowUp::getDealId)),
 				this.users.displayNames(ids(list, FollowUp::getAssigneeId)));
@@ -230,7 +217,7 @@ public class FollowUpService {
 		return (root, q, cb) -> cb.notEqual(root.get("status"), FollowUp.Status.CANCELLED);
 	}
 
-	private static Specification<FollowUp> matching(Filter f) {
+	private static Specification<FollowUp> matching(FollowUpFilter f) {
 		return (root, q, cb) -> {
 			List<Predicate> all = new ArrayList<>();
 			if (f.from() != null) {

@@ -14,11 +14,13 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.nexus.crm.deals.DealEvents;
 import com.nexus.crm.deals.PipelineStage;
-import com.nexus.crm.followups.FollowUpEvents;
+import com.nexus.crm.deals.event.DealReassigned;
+import com.nexus.crm.deals.event.DealStageChanged;
+import com.nexus.crm.followups.event.FollowUpAssigned;
+import com.nexus.crm.followups.event.FollowUpDue;
 import com.nexus.crm.identity.user.UserService;
-import com.nexus.crm.leads.LeadEvents;
+import com.nexus.crm.leads.event.LeadAssigned;
 
 /** The messages in a user's bell menu. */
 @Slf4j
@@ -59,14 +61,14 @@ public class NotificationService {
 	}
 
 	@EventListener
-	void onLeadAssigned(LeadEvents.Assigned e) {
+	void onLeadAssigned(LeadAssigned e) {
 		if (e.newOwnerId() != null && !e.newOwnerId().equals(e.actorId())) {
 			send(e.newOwnerId(), "LEAD_ASSIGNED", "A lead was assigned to you: " + e.name(), "/leads");
 		}
 	}
 
 	@EventListener
-	void onDealReassigned(DealEvents.Reassigned e) {
+	void onDealReassigned(DealReassigned e) {
 		if (!e.newOwnerId().equals(e.actorId())) {
 			send(e.newOwnerId(), "DEAL_ASSIGNED", "A deal was assigned to you: " + e.name(), "/pipeline");
 		}
@@ -74,7 +76,7 @@ public class NotificationService {
 
 	/** A won deal is good news for the team: the admins and the owner's manager hear about it. */
 	@EventListener
-	void onDealStageChanged(DealEvents.StageChanged e) {
+	void onDealStageChanged(DealStageChanged e) {
 		if (!PipelineStage.WON.equals(e.toStage())) {
 			return;
 		}
@@ -86,12 +88,12 @@ public class NotificationService {
 	}
 
 	@EventListener
-	void onFollowUpAssigned(FollowUpEvents.Assigned e) {
+	void onFollowUpAssigned(FollowUpAssigned e) {
 		send(e.assigneeId(), "FOLLOW_UP_ASSIGNED", "A follow-up was assigned to you: " + e.title(), "/follow-ups");
 	}
 
 	@EventListener
-	void onFollowUpDue(FollowUpEvents.Due e) {
+	void onFollowUpDue(FollowUpDue e) {
 		send(e.assigneeId(), "FOLLOW_UP_DUE", "Follow-up due: " + e.title(), "/follow-ups");
 	}
 

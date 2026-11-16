@@ -60,7 +60,7 @@ export function Popover({
         <div
           id={id}
           className={cn(
-            "absolute top-full z-40 mt-2 rounded-xl border border-line bg-surface shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)]",
+            "absolute top-full z-40 mt-2 max-w-[calc(100vw-2rem)] rounded-xl border border-line bg-surface shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)]",
             align === "end" ? "right-0" : "left-0",
             className,
           )}

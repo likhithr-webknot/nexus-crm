@@ -16,8 +16,8 @@ spring:
       pool-name: nexus-crm-pool
       minimum-idle: 3
       maximum-pool-size: 20
-      # With virtual threads many requests can wait for a connection at once. Fail fast instead of hanging.
-      connection-timeout: 10s
+      # In milliseconds. With virtual threads many requests can wait for a connection, so fail fast instead of hanging.
+      connection-timeout: 10000
   jpa:
     open-in-view: false
     hibernate:

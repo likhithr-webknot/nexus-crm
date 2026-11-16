@@ -53,3 +53,17 @@ export const createDeal = (body: NewDeal) => api<Deal>("/deals", { method: "POST
 
 export const moveDeal = (id: string, body: { stageCode: string; version: number; lostReason?: string }) =>
   api<Deal>(`/deals/${id}/stage`, { method: "PATCH", body: JSON.stringify(body) });
+
+export type DealChanges = {
+  name?: string;
+  primaryContactId?: string;
+  ownerId?: string;
+  amount?: Money;
+  expectedCloseDate?: string;
+  version?: number;
+};
+
+export const updateDeal = (id: string, body: DealChanges) =>
+  api<Deal>(`/deals/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+
+export const deleteDeal = (id: string) => api(`/deals/${id}`, { method: "DELETE" });

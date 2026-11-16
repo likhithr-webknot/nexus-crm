@@ -1,16 +1,9 @@
 package com.nexus.crm.deals;
 
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
@@ -26,7 +19,16 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.nexus.crm.deals.dto.CreateDealRequest;
+import com.nexus.crm.deals.dto.DealFilter;
+import com.nexus.crm.deals.dto.DealInput;
+import com.nexus.crm.deals.dto.DealNames;
+import com.nexus.crm.deals.dto.DealResponse;
+import com.nexus.crm.deals.dto.MoveRequest;
+import com.nexus.crm.deals.dto.PipelineStageResponse;
+import com.nexus.crm.deals.dto.UpdateDealRequest;
 import com.nexus.crm.shared.CurrentUser;
+import com.nexus.crm.shared.Ref;
 import com.nexus.crm.shared.currency.Money;
 import com.nexus.crm.shared.web.PageResponse;
 
@@ -35,42 +37,11 @@ import com.nexus.crm.shared.web.PageResponse;
 @RequiredArgsConstructor
 class DealController {
 
-	record Ref(UUID id, String name) {
-	}
-
-	record StageResponse(String code, String name, int position, PipelineStage.Kind kind, int winProbability) {
-
-		static StageResponse from(PipelineStage stage) {
-			return new StageResponse(stage.getCode(), stage.getName(), stage.getPosition(), stage.getKind(),
-					stage.getWinProbability());
-		}
-
-	}
-
-	/** A deal. {@code baseAmount} is the INR value saved when the deal was won or lost, with the rate used. */
-	record DealResponse(UUID id, String name, Ref company, Ref primaryContact, Ref owner, String stageCode,
-			Money amount, @JsonFormat(shape = JsonFormat.Shape.STRING) BigDecimal baseAmount,
-			@JsonFormat(shape = JsonFormat.Shape.STRING) BigDecimal fxRate, LocalDate fxRateDate,
-			LocalDate expectedCloseDate, Instant closedAt, String lostReason, UUID leadId, Instant createdAt,
-			Instant updatedAt, Integer version) {
-	}
-
-	record CreateDealRequest(@NotBlank @Size(max = 160) String name, @NotNull UUID companyId, UUID primaryContactId,
-			UUID ownerId, String stageCode, @NotNull @Valid Money amount, LocalDate expectedCloseDate) {
-	}
-
-	record UpdateDealRequest(Integer version, @Size(max = 160) String name, UUID primaryContactId, UUID ownerId,
-			@Valid Money amount, LocalDate expectedCloseDate) {
-	}
-
-	record MoveRequest(@NotBlank String stageCode, Integer version, @Size(max = 500) String lostReason) {
-	}
-
 	private final DealService deals;
 
 	@GetMapping("/pipeline/stages")
-	List<StageResponse> stages() {
-		return this.deals.stages().stream().map(StageResponse::from).toList();
+	List<PipelineStageResponse> stages() {
+		return this.deals.stages().stream().map(PipelineStageResponse::from).toList();
 	}
 
 	/** Every open deal and the recently closed ones, in one call. */
@@ -86,7 +57,7 @@ class DealController {
 			@RequestParam(required = false) UUID companyId, @RequestParam(required = false) UUID contactId,
 			@RequestParam(required = false) Boolean open, @RequestParam(defaultValue = "1") int page,
 			@RequestParam(defaultValue = "25") int size) {
-		Page<Deal> found = this.deals.list(user, new DealService.DealFilter(q, stage, ownerId, companyId, contactId, open),
+		Page<Deal> found = this.deals.list(user, new DealFilter(q, stage, ownerId, companyId, contactId, open),
 				page, PageResponse.clampSize(size));
 		List<DealResponse> items = responses(found.getContent());
 		return new PageResponse<>(items, found.getTotalElements(), found.getNumber() + 1, found.getSize());
@@ -100,7 +71,7 @@ class DealController {
 	@PostMapping("/deals")
 	@ResponseStatus(HttpStatus.CREATED)
 	DealResponse create(@AuthenticationPrincipal CurrentUser user, @Valid @RequestBody CreateDealRequest r) {
-		Deal deal = this.deals.create(user, new DealService.DealInput(r.name(), r.companyId(), r.primaryContactId(),
+		Deal deal = this.deals.create(user, new DealInput(r.name(), r.companyId(), r.primaryContactId(),
 				r.ownerId(), r.stageCode(), r.amount(), r.expectedCloseDate(), null, null));
 		return responses(List.of(deal)).getFirst();
 	}
@@ -108,7 +79,7 @@ class DealController {
 	@PatchMapping("/deals/{id}")
 	DealResponse update(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id,
 			@Valid @RequestBody UpdateDealRequest r) {
-		Deal deal = this.deals.update(user, id, r.version(), new DealService.DealInput(r.name(), null,
+		Deal deal = this.deals.update(user, id, r.version(), new DealInput(r.name(), null,
 				r.primaryContactId(), r.ownerId(), null, r.amount(), r.expectedCloseDate(), null, null));
 		return responses(List.of(deal)).getFirst();
 	}
@@ -127,7 +98,7 @@ class DealController {
 	}
 
 	private List<DealResponse> responses(List<Deal> list) {
-		DealService.Names names = this.deals.names(list);
+		DealNames names = this.deals.names(list);
 		return list.stream()
 			.map((d) -> new DealResponse(d.getId(), d.getName(), new Ref(d.getCompanyId(), names.companies().get(d.getCompanyId())),
 					(d.getPrimaryContactId() == null) ? null

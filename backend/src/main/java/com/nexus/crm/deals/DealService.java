@@ -24,13 +24,19 @@ import org.springframework.transaction.annotation.Transactional;
 import com.nexus.crm.audit.AuditLog;
 import com.nexus.crm.audit.AuditService;
 import com.nexus.crm.contacts.ContactService;
+import com.nexus.crm.deals.dto.DealFilter;
+import com.nexus.crm.deals.dto.DealInput;
+import com.nexus.crm.deals.dto.DealNames;
+import com.nexus.crm.deals.event.DealCreated;
+import com.nexus.crm.deals.event.DealReassigned;
+import com.nexus.crm.deals.event.DealStageChanged;
 import com.nexus.crm.identity.user.UserService;
-import com.nexus.crm.shared.error.ApiException;
-import com.nexus.crm.shared.currency.CurrencyService;
 import com.nexus.crm.shared.CurrentUser;
-import com.nexus.crm.shared.error.ErrorCode;
-import com.nexus.crm.shared.currency.Money;
 import com.nexus.crm.shared.Search;
+import com.nexus.crm.shared.currency.CurrencyService;
+import com.nexus.crm.shared.currency.dto.Rate;
+import com.nexus.crm.shared.error.ApiException;
+import com.nexus.crm.shared.error.ErrorCode;
 
 /** Deals and the one fixed pipeline they move through. Moving a deal to Won or Lost saves its INR value at that day's exchange rate, so reported revenue never changes afterwards. */
 @Slf4j
@@ -43,16 +49,6 @@ public class DealService {
 
 	/** The board shows deals closed in the last 90 days. */
 	private static final int BOARD_CLOSED_DAYS = 90;
-
-	/** The fields of a deal. On update, a null field is left as it is. */
-	public record DealInput(String name, UUID companyId, UUID primaryContactId, UUID ownerId, String stageCode,
-			Money amount, LocalDate expectedCloseDate, UUID leadId, String source) {
-	}
-
-	/** Filters for the deal list. Any of them may be null. */
-	public record DealFilter(String query, String stageCode, UUID ownerId, UUID companyId, UUID contactId,
-			Boolean open) {
-	}
 
 	private final DealRepository deals;
 
@@ -117,7 +113,7 @@ public class DealService {
 		this.deals.save(deal);
 		this.history.save(new DealStageHistory(deal, null, user.id()));
 		this.audit.record(user.id(), "Deal", deal.getId(), AuditLog.Action.CREATE, null);
-		this.events.publishEvent(new DealEvents.Created(deal.getId(), deal.getName(), ownerId, user.id(), in.leadId(), deal.getPrimaryContactId()));
+		this.events.publishEvent(new DealCreated(deal.getId(), deal.getName(), ownerId, user.id(), in.leadId(), deal.getPrimaryContactId()));
 		return deal;
 	}
 
@@ -151,7 +147,7 @@ public class DealService {
 			UUID newOwner = this.users.requireCanAssignTo(user, in.ownerId());
 			changes.field("ownerId", deal.getOwnerId(), newOwner);
 			deal.setOwnerId(newOwner);
-			this.events.publishEvent(new DealEvents.Reassigned(id, deal.getName(), newOwner, user.id(), deal.getPrimaryContactId()));
+			this.events.publishEvent(new DealReassigned(id, deal.getName(), newOwner, user.id(), deal.getPrimaryContactId()));
 		}
 		this.deals.save(deal);
 		this.audit.record(user.id(), "Deal", id, AuditLog.Action.UPDATE, changes);
@@ -189,7 +185,7 @@ public class DealService {
 		this.history.save(new DealStageHistory(deal, from, user.id()));
 		this.audit.record(user.id(), "Deal", id, AuditLog.Action.UPDATE,
 				AuditService.changes().field("stage", from, target.getCode()));
-		this.events.publishEvent(new DealEvents.StageChanged(id, deal.getName(), from, target.getCode(),
+		this.events.publishEvent(new DealStageChanged(id, deal.getName(), from, target.getCode(),
 				target.getName(), deal.getOwnerId(), user.id(), deal.getLostReason(), deal.getPrimaryContactId()));
 		return deal;
 	}
@@ -201,29 +197,26 @@ public class DealService {
 		this.audit.record(user.id(), "Deal", id, AuditLog.Action.DELETE, null);
 	}
 
-	/** Names for the response: companies, contacts and owners looked up once for the whole list. */
+	/** DealNames for the response: companies, contacts and owners looked up once for the whole list. */
 	@Transactional(readOnly = true)
-	public Names names(List<Deal> list) {
-		return new Names(
+	public DealNames names(List<Deal> list) {
+		return new DealNames(
 				this.contacts.companyNames(list.stream().map(Deal::getCompanyId).collect(Collectors.toSet())),
 				this.contacts.contactNames(list.stream().map(Deal::getPrimaryContactId).filter(java.util.Objects::nonNull)
 					.collect(Collectors.toSet())),
 				this.users.displayNames(list.stream().map(Deal::getOwnerId).collect(Collectors.toSet())));
 	}
 
-	public record Names(Map<UUID, String> companies, Map<UUID, String> contacts, Map<UUID, String> owners) {
-	}
-
 	/** Deals with their company, for timelines and follow-up lists. */
 	@Transactional(readOnly = true)
-	public Map<UUID, com.nexus.crm.shared.Who> dealSummaries(java.util.Collection<UUID> ids) {
+	public Map<UUID, com.nexus.crm.shared.Label> dealSummaries(java.util.Collection<UUID> ids) {
 		if (ids.isEmpty()) {
 			return Map.of();
 		}
 		List<Deal> found = this.deals.findAllById(ids);
 		Map<UUID, String> companies = this.contacts.companyNames(found.stream().map(Deal::getCompanyId).collect(Collectors.toSet()));
 		return found.stream().collect(Collectors.toMap(Deal::getId,
-				(d) -> new com.nexus.crm.shared.Who(d.getName(), companies.get(d.getCompanyId()))));
+				(d) -> new com.nexus.crm.shared.Label(d.getName(), companies.get(d.getCompanyId()))));
 	}
 
 	/** Deal names by ID. */
@@ -251,7 +244,7 @@ public class DealService {
 	/** The INR value of the deal at today's rate, saved when the deal closes. */
 	private Snapshot snapshot(Deal deal) {
 		LocalDate today = LocalDate.now(ZoneOffset.UTC);
-		CurrencyService.Rate rate = this.currencies.rateOn(deal.getCurrency(), today)
+		Rate rate = this.currencies.rateOn(deal.getCurrency(), today)
 			.orElseThrow(() -> new ApiException(ErrorCode.INVALID_STATE,
 					"There is no exchange rate for " + deal.getCurrency() + " yet, so the deal cannot be closed."));
 		if (rate.stale()) {

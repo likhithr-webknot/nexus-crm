@@ -1,9 +1,7 @@
 package com.nexus.crm.notifications;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -16,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.nexus.crm.notifications.dto.NotificationResponse;
+import com.nexus.crm.notifications.dto.ReadRequest;
 import com.nexus.crm.shared.CurrentUser;
 
 /** A user sees only their own notifications. */
@@ -23,13 +23,6 @@ import com.nexus.crm.shared.CurrentUser;
 @RequestMapping("/api/v1/notifications")
 @RequiredArgsConstructor
 class NotificationController {
-
-	record NotificationResponse(UUID id, String type, String title, String link, boolean read, Instant createdAt) {
-	}
-
-	/** The IDs to mark as read. Leave it out or empty to mark everything. */
-	record ReadRequest(List<UUID> ids) {
-	}
 
 	private final NotificationService notifications;
 

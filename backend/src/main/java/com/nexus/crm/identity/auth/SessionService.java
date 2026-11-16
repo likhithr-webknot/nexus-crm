@@ -1,6 +1,5 @@
 package com.nexus.crm.identity.auth;
 
-import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -10,10 +9,8 @@ import java.util.Base64;
 import java.util.Optional;
 import java.util.UUID;
 
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpHeaders;
 import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
@@ -21,6 +18,9 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.nexus.crm.identity.auth.dto.ClientInfo;
+import com.nexus.crm.identity.auth.dto.SessionTokens;
 import com.nexus.crm.identity.user.AppUser;
 import com.nexus.crm.identity.user.AppUserRepository;
 
@@ -34,31 +34,6 @@ public class SessionService {
 	public static final String SESSION_CLAIM = "sid";
 
 	private static final SecureRandom RANDOM = new SecureRandom();
-
-	/** The two tokens the browser keeps in cookies. */
-	public record SessionTokens(String accessToken, String refreshToken) {
-	}
-
-	/** The browser and IP address a request came from. */
-	public record ClientInfo(String userAgent, InetAddress ip) {
-
-		public static ClientInfo from(HttpServletRequest request) {
-			String userAgent = request.getHeader(HttpHeaders.USER_AGENT);
-			if (userAgent != null && userAgent.length() > 512) {
-				userAgent = userAgent.substring(0, 512);
-			}
-			InetAddress ip = null;
-			try {
-				// ofLiteral only parses the text; it never does a network lookup.
-				ip = InetAddress.ofLiteral(request.getRemoteAddr());
-			}
-			catch (IllegalArgumentException ex) {
-				// Not a valid IP address. It is only for information, so continue without it.
-			}
-			return new ClientInfo(userAgent, ip);
-		}
-
-	}
 
 	private final RefreshTokenRepository refreshTokens;
 

@@ -1,19 +1,32 @@
 "use client";
 
 import { useCurrency } from "@/components/currency/currency-provider";
+import { DeleteDialog } from "@/components/ui/delete-dialog";
+import { EditDeleteActions } from "@/components/ui/icon-action";
 import { Avatar, Card, StageBadge, buttonSecondary } from "@/components/ui/primitives";
+import { useRefresh } from "@/hooks/use-refresh";
 import { listActivities } from "@/lib/activities";
 import type { Contact } from "@/lib/contacts";
+import { deleteCompany, deleteContact } from "@/lib/contacts";
 import { listDeals } from "@/lib/deals";
 import { FOLLOW_UP_TYPE_LABELS, listFollowUps } from "@/lib/follow-ups";
 import { cn, formatDay, formatTime, localIso } from "@/lib/format";
 import { moneyValue } from "@/lib/money";
-import { KEYS } from "@/lib/query-keys";
+import type { Ref } from "@/lib/page";
+import { AFTER, KEYS } from "@/lib/query-keys";
 import { useQuery } from "@tanstack/react-query";
-import { Mail, Phone } from "lucide-react";
+import { Building2, Mail, Phone } from "lucide-react";
+import { useState } from "react";
+import { EditCompanyDialog } from "./edit-company-dialog";
+import { EditContactDialog } from "./edit-contact-dialog";
 
 export function ContactDetail({ contact: c }: { contact: Contact }) {
   const { format } = useCurrency();
+  const refresh = useRefresh();
+  const [editing, setEditing] = useState(false);
+  const [deleting, setDeleting] = useState<Contact | null>(null);
+  const [editingCompany, setEditingCompany] = useState<Ref | null>(null);
+  const [deletingCompany, setDeletingCompany] = useState<Ref | null>(null);
   const deals = useQuery({ queryKey: [...KEYS.deals, "contact", c.id], queryFn: () => listDeals({ contactId: c.id, size: 10 }) });
   const followUps = useQuery({
     queryKey: [...KEYS.followUps, "contact", c.id],
@@ -38,7 +51,20 @@ export function ContactDetail({ contact: c }: { contact: Contact }) {
               {c.company?.name ?? (c.jobTitle ? "" : "No company")}
             </p>
           </div>
+          <EditDeleteActions name={c.name} onEdit={() => setEditing(true)} onDelete={() => setDeleting(c)} />
         </div>
+        {c.company && (
+          <p className="mt-3 flex items-center gap-1 text-[12.5px] text-ink-3">
+            <Building2 className="size-3.5" aria-hidden />
+            {c.company.name}
+            <button onClick={() => setEditingCompany(c.company)} className="ml-1 font-medium text-brand hover:underline">
+              Edit
+            </button>
+            <button onClick={() => setDeletingCompany(c.company)} className="font-medium text-down hover:underline">
+              Delete
+            </button>
+          </p>
+        )}
         <div className="mt-4 grid grid-cols-2 gap-2">
           {c.email ? (
             <a href={`mailto:${c.email}`} className={buttonSecondary}>
@@ -110,6 +136,27 @@ export function ContactDetail({ contact: c }: { contact: Contact }) {
           </li>
         ))}
       </Section>
+
+      <EditContactDialog contact={c} open={editing} onClose={() => setEditing(false)} />
+      <DeleteDialog
+        target={deleting}
+        title={(x) => `Delete ${x.name}?`}
+        body="The contact is removed. Their deals and activity stay, but are no longer linked to them."
+        successMessage={(x) => `${x.name} deleted.`}
+        action={(x) => deleteContact(x.id)}
+        onClose={() => setDeleting(null)}
+        onDeleted={() => void refresh(AFTER.contact)}
+      />
+      <EditCompanyDialog company={editingCompany} onClose={() => setEditingCompany(null)} />
+      <DeleteDialog
+        target={deletingCompany}
+        title={(x) => `Delete ${x.name}?`}
+        body="Only a company with no contacts and no deals can be deleted."
+        successMessage={(x) => `${x.name} deleted.`}
+        action={(x) => deleteCompany(x.id)}
+        onClose={() => setDeletingCompany(null)}
+        onDeleted={() => void refresh([...AFTER.contact, KEYS.companies])}
+      />
     </Card>
   );
 }

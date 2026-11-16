@@ -11,7 +11,7 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.WebUtils;
 
-import com.nexus.crm.identity.auth.SessionService.SessionTokens;
+import com.nexus.crm.identity.auth.dto.SessionTokens;
 
 /** Writes and clears the sign-in cookies. */
 @Component

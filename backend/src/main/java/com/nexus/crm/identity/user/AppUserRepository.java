@@ -1,15 +1,15 @@
 package com.nexus.crm.identity.user;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import java.util.Collection;
-import java.util.List;
-
-import com.nexus.crm.shared.Role;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
+import com.nexus.crm.shared.Role;
 
 public interface AppUserRepository extends JpaRepository<AppUser, UUID> {
 

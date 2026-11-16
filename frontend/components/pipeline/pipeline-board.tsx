@@ -1,17 +1,20 @@
 "use client";
 
 import { useCurrency } from "@/components/currency/currency-provider";
+import { DeleteDialog } from "@/components/ui/delete-dialog";
 import { LoadFailed } from "@/components/ui/load-state";
 import { Card, Page, PageHeader, buttonPrimary, buttonSecondary, control } from "@/components/ui/primitives";
 import { toast } from "@/components/ui/toast";
 import { useAssignableUsers } from "@/hooks/use-people";
 import type { Deal } from "@/lib/deals";
+import { deleteDeal } from "@/lib/deals";
 import { cn } from "@/lib/format";
 import type { SortOrder } from "@/lib/pipeline-math";
 import { Plus, Settings2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { AddDealDialog } from "./add-deal-dialog";
+import { EditDealDialog } from "./edit-deal-dialog";
 import { LostDealDialog } from "./lost-deal-dialog";
 import { PipelineFigures } from "./pipeline-figures";
 import { StageColumn } from "./stage-column";
@@ -29,6 +32,8 @@ export function PipelineBoard() {
   const [adding, setAdding] = useState(false);
   // A deal that is being marked lost waits here until the reason is given.
   const [losing, setLosing] = useState<Deal | null>(null);
+  const [editing, setEditing] = useState<Deal | null>(null);
+  const [deleting, setDeleting] = useState<Deal | null>(null);
   // A card moved with the keyboard is re-created in its new column; this puts focus back on it.
   const refocus = useRef<string | null>(null);
 
@@ -120,6 +125,7 @@ export function PipelineBoard() {
                 setDragging(null);
                 setDropStage(null);
               }}
+              onCardOpen={setEditing}
               onCardDragStart={(deal) => setDragging(deal.id)}
               onCardDragEnd={() => {
                 setDragging(null);
@@ -137,6 +143,16 @@ export function PipelineBoard() {
       </div>
 
       <AddDealDialog open={adding} onClose={() => setAdding(false)} onAdded={board.refresh} />
+      <EditDealDialog deal={editing} onClose={() => setEditing(null)} onSaved={board.refresh} onDelete={setDeleting} />
+      <DeleteDialog
+        target={deleting}
+        title={(d) => `Delete ${d.company.name}?`}
+        body="The deal is removed from the pipeline. An admin can recover it from the database if this was a mistake."
+        successMessage={(d) => `${d.company.name} deleted.`}
+        action={(d) => deleteDeal(d.id)}
+        onClose={() => setDeleting(null)}
+        onDeleted={board.refresh}
+      />
       <LostDealDialog
         deal={losing}
         pending={board.move.isPending}

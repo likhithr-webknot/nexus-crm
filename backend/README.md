@@ -24,6 +24,17 @@ as a background job, and ShedLock and Spring Modulith are not used (one instance
 The audit and history tables are append-only only if the app's database role is given
 INSERT and SELECT but not UPDATE or DELETE on them. Do that when deploying.
 
+## Conventions
+
+- **Records:** every request, response, input, filter and event is its own top-level record file with one
+  component per line, like `shared/Label.java`. They live in `dto/` (and `event/` for events) next to the
+  module's classes, for example `leads/dto/LeadResponse.java`. Records that Spring binds as configuration,
+  JPA composite keys and private helpers stay nested.
+- **Threads:** request threads, `@Scheduled` jobs and the application task executor run on virtual threads
+  (`spring.threads.virtual.enabled`). Blocking JDBC and HTTP calls are fine there.
+- **Database pool:** HikariCP keeps 3 to 20 connections. It is the real limit on concurrent database work.
+- **Logs:** Flyway's startup line contains the database URL, so its logger is set to WARN.
+
 ## Requirements
 
 - JDK 25

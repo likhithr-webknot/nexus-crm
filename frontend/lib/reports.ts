@@ -40,3 +40,5 @@ export const listTargets = (year: number) => api<{ month: string; amount: string
 
 export const setTarget = (month: string, amount: string) =>
   api<{ month: string; amount: string }>(`/revenue-targets/${month}`, { method: "PUT", body: JSON.stringify({ amount }) });
+
+export const deleteTarget = (month: string) => api(`/revenue-targets/${month}`, { method: "DELETE" });

@@ -11,8 +11,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.SQLRestriction;
 
-import com.nexus.crm.shared.persistence.BaseEntity;
 import com.nexus.crm.shared.Emails;
+import com.nexus.crm.shared.persistence.BaseEntity;
 
 /** A person at a company. */
 @Entity

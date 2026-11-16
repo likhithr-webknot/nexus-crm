@@ -42,3 +42,8 @@ export const logActivity = (body: {
   leadId?: string;
   dealId?: string;
 }) => api<Activity>("/activities", { method: "POST", body: JSON.stringify(body) });
+
+export const updateActivity = (id: string, body: { subject?: string; body?: string; version?: number }) =>
+  api<Activity>(`/activities/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+
+export const deleteActivity = (id: string) => api(`/activities/${id}`, { method: "DELETE" });

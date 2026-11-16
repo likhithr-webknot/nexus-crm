@@ -26,12 +26,12 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import com.nexus.crm.shared.Role;
-import com.nexus.crm.support.IntegrationTest;
 import com.nexus.crm.identity.auth.CookieOAuth2AuthorizationRequestRepository;
 import com.nexus.crm.identity.auth.OidcSignInHandlers;
 import com.nexus.crm.identity.user.AppUser;
 import com.nexus.crm.identity.user.AppUserRepository;
+import com.nexus.crm.shared.Role;
+import com.nexus.crm.support.IntegrationTest;
 
 /** Google sign-in: what we send to Google, and what we do when Google sends the user back. These tests never contact Google. */
 class GoogleSignInTests extends IntegrationTest {

@@ -1,6 +1,5 @@
 package com.nexus.crm.contacts;
 
-import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -8,9 +7,6 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
@@ -26,44 +22,23 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.nexus.crm.contacts.dto.CompanyInput;
+import com.nexus.crm.contacts.dto.CompanyResponse;
+import com.nexus.crm.contacts.dto.ContactInput;
+import com.nexus.crm.contacts.dto.ContactResponse;
+import com.nexus.crm.contacts.dto.CreateCompanyRequest;
+import com.nexus.crm.contacts.dto.CreateContactRequest;
+import com.nexus.crm.contacts.dto.UpdateCompanyRequest;
+import com.nexus.crm.contacts.dto.UpdateContactRequest;
 import com.nexus.crm.identity.user.UserService;
 import com.nexus.crm.shared.CurrentUser;
+import com.nexus.crm.shared.Ref;
 import com.nexus.crm.shared.web.PageResponse;
 
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
 class ContactController {
-
-	record Ref(UUID id, String name) {
-	}
-
-	record ContactResponse(UUID id, String firstName, String lastName, String name, String jobTitle, String email,
-			String phone, Ref company, Ref owner, Instant createdAt, Instant updatedAt, Integer version) {
-	}
-
-	record CompanyResponse(UUID id, String name, String domain, String industry, Ref owner, Instant createdAt,
-			Instant updatedAt, Integer version) {
-	}
-
-	record CreateContactRequest(@NotBlank @Size(max = 120) String firstName, @NotBlank @Size(max = 120) String lastName,
-			@Email @Size(max = 254) String email, @Size(max = 40) String phone, @Size(max = 120) String jobTitle,
-			UUID companyId, @Size(max = 160) String companyName, UUID ownerId) {
-	}
-
-	/** Every field is optional. A field that is left out is not changed. */
-	record UpdateContactRequest(Integer version, @Size(max = 120) String firstName, @Size(max = 120) String lastName,
-			@Email @Size(max = 254) String email, @Size(max = 40) String phone, @Size(max = 120) String jobTitle,
-			UUID companyId, @Size(max = 160) String companyName, UUID ownerId) {
-	}
-
-	record CreateCompanyRequest(@NotBlank @Size(max = 160) String name, @Size(max = 160) String domain,
-			@Size(max = 120) String industry, UUID ownerId) {
-	}
-
-	record UpdateCompanyRequest(Integer version, @Size(max = 160) String name, @Size(max = 160) String domain,
-			@Size(max = 120) String industry, UUID ownerId) {
-	}
 
 	private final ContactService contacts;
 
@@ -86,7 +61,7 @@ class ContactController {
 	@PostMapping("/contacts")
 	@ResponseStatus(HttpStatus.CREATED)
 	ContactResponse create(@AuthenticationPrincipal CurrentUser user, @Valid @RequestBody CreateContactRequest r) {
-		Contact contact = this.contacts.create(user, new ContactService.ContactInput(r.firstName(), r.lastName(),
+		Contact contact = this.contacts.create(user, new ContactInput(r.firstName(), r.lastName(),
 				r.email(), r.phone(), r.jobTitle(), r.companyId(), r.companyName(), r.ownerId()));
 		return contactMapper(List.of(contact)).apply(contact);
 	}
@@ -94,7 +69,7 @@ class ContactController {
 	@PatchMapping("/contacts/{id}")
 	ContactResponse update(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id,
 			@Valid @RequestBody UpdateContactRequest r) {
-		Contact contact = this.contacts.update(user, id, r.version(), new ContactService.ContactInput(r.firstName(),
+		Contact contact = this.contacts.update(user, id, r.version(), new ContactInput(r.firstName(),
 				r.lastName(), r.email(), r.phone(), r.jobTitle(), r.companyId(), r.companyName(), r.ownerId()));
 		return contactMapper(List.of(contact)).apply(contact);
 	}
@@ -124,7 +99,7 @@ class ContactController {
 	CompanyResponse createCompany(@AuthenticationPrincipal CurrentUser user,
 			@Valid @RequestBody CreateCompanyRequest r) {
 		Company company = this.contacts.createCompany(user,
-				new ContactService.CompanyInput(r.name(), r.domain(), r.industry(), r.ownerId()));
+				new CompanyInput(r.name(), r.domain(), r.industry(), r.ownerId()));
 		return companyMapper(List.of(company)).apply(company);
 	}
 
@@ -132,8 +107,14 @@ class ContactController {
 	CompanyResponse updateCompany(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id,
 			@Valid @RequestBody UpdateCompanyRequest r) {
 		Company company = this.contacts.updateCompany(user, id, r.version(),
-				new ContactService.CompanyInput(r.name(), r.domain(), r.industry(), r.ownerId()));
+				new CompanyInput(r.name(), r.domain(), r.industry(), r.ownerId()));
 		return companyMapper(List.of(company)).apply(company);
+	}
+
+	@DeleteMapping("/companies/{id}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	void deleteCompany(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) {
+		this.contacts.deleteCompany(user, id);
 	}
 
 	/** Looks up company and owner names once for the whole list, then builds each response. */

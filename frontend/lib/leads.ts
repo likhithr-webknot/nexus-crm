@@ -108,3 +108,8 @@ export async function listAllLeads(filters: LeadFilters, limit = 5000) {
   }
   return all;
 }
+
+export type LeadChanges = Partial<Omit<NewLead, "ownerId" | "unassigned">> & { version?: number };
+
+export const updateLead = (id: string, body: LeadChanges) =>
+  api<Lead>(`/leads/${id}`, { method: "PATCH", body: JSON.stringify(body) });

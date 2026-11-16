@@ -31,17 +31,30 @@ import com.nexus.crm.audit.AuditService;
 import com.nexus.crm.contacts.Company;
 import com.nexus.crm.contacts.Contact;
 import com.nexus.crm.contacts.ContactService;
+import com.nexus.crm.contacts.dto.ContactInput;
 import com.nexus.crm.deals.Deal;
 import com.nexus.crm.deals.DealService;
+import com.nexus.crm.deals.dto.DealInput;
 import com.nexus.crm.identity.user.UserService;
-import com.nexus.crm.shared.error.ApiException;
-import com.nexus.crm.shared.currency.CurrencyService;
+import com.nexus.crm.leads.dto.LeadConversion;
+import com.nexus.crm.leads.dto.LeadFilter;
+import com.nexus.crm.leads.dto.LeadImportResult;
+import com.nexus.crm.leads.dto.LeadImportRow;
+import com.nexus.crm.leads.dto.LeadImportRowError;
+import com.nexus.crm.leads.dto.LeadInput;
+import com.nexus.crm.leads.dto.LeadSummary;
+import com.nexus.crm.leads.dto.LeadView;
+import com.nexus.crm.leads.event.LeadAssigned;
+import com.nexus.crm.leads.event.LeadConverted;
+import com.nexus.crm.leads.event.LeadStatusChanged;
 import com.nexus.crm.shared.CurrentUser;
 import com.nexus.crm.shared.Emails;
-import com.nexus.crm.shared.error.ErrorCode;
-import com.nexus.crm.shared.currency.Money;
 import com.nexus.crm.shared.Role;
 import com.nexus.crm.shared.Search;
+import com.nexus.crm.shared.currency.CurrencyService;
+import com.nexus.crm.shared.currency.Money;
+import com.nexus.crm.shared.error.ApiException;
+import com.nexus.crm.shared.error.ErrorCode;
 
 /** Leads. A user sees the leads they own, their team's (managers), everyone's (admins), and the unassigned queue. */
 @Slf4j
@@ -53,42 +66,6 @@ public class LeadService {
 	public static final int MAX_IMPORT_ROWS = 10_000;
 
 	private static final Pattern EMAIL = Pattern.compile("^\\S+@\\S+\\.\\S+$");
-
-	/** The fields of a lead. On update, a null field is left as it is. */
-	public record LeadInput(String firstName, String lastName, String email, String phone, String companyName,
-			String jobTitle, Lead.Source source, UUID ownerId, boolean unassigned, Money estimatedValue) {
-	}
-
-	/** The list filters. Any may be null. {@code view} is one of the quick views on the leads page. */
-	public record LeadFilter(String query, Lead.Source source, Lead.Status status, UUID ownerId, boolean unassigned,
-			View view) {
-	}
-
-	public enum View {
-
-		ALL, NEW_THIS_MONTH, QUALIFIED, UNASSIGNED
-
-	}
-
-	/** One row of an import, already read from the CSV by the browser. The server checks it again. */
-	public record ImportRow(String name, String email, String company, String phone, String source, String value,
-			String currency) {
-	}
-
-	public record ImportRowError(int row, String reason) {
-	}
-
-	public record ImportResult(int total, int imported, List<ImportRowError> errors) {
-	}
-
-	/** Counts for the tiles on the leads page. A change is null when it cannot be worked out. */
-	public record Summary(long total, long newThisMonth, long qualified, long unassigned, long active,
-			Double totalChange, Double newThisMonthChange) {
-	}
-
-	/** What a conversion created. */
-	public record Conversion(UUID leadId, UUID companyId, UUID contactId, UUID dealId) {
-	}
 
 	private final LeadRepository leads;
 
@@ -131,7 +108,7 @@ public class LeadService {
 	}
 
 	@Transactional(readOnly = true)
-	public Summary summary(CurrentUser user) {
+	public LeadSummary summary(CurrentUser user) {
 		Specification<Lead> mine = visible(user);
 		Instant monthStart = monthStart(0);
 		Instant lastMonthStart = monthStart(-1);
@@ -142,22 +119,22 @@ public class LeadService {
 		long totalBeforeThisMonth = this.leads.count(mine.and(createdBetween(null, monthStart)));
 		long newThisMonth = this.leads.count(mine.and(createdBetween(monthStart, null)));
 		long newLastMonth = this.leads.count(mine.and(createdBetween(lastMonthStart, sameMomentLastMonth)));
-		long qualified = this.leads.count(mine.and(matching(filterOf(View.QUALIFIED))));
-		long unassigned = this.leads.count(mine.and(matching(filterOf(View.UNASSIGNED))));
+		long qualified = this.leads.count(mine.and(matching(filterOf(LeadView.QUALIFIED))));
+		long unassigned = this.leads.count(mine.and(matching(filterOf(LeadView.UNASSIGNED))));
 		long active = this.leads.count(mine.and(statusIn(Lead.Status.NEW, Lead.Status.CONTACTED, Lead.Status.QUALIFIED)));
-		return new Summary(total, newThisMonth, qualified, unassigned, active, percentChange(totalBeforeThisMonth, total),
+		return new LeadSummary(total, newThisMonth, qualified, unassigned, active, percentChange(totalBeforeThisMonth, total),
 				percentChange(newLastMonth, newThisMonth));
 	}
 
 	/** Lead names with their company, for timelines and follow-up lists. */
 	@Transactional(readOnly = true)
-	public java.util.Map<UUID, com.nexus.crm.shared.Who> leadSummaries(Collection<UUID> ids) {
+	public java.util.Map<UUID, com.nexus.crm.shared.Label> leadSummaries(Collection<UUID> ids) {
 		if (ids.isEmpty()) {
 			return java.util.Map.of();
 		}
 		return this.leads.findAllById(ids)
 			.stream()
-			.collect(java.util.stream.Collectors.toMap(Lead::getId, (l) -> new com.nexus.crm.shared.Who(fullName(l), l.getCompanyName())));
+			.collect(java.util.stream.Collectors.toMap(Lead::getId, (l) -> new com.nexus.crm.shared.Label(fullName(l), l.getCompanyName())));
 	}
 
 	/** Lead names by ID, for timelines and follow-up lists. */
@@ -184,7 +161,7 @@ public class LeadService {
 		this.history.save(new LeadStatusHistory(lead.getId(), null, Lead.Status.NEW, user.id()));
 		this.audit.record(user.id(), "Lead", lead.getId(), AuditLog.Action.CREATE, null);
 		if (lead.getOwnerId() != null) {
-			this.events.publishEvent(new LeadEvents.Assigned(lead.getId(), fullName(lead), lead.getOwnerId(), user.id()));
+			this.events.publishEvent(new LeadAssigned(lead.getId(), fullName(lead), lead.getOwnerId(), user.id()));
 		}
 		return lead;
 	}
@@ -222,7 +199,7 @@ public class LeadService {
 		lead.setOwnerId(newOwner);
 		this.leads.save(lead);
 		this.audit.record(user.id(), "Lead", id, AuditLog.Action.UPDATE, changes);
-		this.events.publishEvent(new LeadEvents.Assigned(id, fullName(lead), newOwner, user.id()));
+		this.events.publishEvent(new LeadAssigned(id, fullName(lead), newOwner, user.id()));
 		return lead;
 	}
 
@@ -254,7 +231,7 @@ public class LeadService {
 		this.leads.save(lead);
 		this.history.save(new LeadStatusHistory(id, from, status, user.id()));
 		this.audit.record(user.id(), "Lead", id, AuditLog.Action.UPDATE, AuditService.changes().field("status", from, status));
-		this.events.publishEvent(new LeadEvents.StatusChanged(id, fullName(lead), from, status, user.id()));
+		this.events.publishEvent(new LeadStatusChanged(id, fullName(lead), from, status, user.id()));
 		return lead;
 	}
 
@@ -269,7 +246,7 @@ public class LeadService {
 
 	/** Turns a lead into a company, a contact and a deal, all in one transaction: either everything is created or nothing is. */
 	@Transactional
-	public Conversion convert(CurrentUser user, UUID id, String dealName, Money amount, LocalDate expectedCloseDate) {
+	public LeadConversion convert(CurrentUser user, UUID id, String dealName, Money amount, LocalDate expectedCloseDate) {
 		Lead lead = get(user, id);
 		if (lead.getStatus() == Lead.Status.CONVERTED || lead.getStatus() == Lead.Status.DISQUALIFIED) {
 			throw new ApiException(ErrorCode.INVALID_STATE, "A " + lead.getStatus().name().toLowerCase(Locale.ROOT) + " lead cannot be converted.");
@@ -279,12 +256,12 @@ public class LeadService {
 
 		String companyName = (lead.getCompanyName() == null || lead.getCompanyName().isBlank()) ? fullName(lead) : lead.getCompanyName();
 		Company company = this.contacts.findOrCreateCompany(user, companyName, ownerId);
-		Contact contact = this.contacts.findOrCreateContact(user, new ContactService.ContactInput(lead.getFirstName(),
+		Contact contact = this.contacts.findOrCreateContact(user, new ContactInput(lead.getFirstName(),
 				lead.getLastName(), lead.getEmail(), lead.getPhone(), lead.getJobTitle(), company.getId(), null, ownerId), ownerId);
 
 		Money dealAmount = (amount != null) ? amount : (lead.getEstimatedValue() != null)
 				? new Money(lead.getEstimatedValue(), lead.getCurrency()) : new Money(BigDecimal.ZERO, this.currencies.base().getCode());
-		Deal deal = this.deals.create(user, new DealService.DealInput((dealName == null || dealName.isBlank()) ? companyName : dealName.strip(),
+		Deal deal = this.deals.create(user, new DealInput((dealName == null || dealName.isBlank()) ? companyName : dealName.strip(),
 				company.getId(), contact.getId(), ownerId, null, dealAmount, expectedCloseDate, lead.getId(), lead.getSource().name()));
 
 		Lead.Status from = lead.getStatus();
@@ -292,19 +269,19 @@ public class LeadService {
 		this.leads.save(lead);
 		this.history.save(new LeadStatusHistory(id, from, Lead.Status.CONVERTED, user.id()));
 		this.audit.record(user.id(), "Lead", id, AuditLog.Action.CONVERT, null);
-		this.events.publishEvent(new LeadEvents.Converted(id, fullName(lead), deal.getId(), company.getId(), contact.getId(), user.id()));
-		return new Conversion(id, company.getId(), contact.getId(), deal.getId());
+		this.events.publishEvent(new LeadConverted(id, fullName(lead), deal.getId(), company.getId(), contact.getId(), user.id()));
+		return new LeadConversion(id, company.getId(), contact.getId(), deal.getId());
 	}
 
 	/** Imports leads that the browser read from a CSV file. */
 	@Transactional
-	public ImportResult importRows(CurrentUser user, List<ImportRow> rows) {
+	public LeadImportResult importRows(CurrentUser user, List<LeadImportRow> rows) {
 		if (rows.size() > MAX_IMPORT_ROWS) {
 			throw new ApiException(ErrorCode.VALIDATION_FAILED, "An import can hold at most " + MAX_IMPORT_ROWS + " rows.");
 		}
 		ImportJob job = new ImportJob(user.id());
 		job.start();
-		List<ImportRowError> errors = new ArrayList<>();
+		List<LeadImportRowError> errors = new ArrayList<>();
 		List<Lead> ready = new ArrayList<>();
 		Set<String> seen = new HashSet<>();
 		Set<String> taken = new HashSet<>(this.leads.findOpenEmails(rows.stream()
@@ -312,7 +289,7 @@ public class LeadService {
 			.filter(java.util.Objects::nonNull)
 			.toList()));
 		int number = 0;
-		for (ImportRow row : rows) {
+		for (LeadImportRow row : rows) {
 			number++;
 			String problem = check(row);
 			String email = Emails.normalize(row.email());
@@ -320,7 +297,7 @@ public class LeadService {
 				problem = "This email is already used by an open lead.";
 			}
 			if (problem != null) {
-				errors.add(new ImportRowError(number, problem));
+				errors.add(new LeadImportRowError(number, problem));
 				continue;
 			}
 			ready.add(leadFromRow(row));
@@ -333,12 +310,12 @@ public class LeadService {
 		job.finish(rows.size(), ready.size(), errors.size(), this.json.writeValueAsString(errors));
 		this.importJobs.save(job);
 		log.info("Leads imported: jobId={} total={} imported={} failed={} by={}", job.getId(), rows.size(), ready.size(), errors.size(), user.id());
-		return new ImportResult(rows.size(), ready.size(), errors);
+		return new LeadImportResult(rows.size(), ready.size(), errors);
 	}
 
 	// ---- helpers ----
 
-	private String check(ImportRow row) {
+	private String check(LeadImportRow row) {
 		if (row.name() == null || row.name().isBlank()) {
 			return "The name is missing.";
 		}
@@ -364,7 +341,7 @@ public class LeadService {
 		return null;
 	}
 
-	private Lead leadFromRow(ImportRow row) {
+	private Lead leadFromRow(LeadImportRow row) {
 		String[] name = splitName(row.name());
 		Lead lead = new Lead(name[0], name[1], parseSource(row.source()));
 		lead.setEmail(row.email());
@@ -378,7 +355,7 @@ public class LeadService {
 		return lead;
 	}
 
-	private String currencyOf(ImportRow row) {
+	private String currencyOf(LeadImportRow row) {
 		return (row.currency() == null || row.currency().isBlank()) ? this.currencies.base().getCode()
 				: row.currency().strip().toUpperCase(Locale.ROOT);
 	}
@@ -480,7 +457,7 @@ public class LeadService {
 				: cb.or(root.get("ownerId").in(ids), cb.isNull(root.get("ownerId")));
 	}
 
-	private static LeadFilter filterOf(View view) {
+	private static LeadFilter filterOf(LeadView view) {
 		return new LeadFilter(null, null, null, null, false, view);
 	}
 
@@ -516,13 +493,13 @@ public class LeadService {
 			else if (f.ownerId() != null) {
 				all.add(cb.equal(root.get("ownerId"), f.ownerId()));
 			}
-			if (f.view() == View.NEW_THIS_MONTH) {
+			if (f.view() == LeadView.NEW_THIS_MONTH) {
 				all.add(cb.greaterThanOrEqualTo(root.get("createdAt"), monthStart(0)));
 			}
-			else if (f.view() == View.QUALIFIED) {
+			else if (f.view() == LeadView.QUALIFIED) {
 				all.add(cb.equal(root.get("status"), Lead.Status.QUALIFIED));
 			}
-			else if (f.view() == View.UNASSIGNED) {
+			else if (f.view() == LeadView.UNASSIGNED) {
 				// Only leads that are still being worked: a converted lead is not waiting for an owner.
 				all.add(cb.isNull(root.get("ownerId")));
 				all.add(root.get("status").in(Lead.Status.NEW, Lead.Status.CONTACTED, Lead.Status.QUALIFIED));

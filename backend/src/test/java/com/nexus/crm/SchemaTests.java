@@ -45,12 +45,12 @@ import com.nexus.crm.reporting.DailyMetricRepository;
 import com.nexus.crm.reporting.RevenueTarget;
 import com.nexus.crm.reporting.RevenueTargetRepository;
 import com.nexus.crm.shared.CurrentUser;
+import com.nexus.crm.shared.Role;
 import com.nexus.crm.shared.currency.CurrencyRepository;
 import com.nexus.crm.shared.currency.ExchangeRate;
 import com.nexus.crm.shared.currency.ExchangeRateRepository;
 import com.nexus.crm.shared.persistence.IdempotencyKey;
 import com.nexus.crm.shared.persistence.IdempotencyKeyRepository;
-import com.nexus.crm.shared.Role;
 import com.nexus.crm.support.IntegrationTest;
 
 /** Checks that the entities match the tables, and that the database rules (unique emails, required links) work. */

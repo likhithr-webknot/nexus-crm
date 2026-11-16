@@ -19,6 +19,7 @@ export function StageColumn({
   onCardDragStart,
   onCardDragEnd,
   onCardArrow,
+  onCardOpen,
 }: {
   stage: PipelineStage;
   deals: Deal[];
@@ -31,6 +32,7 @@ export function StageColumn({
   onCardDragStart: (deal: Deal) => void;
   onCardDragEnd: () => void;
   onCardArrow: (deal: Deal, direction: -1 | 1) => void;
+  onCardOpen: (deal: Deal) => void;
 }) {
   const { reportingCurrency, convertToReporting } = useCurrency();
   const cards = sortCards(deals, sort, convertToReporting);
@@ -71,6 +73,7 @@ export function StageColumn({
             onDragStart={() => onCardDragStart(deal)}
             onDragEnd={onCardDragEnd}
             onArrow={(direction) => onCardArrow(deal, direction)}
+            onOpen={() => onCardOpen(deal)}
           />
         ))}
         {cards.length === 0 && (

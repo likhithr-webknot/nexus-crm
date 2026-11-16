@@ -11,10 +11,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.nexus.crm.identity.auth.SessionService.ClientInfo;
-import com.nexus.crm.identity.auth.SessionService.SessionTokens;
-import com.nexus.crm.shared.error.ApiException;
+import com.nexus.crm.identity.auth.dto.ClientInfo;
+import com.nexus.crm.identity.auth.dto.SessionTokens;
 import com.nexus.crm.shared.CurrentUser;
+import com.nexus.crm.shared.error.ApiException;
 import com.nexus.crm.shared.error.ErrorCode;
 
 /** Refresh and sign-out. Signing in has no method here: Spring Security handles the Google sign-in itself (see SecurityConfig). */

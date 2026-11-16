@@ -1,15 +1,20 @@
 "use client";
 
+import { DeleteDialog } from "@/components/ui/delete-dialog";
 import { LoadFailed } from "@/components/ui/load-state";
 import { Card, Page, PageHeader, buttonPrimary } from "@/components/ui/primitives";
 import { toast } from "@/components/ui/toast";
+import { useRefresh } from "@/hooks/use-refresh";
 import { monthGrid, monthOf, shiftMonth } from "@/lib/calendar";
+import { deleteFollowUp } from "@/lib/follow-ups";
 import { formatDay, localIso, todayLocal } from "@/lib/format";
+import { AFTER } from "@/lib/query-keys";
 import { Plus } from "lucide-react";
 import { useState } from "react";
+import { EditFollowUpDialog } from "./edit-follow-up-dialog";
 import { FollowUpAgenda } from "./follow-up-agenda";
 import { FollowUpCalendar } from "./follow-up-calendar";
-import { dayOf } from "./follow-up-item";
+import { dayOf, type Item } from "./follow-up-item";
 import { FollowUpTiles } from "./follow-up-tiles";
 import { NewFollowUpDialog } from "./new-follow-up-dialog";
 import { useFollowUps, useToggleFollowUp } from "./use-follow-ups";
@@ -18,12 +23,15 @@ import { useFollowUps, useToggleFollowUp } from "./use-follow-ups";
 export function FollowUpsView() {
   const today = todayLocal();
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<Item | null>(null);
+  const [deleting, setDeleting] = useState<Item | null>(null);
   const [selected, setSelected] = useState(today);
   const [month, setMonth] = useState(() => monthOf(today));
 
   const grid = monthGrid(month);
   const data = useFollowUps(grid, today);
   const toggle = useToggleFollowUp();
+  const refresh = useRefresh();
 
   const showDay = (iso: string) => {
     setSelected(iso);
@@ -69,9 +77,21 @@ export function FollowUpsView() {
           items={data.items.filter((f) => dayOf(f) === selected && f.status !== "CANCELLED")}
           overdue={data.overdue}
           onToggle={(item) => toggle.mutate(item)}
+          onEdit={setEditing}
+          onDelete={setDeleting}
         />
       </div>
 
+      <EditFollowUpDialog item={editing} onClose={() => setEditing(null)} />
+      <DeleteDialog
+        target={deleting}
+        title={(f) => `Delete "${f.title}"?`}
+        body="The follow-up is removed from the calendar."
+        successMessage={(f) => `${f.title} deleted.`}
+        action={(f) => deleteFollowUp(f.id)}
+        onClose={() => setDeleting(null)}
+        onDeleted={() => void refresh(AFTER.followUp)}
+      />
       <NewFollowUpDialog
         open={adding}
         onClose={() => setAdding(false)}

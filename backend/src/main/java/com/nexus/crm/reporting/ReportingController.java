@@ -1,28 +1,32 @@
 package com.nexus.crm.reporting;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.util.List;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.nexus.crm.shared.error.ApiException;
+import com.nexus.crm.reporting.dto.DashboardResponse;
+import com.nexus.crm.reporting.dto.MonthResponse;
+import com.nexus.crm.reporting.dto.Overview;
+import com.nexus.crm.reporting.dto.TargetRequest;
+import com.nexus.crm.reporting.dto.TargetResponse;
 import com.nexus.crm.shared.CurrentUser;
+import com.nexus.crm.shared.error.ApiException;
 import com.nexus.crm.shared.error.ErrorCode;
 
 /** Everything here is limited to what the signed-in user may see. Money is in INR. */
@@ -33,18 +37,6 @@ class ReportingController {
 
 	/** The longest date range one request may ask for. */
 	private static final int MAX_RANGE_DAYS = 366;
-
-	record TargetResponse(String month, @JsonFormat(shape = JsonFormat.Shape.STRING) BigDecimal amount) {
-	}
-
-	record TargetRequest(@NotNull @DecimalMin("0") BigDecimal amount) {
-	}
-
-	record MonthResponse(String month, double revenue, @JsonFormat(shape = JsonFormat.Shape.STRING) BigDecimal target) {
-	}
-
-	record DashboardResponse(LocalDate from, LocalDate to, ReportingService.Dashboard data) {
-	}
 
 	private final ReportingService reporting;
 
@@ -57,7 +49,7 @@ class ReportingController {
 	}
 
 	@GetMapping("/reports/overview")
-	ReportingService.Overview overview(@AuthenticationPrincipal CurrentUser user,
+	Overview overview(@AuthenticationPrincipal CurrentUser user,
 			@RequestParam(required = false) LocalDate from, @RequestParam(required = false) LocalDate to) {
 		LocalDate[] range = range(from, to);
 		return this.reporting.overview(user, range[0], range[1]);
@@ -96,6 +88,22 @@ class ReportingController {
 		}
 		RevenueTarget target = this.reporting.setTarget(parsed, request.amount(), admin.id());
 		return new TargetResponse(parsed.toString(), target.getAmount());
+	}
+
+	@DeleteMapping("/revenue-targets/{month}")
+	@PreAuthorize("hasRole('ADMIN')")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	void deleteTarget(@PathVariable String month) {
+		this.reporting.deleteTarget(parseMonth(month));
+	}
+
+	private static YearMonth parseMonth(String month) {
+		try {
+			return YearMonth.parse(month);
+		}
+		catch (java.time.format.DateTimeParseException ex) {
+			throw new ApiException(ErrorCode.VALIDATION_FAILED, "The month must look like 2026-11.");
+		}
 	}
 
 	private static LocalDate[] range(LocalDate from, LocalDate to) {

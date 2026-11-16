@@ -52,3 +52,10 @@ export const createFollowUp = (body: {
 
 export const setFollowUpDone = (id: string, done: boolean) =>
   api<FollowUp>(`/follow-ups/${id}/${done ? "complete" : "reopen"}`, { method: "POST" });
+
+export const updateFollowUp = (
+  id: string,
+  body: { title?: string; type?: FollowUpType; notes?: string; dueAt?: string; assigneeId?: string; version?: number },
+) => api<FollowUp>(`/follow-ups/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+
+export const deleteFollowUp = (id: string) => api(`/follow-ups/${id}`, { method: "DELETE" });

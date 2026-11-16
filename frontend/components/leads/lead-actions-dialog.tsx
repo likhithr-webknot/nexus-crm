@@ -16,7 +16,7 @@ import { useState } from "react";
 const MOVABLE: LeadStatus[] = ["NEW", "CONTACTED", "QUALIFIED"];
 
 /** Everything you can do with one lead: change its status, give it to someone, or turn it into a deal. */
-export function LeadActionsDialog({ lead, onClose }: { lead: Lead | null; onClose: () => void }) {
+export function LeadActionsDialog({ lead, onClose, onEdit, onDelete }: { lead: Lead | null; onClose: () => void; onEdit: (lead: Lead) => void; onDelete: (lead: Lead) => void }) {
   const session = useSession();
   const refresh = useRefresh();
   const people = useAssignableUsers(lead !== null);
@@ -120,6 +120,17 @@ export function LeadActionsDialog({ lead, onClose }: { lead: Lead | null; onClos
         )}
         {lead.status === "CONVERTED" && <p className="text-[13px] text-ink-3">This lead has already become a deal.</p>}
         {error && <FormError>{error}</FormError>}
+
+        <div className="flex flex-wrap gap-2 border-t border-line pt-4">
+          {lead.status !== "CONVERTED" && (
+            <button type="button" className={buttonSecondary} onClick={() => { close(); onEdit(lead); }}>
+              Edit details
+            </button>
+          )}
+          <button type="button" className={buttonSecondary + " text-down"} onClick={() => { close(); onDelete(lead); }}>
+            Delete lead
+          </button>
+        </div>
       </DialogBody>
     </Dialog>
   );

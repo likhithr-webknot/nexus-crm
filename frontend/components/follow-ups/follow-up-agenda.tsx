@@ -1,3 +1,4 @@
+import { EditDeleteActions } from "@/components/ui/icon-action";
 import { Avatar, Card } from "@/components/ui/primitives";
 import { FOLLOW_UP_TYPE_LABELS } from "@/lib/follow-ups";
 import { cn, formatDay, formatLongDay, formatTime } from "@/lib/format";
@@ -5,7 +6,7 @@ import { CalendarCheck, Check } from "lucide-react";
 import { TYPE_STYLES, type Item } from "./follow-up-item";
 
 /** The follow-ups of the picked day, and below them everything that is overdue. */
-export function FollowUpAgenda({ day, isToday, items, overdue, onToggle }: { day: string; isToday: boolean; items: Item[]; overdue: Item[]; onToggle: (item: Item) => void }) {
+export function FollowUpAgenda({ day, isToday, items, overdue, onToggle, onEdit, onDelete }: { day: string; isToday: boolean; items: Item[]; overdue: Item[]; onToggle: (item: Item) => void; onEdit: (item: Item) => void; onDelete: (item: Item) => void }) {
   return (
     <Card>
       <header className="border-b border-line px-5 py-4">
@@ -20,7 +21,7 @@ export function FollowUpAgenda({ day, isToday, items, overdue, onToggle }: { day
       ) : (
         <ul className="divide-y divide-line">
           {items.map((f) => (
-            <AgendaItem key={f.id} item={f} onToggle={onToggle} when={formatTime(f.local)} />
+            <AgendaItem key={f.id} item={f} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} when={formatTime(f.local)} />
           ))}
         </ul>
       )}
@@ -30,7 +31,7 @@ export function FollowUpAgenda({ day, isToday, items, overdue, onToggle }: { day
           <h3 className="border-y border-line bg-rose-50/60 px-5 py-2 text-[12px] font-semibold tracking-wide text-rose-700 uppercase">Overdue · {overdue.length}</h3>
           <ul className="divide-y divide-line">
             {overdue.map((f) => (
-              <AgendaItem key={f.id} item={f} onToggle={onToggle} when={formatDay(f.local)} late />
+              <AgendaItem key={f.id} item={f} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} when={formatDay(f.local)} late />
             ))}
           </ul>
         </>
@@ -42,11 +43,15 @@ export function FollowUpAgenda({ day, isToday, items, overdue, onToggle }: { day
 function AgendaItem({
   item,
   onToggle,
+  onEdit,
+  onDelete,
   when,
   late,
 }: {
   item: Item;
   onToggle: (item: Item) => void;
+  onEdit: (item: Item) => void;
+  onDelete: (item: Item) => void;
   when: string;
   late?: boolean;
 }) {
@@ -61,10 +66,13 @@ function AgendaItem({
           {FOLLOW_UP_TYPE_LABELS[item.type]}
           {item.about ? ` · ${item.about.name}${item.about.company ? `, ${item.about.company}` : ""}` : ""}
         </p>
-        <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-ink-2">
-          <Avatar name={item.assigneeName ?? "?"} />
-          {item.assigneeName}
-        </p>
+        <div className="mt-1.5 flex items-center justify-between gap-2">
+          <p className="flex min-w-0 items-center gap-1.5 text-[12px] text-ink-2">
+            <Avatar name={item.assigneeName ?? "?"} />
+            <span className="truncate">{item.assigneeName}</span>
+          </p>
+          <EditDeleteActions name={item.title} onEdit={() => onEdit(item)} onDelete={() => onDelete(item)} />
+        </div>
       </div>
       <button
         role="checkbox"

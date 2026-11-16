@@ -17,8 +17,8 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.type.SqlTypes;
 
-import com.nexus.crm.shared.persistence.BaseEntity;
 import com.nexus.crm.shared.Emails;
+import com.nexus.crm.shared.persistence.BaseEntity;
 
 /** Someone who might become a customer. */
 @Entity

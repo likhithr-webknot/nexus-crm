@@ -9,6 +9,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.nexus.crm.identity.team.dto.TeamInfo;
 import com.nexus.crm.identity.user.AppUser;
 import com.nexus.crm.identity.user.AppUserRepository;
 import com.nexus.crm.shared.Role;
@@ -20,10 +21,6 @@ import com.nexus.crm.shared.error.ErrorCode;
 @Service
 @RequiredArgsConstructor
 public class TeamService {
-
-	/** A team with how many people are in it. */
-	public record TeamInfo(Team team, String managerName, long members) {
-	}
 
 	private final TeamRepository teams;
 

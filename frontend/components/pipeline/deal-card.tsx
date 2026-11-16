@@ -3,6 +3,7 @@ import { Avatar } from "@/components/ui/primitives";
 import type { Deal } from "@/lib/deals";
 import { cn, formatDay, localIso } from "@/lib/format";
 import { moneyValue } from "@/lib/money";
+import { MoreHorizontal } from "lucide-react";
 
 /** One deal on the board. It can be dragged, or moved with the arrow keys. */
 export function DealCard({
@@ -11,6 +12,7 @@ export function DealCard({
   onDragStart,
   onDragEnd,
   onArrow,
+  onOpen,
 }: {
   deal: Deal;
   dragging: boolean;
@@ -18,6 +20,8 @@ export function DealCard({
   onDragEnd: () => void;
   /** -1 for the left arrow and 1 for the right. */
   onArrow: (direction: -1 | 1) => void;
+  /** Opens the deal to edit or delete it. */
+  onOpen: () => void;
 }) {
   const { format } = useCurrency();
   const amount = format(moneyValue(deal.amount), deal.amount.currency);
@@ -42,7 +46,12 @@ export function DealCard({
     >
       <div className="flex items-center justify-between gap-2">
         <span className="truncate text-[11.5px] text-ink-3">{deal.name}</span>
-        <span className="tnum shrink-0 text-[11.5px] text-ink-3">{formatDay(localIso(deal.updatedAt))}</span>
+        <span className="flex shrink-0 items-center gap-1">
+          <span className="tnum text-[11.5px] text-ink-3">{formatDay(localIso(deal.updatedAt))}</span>
+          <button type="button" aria-label={`Edit or delete ${deal.company.name}`} onClick={onOpen} className="-mr-1.5 grid size-6 place-items-center rounded text-ink-3 hover:bg-canvas hover:text-ink">
+            <MoreHorizontal className="size-4" aria-hidden />
+          </button>
+        </span>
       </div>
       <p className="mt-2.5 truncate text-[13.5px] font-semibold text-ink">{deal.company.name}</p>
       <p className="truncate text-[12.5px] text-ink-3">{deal.primaryContact?.name ?? "No contact"}</p>

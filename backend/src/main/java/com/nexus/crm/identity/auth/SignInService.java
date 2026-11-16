@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import com.nexus.crm.identity.user.AppUser;
 import com.nexus.crm.identity.user.AppUserRepository;
 

@@ -1,13 +1,10 @@
 package com.nexus.crm.shared.currency;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -21,7 +18,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+
 import com.nexus.crm.shared.CurrentUser;
+import com.nexus.crm.shared.currency.dto.CurrencyResponse;
+import com.nexus.crm.shared.currency.dto.RateRequest;
+import com.nexus.crm.shared.currency.dto.RateResponse;
+import com.nexus.crm.shared.currency.dto.UpdateCurrencyRequest;
 import com.nexus.crm.shared.error.ApiException;
 import com.nexus.crm.shared.error.ErrorCode;
 
@@ -30,30 +32,6 @@ import com.nexus.crm.shared.error.ErrorCode;
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
 class CurrencyController {
-
-	record CurrencyResponse(String code, String name, int minorUnits, boolean enabled, boolean base) {
-
-		static CurrencyResponse from(Currency currency) {
-			return new CurrencyResponse(currency.getCode(), currency.getName(), currency.getMinorUnits(),
-					currency.isEnabled(), currency.isBase());
-		}
-
-	}
-
-	record UpdateCurrencyRequest(@NotNull Boolean enabled) {
-	}
-
-	record RateRequest(@NotNull @DecimalMin(value = "0", inclusive = false) BigDecimal rateToBase) {
-	}
-
-	/** One unit of {@code currency} is worth {@code rateToBase} units of the base currency. */
-	record RateResponse(String currency, BigDecimal rateToBase, LocalDate rateDate, String source, boolean stale) {
-
-		static RateResponse from(CurrencyService.Rate rate) {
-			return new RateResponse(rate.currency(), rate.rateToBase(), rate.rateDate(), rate.source(), rate.stale());
-		}
-
-	}
 
 	private final CurrencyService currencies;
 

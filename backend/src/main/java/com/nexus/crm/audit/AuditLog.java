@@ -17,7 +17,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-/** Who changed which record, and when. Rows are only ever added. */
+/** Label changed which record, and when. Rows are only ever added. */
 @Entity
 @Table(name = "audit_log")
 @Getter

@@ -18,25 +18,19 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.nexus.crm.audit.AuditLog;
 import com.nexus.crm.audit.AuditService;
+import com.nexus.crm.contacts.dto.CompanyInput;
+import com.nexus.crm.contacts.dto.ContactInput;
 import com.nexus.crm.identity.user.UserService;
-import com.nexus.crm.shared.error.ApiException;
 import com.nexus.crm.shared.CurrentUser;
 import com.nexus.crm.shared.Emails;
-import com.nexus.crm.shared.error.ErrorCode;
 import com.nexus.crm.shared.Search;
+import com.nexus.crm.shared.error.ApiException;
+import com.nexus.crm.shared.error.ErrorCode;
 
 /** Contacts and the companies they work for. */
 @Service
 @RequiredArgsConstructor
 public class ContactService {
-
-	/** The fields of a contact. On update, a null field is left as it is. */
-	public record ContactInput(String firstName, String lastName, String email, String phone, String jobTitle,
-			UUID companyId, String companyName, UUID ownerId) {
-	}
-
-	public record CompanyInput(String name, String domain, String industry, UUID ownerId) {
-	}
 
 	private final ContactRepository contacts;
 
@@ -45,6 +39,8 @@ public class ContactService {
 	private final UserService users;
 
 	private final AuditService audit;
+
+	private final org.springframework.jdbc.core.simple.JdbcClient jdbc;
 
 	// ---- contacts ----
 
@@ -177,6 +173,23 @@ public class ContactService {
 		return company;
 	}
 
+	/** Deletes a company. One that still has contacts or deals is refused, so nothing is left pointing at it. */
+	@Transactional
+	public void deleteCompany(CurrentUser user, UUID id) {
+		Company company = getCompany(user, id);
+		long contactCount = this.contacts.countByCompanyId(id);
+		long dealCount = this.jdbc.sql("select count(*) from deal where company_id = :id and deleted_at is null")
+			.param("id", id)
+			.query(Long.class)
+			.single();
+		if (contactCount > 0 || dealCount > 0) {
+			throw new ApiException(ErrorCode.INVALID_STATE,
+					"This company still has " + contactCount + " contact(s) and " + dealCount + " deal(s). Remove or move them first.");
+		}
+		company.softDelete(java.time.Instant.now());
+		this.audit.record(user.id(), "Company", id, AuditLog.Action.DELETE, null);
+	}
+
 	/** Finds the owner's company with this name, or creates it. */
 	@Transactional
 	public Company findOrCreateCompany(CurrentUser user, String name, UUID ownerId) {
@@ -225,14 +238,14 @@ public class ContactService {
 
 	/** Contact names with their company, for timelines and follow-up lists. */
 	@Transactional(readOnly = true)
-	public Map<UUID, com.nexus.crm.shared.Who> contactSummaries(Collection<UUID> ids) {
+	public Map<UUID, com.nexus.crm.shared.Label> contactSummaries(Collection<UUID> ids) {
 		if (ids.isEmpty()) {
 			return Map.of();
 		}
 		List<Contact> found = this.contacts.findAllById(ids);
 		Map<UUID, String> companyNames = companyNames(found.stream().map(Contact::getCompanyId)
 			.filter(java.util.Objects::nonNull).collect(Collectors.toSet()));
-		return found.stream().collect(Collectors.toMap(Contact::getId, (c) -> new com.nexus.crm.shared.Who(
+		return found.stream().collect(Collectors.toMap(Contact::getId, (c) -> new com.nexus.crm.shared.Label(
 				c.getFirstName() + " " + c.getLastName(), companyNames.get(c.getCompanyId()))));
 	}
 

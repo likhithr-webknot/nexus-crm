@@ -4,7 +4,8 @@ import { cn } from "@/lib/format";
 /** The latest rate of each currency. Admins can revert a rate that was typed in by hand. */
 export function RatesTable({ rates, canRevert, reverting, onRevert }: { rates: ExchangeRate[]; canRevert: boolean; reverting: boolean; onRevert: (rate: ExchangeRate) => void }) {
   return (
-    <table className="w-full text-left text-[13px]">
+    <div className="overflow-x-auto">
+    <table className="w-full min-w-[420px] text-left text-[13px]">
       <thead>
         <tr className="border-b border-line text-[11.5px] tracking-wide text-ink-3 uppercase">
           <th className="py-2 font-medium">Currency</th>
@@ -34,5 +35,6 @@ export function RatesTable({ rates, canRevert, reverting, onRevert }: { rates: E
         ))}
       </tbody>
     </table>
+    </div>
   );
 }

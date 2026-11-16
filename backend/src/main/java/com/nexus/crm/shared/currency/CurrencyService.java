@@ -13,7 +13,6 @@ import java.util.UUID;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.task.AsyncTaskExecutor;
@@ -24,6 +23,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
+
+import com.nexus.crm.shared.currency.dto.Rate;
 import com.nexus.crm.shared.error.ApiException;
 import com.nexus.crm.shared.error.ErrorCode;
 
@@ -39,10 +40,6 @@ public class CurrencyService {
 
 	private static final Duration FETCH_TIMEOUT = Duration.ofSeconds(10);
 
-	/** A rate that can be used to convert an amount to the base currency. */
-	public record Rate(String currency, BigDecimal rateToBase, LocalDate rateDate, String source, boolean stale) {
-	}
-
 	/** What the provider sends back: how many units of each currency one unit of the base is worth. */
 	record ProviderResponse(String result, Map<String, BigDecimal> rates) {
 	}
@@ -53,8 +50,8 @@ public class CurrencyService {
 
 	private final FxProperties properties;
 
-	@Qualifier("applicationTaskExecutor")
-	private final AsyncTaskExecutor executor;
+	/** Named like the bean, because the scheduler is also an AsyncTaskExecutor and Spring picks by name. */
+	private final AsyncTaskExecutor applicationTaskExecutor;
 
 	@Transactional(readOnly = true)
 	public List<Currency> list() {
@@ -234,7 +231,7 @@ public class CurrencyService {
 	@EventListener(ApplicationReadyEvent.class)
 	void fetchRatesAtStartup() {
 		// Off the main thread, so a slow provider cannot delay the app starting.
-		this.executor.execute(this::fetchRates);
+		this.applicationTaskExecutor.execute(this::fetchRates);
 	}
 
 }

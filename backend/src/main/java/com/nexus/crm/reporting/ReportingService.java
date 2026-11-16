@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.Function;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -20,6 +19,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.nexus.crm.identity.user.UserService;
+import com.nexus.crm.reporting.dto.Dashboard;
+import com.nexus.crm.reporting.dto.FunnelStep;
+import com.nexus.crm.reporting.dto.Kpi;
+import com.nexus.crm.reporting.dto.MonthRevenue;
+import com.nexus.crm.reporting.dto.Overview;
+import com.nexus.crm.reporting.dto.SourceRevenue;
+import com.nexus.crm.reporting.dto.SourceShare;
+import com.nexus.crm.reporting.dto.StageTotal;
+import com.nexus.crm.reporting.dto.TeamRow;
 import com.nexus.crm.shared.CurrentUser;
 
 /** The numbers on the dashboard and the reports page. */
@@ -32,34 +40,6 @@ public class ReportingService {
 
 	/** A sentinel for "no IDs", because an empty IN () is not valid SQL. */
 	private static final UUID NOBODY = new UUID(0, 0);
-
-	public record Kpi(String id, double value, Double change, double[] trend) {
-	}
-
-	public record SourceShare(String source, long count, double share) {
-	}
-
-	public record StageTotal(String stageCode, String name, long count, double amount, long unconverted) {
-	}
-
-	public record Dashboard(List<Kpi> kpis, List<SourceShare> leadSources, List<StageTotal> pipeline) {
-	}
-
-	public record MonthRevenue(YearMonth month, double revenue, BigDecimal target) {
-	}
-
-	public record FunnelStep(String label, long count) {
-	}
-
-	public record SourceRevenue(String source, double revenue) {
-	}
-
-	public record TeamRow(UUID userId, String name, long leads, long dealsWon, double revenue, double conversion) {
-	}
-
-	public record Overview(List<FunnelStep> funnel, List<SourceRevenue> revenueBySource, List<TeamRow> team,
-			double averageDealSize, List<Kpi> kpis) {
-	}
 
 	/** Which owners' records a query may see. Null IDs means everyone's. */
 	private record Scope(Set<UUID> ids) {
@@ -213,6 +193,13 @@ public class ReportingService {
 		}
 		target.change(amount, adminId);
 		return target;
+	}
+
+	@Transactional
+	public void deleteTarget(YearMonth month) {
+		RevenueTarget target = this.targets.findById(month.atDay(1))
+			.orElseThrow(() -> new com.nexus.crm.shared.error.ApiException(com.nexus.crm.shared.error.ErrorCode.NOT_FOUND, "There is no target for that month."));
+		this.targets.delete(target);
 	}
 
 	// ---- reports page ----

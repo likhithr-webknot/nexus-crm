@@ -47,7 +47,7 @@ export function Dialog({
         if (e.target === ref.current) onClose();
       }}
       className={cn(
-        "m-auto w-[calc(100%-2rem)] rounded-xl border border-line bg-surface p-0 text-ink shadow-[0_24px_64px_-16px_rgba(15,23,42,0.35)] backdrop:bg-slate-950/45",
+        "m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] overflow-y-auto rounded-xl border border-line bg-surface p-0 text-ink shadow-[0_24px_64px_-16px_rgba(15,23,42,0.35)] backdrop:bg-slate-950/45",
         size === "sm" ? "max-w-sm" : size === "md" ? "max-w-lg" : "max-w-2xl",
       )}
     >

@@ -8,9 +8,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
+import com.nexus.crm.identity.user.AppUser;
 import com.nexus.crm.shared.Role;
 import com.nexus.crm.support.IntegrationTest;
-import com.nexus.crm.identity.user.AppUser;
 
 /** Role-based authorization, and that changes to a user take effect on their very next request. */
 class UserAuthorizationTests extends IntegrationTest {

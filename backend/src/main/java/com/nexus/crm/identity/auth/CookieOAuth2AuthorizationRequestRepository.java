@@ -9,7 +9,6 @@ import java.nio.ByteBuffer;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Base64;
-
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;

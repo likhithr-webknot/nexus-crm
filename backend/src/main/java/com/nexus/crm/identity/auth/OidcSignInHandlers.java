@@ -15,8 +15,8 @@ import org.springframework.security.web.authentication.AuthenticationFailureHand
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 
-import com.nexus.crm.identity.auth.SessionService.ClientInfo;
 import com.nexus.crm.identity.auth.SignInService.SignInRefusedException;
+import com.nexus.crm.identity.auth.dto.ClientInfo;
 import com.nexus.crm.identity.user.AppUser;
 
 /** Runs when Google sends the user back to us. */

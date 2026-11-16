@@ -18,28 +18,23 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.nexus.crm.activities.dto.ActivityFilter;
+import com.nexus.crm.activities.dto.ActivityInput;
+import com.nexus.crm.activities.dto.ActivityNames;
 import com.nexus.crm.audit.AuditLog;
 import com.nexus.crm.audit.AuditService;
 import com.nexus.crm.contacts.ContactService;
 import com.nexus.crm.deals.DealService;
 import com.nexus.crm.identity.user.UserService;
 import com.nexus.crm.leads.LeadService;
-import com.nexus.crm.shared.error.ApiException;
 import com.nexus.crm.shared.CurrentUser;
+import com.nexus.crm.shared.error.ApiException;
 import com.nexus.crm.shared.error.ErrorCode;
-import com.nexus.crm.shared.Who;
 
 /** The timeline: notes, calls and meetings that people log, and entries the app writes by itself. */
 @Service
 @RequiredArgsConstructor
 public class ActivityService {
-
-	public record ActivityInput(Activity.Type type, String subject, String body, Instant occurredAt, UUID leadId,
-			UUID contactId, UUID dealId) {
-	}
-
-	public record Filter(Activity.Type type, UUID actorId, UUID leadId, UUID contactId, UUID dealId) {
-	}
 
 	private final ActivityRepository activities;
 
@@ -54,7 +49,7 @@ public class ActivityService {
 	private final AuditService audit;
 
 	@Transactional(readOnly = true)
-	public Page<Activity> list(CurrentUser user, Filter filter, int page, int size) {
+	public Page<Activity> list(CurrentUser user, ActivityFilter filter, int page, int size) {
 		return this.activities.findAll(visible(user).and(matching(filter)), PageRequest.of(Math.max(0, page - 1), size,
 				Sort.by(Sort.Direction.DESC, "occurredAt").and(Sort.by(Sort.Direction.DESC, "createdAt", "id"))));
 	}
@@ -64,7 +59,7 @@ public class ActivityService {
 	public Map<Activity.Type, Long> counts(CurrentUser user, UUID actorId) {
 		Map<Activity.Type, Long> counts = new EnumMap<>(Activity.Type.class);
 		for (Activity.Type type : Activity.Type.values()) {
-			counts.put(type, this.activities.count(visible(user).and(matching(new Filter(type, actorId, null, null, null)))));
+			counts.put(type, this.activities.count(visible(user).and(matching(new ActivityFilter(type, actorId, null, null, null)))));
 		}
 		return counts;
 	}
@@ -115,25 +110,13 @@ public class ActivityService {
 		this.audit.record(user.id(), "Activity", id, AuditLog.Action.DELETE, null);
 	}
 
-	/** Names for the response: who did it, and who or what it was about. */
+	/** ActivityNames for the response: who did it, and who or what it was about. */
 	@Transactional(readOnly = true)
-	public Names names(List<Activity> list) {
-		return new Names(this.leads.leadSummaries(ids(list, Activity::getLeadId)),
+	public ActivityNames names(List<Activity> list) {
+		return new ActivityNames(this.leads.leadSummaries(ids(list, Activity::getLeadId)),
 				this.contacts.contactSummaries(ids(list, Activity::getContactId)),
 				this.deals.dealSummaries(ids(list, Activity::getDealId)),
 				this.users.displayNames(ids(list, Activity::getActorId)));
-	}
-
-	public record Names(Map<UUID, Who> leads, Map<UUID, Who> contacts, Map<UUID, Who> deals, Map<UUID, String> actors) {
-
-		/** The most specific thing the entry is about: the contact, else the lead, else the deal. */
-		public Who subjectOf(UUID leadId, UUID contactId, UUID dealId) {
-			if (contactId != null) {
-				return this.contacts.get(contactId);
-			}
-			return (leadId != null) ? this.leads.get(leadId) : this.deals.get(dealId);
-		}
-
 	}
 
 	// ---- helpers ----
@@ -168,7 +151,7 @@ public class ActivityService {
 		return (root, query, cb) -> RecordScope.linkedTo(ids, root, query, cb);
 	}
 
-	private static Specification<Activity> matching(Filter f) {
+	private static Specification<Activity> matching(ActivityFilter f) {
 		return (root, q, cb) -> {
 			List<Predicate> all = new ArrayList<>();
 			if (f.type() != null) {
