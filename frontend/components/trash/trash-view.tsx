@@ -33,7 +33,7 @@ export function TrashView() {
 
   return (
     <Page>
-      <PageHeader title="Recycle bin" subtitle="Deleted leads, contacts, companies and deals. Restore one to put it back exactly where it was.">
+      <PageHeader title="Recycle bin" subtitle="Restore archived CRM records while they are retained.">
         <select aria-label="Type" value={type} onChange={(e) => setType(e.target.value as TrashType | "")} className={cn(control, "px-2.5")}>
           <option value="">All types</option>
           {TYPES.map((t) => (

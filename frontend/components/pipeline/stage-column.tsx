@@ -5,6 +5,8 @@ import type { Deal, PipelineStage } from "@/lib/deals";
 import { cn } from "@/lib/format";
 import { sortCards, sumInReporting, type SortOrder } from "@/lib/pipeline-math";
 import { DealCard } from "./deal-card";
+import { useDroppable } from "@dnd-kit/core";
+import { Plus } from "lucide-react";
 
 /** One stage of the pipeline: its header with the count and total, and its cards. It is also a drop target. */
 export function StageColumn({
@@ -13,11 +15,6 @@ export function StageColumn({
   sort,
   draggingId,
   isDropTarget,
-  onDragOver,
-  onDragLeave,
-  onDrop,
-  onCardDragStart,
-  onCardDragEnd,
   onCardArrow,
   onCardOpen,
 }: {
@@ -26,31 +23,20 @@ export function StageColumn({
   sort: SortOrder;
   draggingId: string | null;
   isDropTarget: boolean;
-  onDragOver: () => void;
-  onDragLeave: () => void;
-  onDrop: () => void;
-  onCardDragStart: (deal: Deal) => void;
-  onCardDragEnd: () => void;
   onCardArrow: (deal: Deal, direction: -1 | 1) => void;
   onCardOpen: (deal: Deal) => void;
 }) {
   const { reportingCurrency, convertToReporting } = useCurrency();
   const cards = sortCards(deals, sort, convertToReporting);
   const total = sumInReporting(cards, convertToReporting);
+  const { setNodeRef } = useDroppable({ id: stage.code });
 
   return (
     <section
+      ref={setNodeRef}
       aria-label={`${stage.name}, ${cards.length} deals`}
-      onDragOver={(e) => {
-        e.preventDefault();
-        onDragOver();
-      }}
-      onDragLeave={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node)) onDragLeave();
-      }}
-      onDrop={onDrop}
       className={cn(
-        "flex w-[264px] flex-col rounded-xl border bg-slate-100/70 transition-colors",
+        "flex w-[264px] flex-col rounded-xl border bg-surface-muted transition-colors",
         isDropTarget && draggingId ? "border-brand bg-brand-soft/60" : "border-transparent",
       )}
     >
@@ -60,8 +46,9 @@ export function StageColumn({
           <h2 className="text-[13px] font-semibold text-ink">{stage.name}</h2>
           <span className="tnum rounded-full bg-surface px-1.5 text-[11.5px] font-medium text-ink-2 ring-1 ring-line">{cards.length}</span>
           <span className="tnum ml-auto text-[12.5px] font-semibold text-ink">{total == null ? "—" : formatCompactCurrency(total, reportingCurrency)}</span>
+          <button onClick={() => window.dispatchEvent(new CustomEvent("nexus:create", { detail: "deal" }))} aria-label={`Add deal to ${stage.name}`} title={`Add deal · choose ${stage.name} in the form`} className="grid size-6 place-items-center rounded-md text-ink-3 hover:bg-surface hover:text-brand"><Plus className="size-3.5" /></button>
         </div>
-        <p className="mt-1 text-[11.5px] text-ink-3">{stage.winProbability}% chance to win</p>
+        <p className="tnum mt-1 text-[11.5px] text-ink-3">{stage.winProbability}% probability · {total == null ? "—" : formatCompactCurrency(total * stage.winProbability / 100, reportingCurrency)} weighted</p>
       </header>
 
       <ul className="flex min-h-24 flex-1 flex-col gap-2 p-2 pt-1">
@@ -70,8 +57,6 @@ export function StageColumn({
             key={deal.id}
             deal={deal}
             dragging={draggingId === deal.id}
-            onDragStart={() => onCardDragStart(deal)}
-            onDragEnd={onCardDragEnd}
             onArrow={(direction) => onCardArrow(deal, direction)}
             onOpen={() => onCardOpen(deal)}
           />

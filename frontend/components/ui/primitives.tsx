@@ -88,19 +88,19 @@ export function EmptyState({
 }
 
 const BADGE_TONES = {
-  neutral: "bg-slate-100 text-slate-700 ring-slate-200",
-  brand: "bg-indigo-50 text-indigo-700 ring-indigo-200",
-  violet: "bg-violet-50 text-violet-700 ring-violet-200",
-  green: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-  amber: "bg-amber-50 text-amber-800 ring-amber-200",
-  red: "bg-rose-50 text-rose-700 ring-rose-200",
+  neutral: "tone-neutral",
+  brand: "tone-brand",
+  violet: "tone-violet",
+  green: "tone-green",
+  amber: "tone-amber",
+  red: "tone-red",
 };
 
 export function Badge({ tone = "neutral", children }: { tone?: keyof typeof BADGE_TONES; children: React.ReactNode }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-md px-2 py-0.5 text-[12px] font-medium whitespace-nowrap ring-1 ring-inset",
+        "tone inline-flex items-center rounded-md px-2 py-0.5 text-[12px] font-medium whitespace-nowrap",
         BADGE_TONES[tone],
       )}
     >
@@ -118,9 +118,9 @@ export function Meter({ value, className }: { value: number; className?: string 
   );
 }
 
-export function Card({ className, children }: { className?: string; children: React.ReactNode }) {
+export function Card({ className, children, ...props }: React.ComponentProps<"section">) {
   return (
-    <section className={cn("rounded-xl border border-line bg-surface", className)}>{children}</section>
+    <section {...props} className={cn("rounded-xl border border-line bg-surface", className)}>{children}</section>
   );
 }
 
@@ -156,14 +156,7 @@ export function CardLink({ href, children }: { href: string; children: React.Rea
   );
 }
 
-const AVATAR_TONES = [
-  "bg-indigo-100 text-indigo-700",
-  "bg-emerald-100 text-emerald-700",
-  "bg-amber-100 text-amber-800",
-  "bg-sky-100 text-sky-700",
-  "bg-rose-100 text-rose-700",
-  "bg-violet-100 text-violet-700",
-];
+const AVATAR_TONES = ["tone-brand", "tone-green", "tone-amber", "tone-sky", "tone-red", "tone-violet"];
 
 /** Deterministic colour per name so the same person always looks the same. */
 export function Avatar({ name, size = "sm" }: { name: string; size?: "sm" | "md" }) {
@@ -172,7 +165,7 @@ export function Avatar({ name, size = "sm" }: { name: string; size?: "sm" | "md"
     <span
       aria-hidden
       className={cn(
-        "inline-grid shrink-0 place-items-center rounded-full font-semibold",
+        "tone-fill inline-grid shrink-0 place-items-center rounded-full font-semibold",
         size === "sm" ? "size-7 text-[11px]" : "size-8 text-[12px]",
         tone,
       )}
@@ -182,40 +175,31 @@ export function Avatar({ name, size = "sm" }: { name: string; size?: "sm" | "md"
   );
 }
 
-const STAGE_STYLES: Record<string, string> = {
-  NEW: "bg-slate-100 text-slate-700 ring-slate-200",
-  CONTACTED: "bg-sky-50 text-sky-700 ring-sky-200",
-  QUALIFIED: "bg-indigo-50 text-indigo-700 ring-indigo-200",
-  DISQUALIFIED: "bg-slate-100 text-slate-500 ring-slate-200",
-  CONVERTED: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-  DEMO: "bg-violet-50 text-violet-700 ring-violet-200",
-  PROPOSAL: "bg-amber-50 text-amber-800 ring-amber-200",
-  NEGOTIATION: "bg-orange-50 text-orange-700 ring-orange-200",
-  WON: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-  LOST: "bg-rose-50 text-rose-700 ring-rose-200",
+const STAGE_TONES: Record<string, string> = {
+  NEW: "tone-neutral",
+  CONTACTED: "tone-sky",
+  QUALIFIED: "tone-brand",
+  DISQUALIFIED: "tone-neutral",
+  CONVERTED: "tone-green",
+  DEMO: "tone-violet",
+  PROPOSAL: "tone-amber",
+  NEGOTIATION: "tone-orange",
+  WON: "tone-green",
+  LOST: "tone-red",
 };
 
 /** Solid colour per stage, for dots and bars. */
-export const STAGE_DOT: Record<string, string> = {
-  NEW: "bg-slate-400",
-  CONTACTED: "bg-sky-500",
-  QUALIFIED: "bg-indigo-500",
-  DISQUALIFIED: "bg-slate-400",
-  CONVERTED: "bg-emerald-500",
-  DEMO: "bg-violet-500",
-  PROPOSAL: "bg-amber-500",
-  NEGOTIATION: "bg-orange-500",
-  WON: "bg-emerald-500",
-  LOST: "bg-rose-500",
-};
+export const STAGE_DOT: Record<string, string> = Object.fromEntries(
+  Object.entries(STAGE_TONES).map(([stage, tone]) => [stage, `tone-solid ${tone}`]),
+);
 
 /** A coloured label for a lead status or a deal stage, from its code (for example "QUALIFIED"). */
 export function StageBadge({ stage }: { stage: string }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-md px-2 py-0.5 text-[12px] font-medium ring-1 ring-inset",
-        STAGE_STYLES[stage] ?? STAGE_STYLES.NEW,
+        "tone inline-flex items-center rounded-md px-2 py-0.5 text-[12px] font-medium",
+        STAGE_TONES[stage] ?? STAGE_TONES.NEW,
       )}
     >
       {stageLabel(stage)}

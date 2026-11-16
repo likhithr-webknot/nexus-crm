@@ -3,7 +3,7 @@
 import { useSession } from "@/components/auth/session";
 import { Page, PageHeader } from "@/components/ui/primitives";
 import { cn } from "@/lib/format";
-import { Coins, GitBranch, History, Megaphone, ShieldCheck, Target, User, type LucideIcon } from "lucide-react";
+import { Coins, GitBranch, History, Mail, Megaphone, ShieldCheck, Sparkles, Target, User, type LucideIcon } from "lucide-react";
 import { useState } from "react";
 import { AuditSection } from "./sections/audit-section";
 import { CurrencySection } from "./sections/currency-section";
@@ -12,6 +12,8 @@ import { RolesSection } from "./sections/roles-section";
 import { SourcesSection } from "./sections/sources-section";
 import { StagesSection } from "./sections/stages-section";
 import { TargetsSection } from "./sections/targets-section";
+import { MailSection } from "./sections/mail-section";
+import { AiKeySection } from "./sections/ai-key-section";
 
 type Section = { id: string; label: string; icon: LucideIcon; adminOnly?: boolean; Component: () => React.ReactNode };
 
@@ -22,6 +24,8 @@ const SECTIONS: Section[] = [
   { id: "sources", label: "Lead sources", icon: Megaphone, Component: SourcesSection },
   { id: "stages", label: "Pipeline stages", icon: GitBranch, Component: StagesSection },
   { id: "currency", label: "Currency & rates", icon: Coins, Component: CurrencySection },
+  { id: "mail", label: "Mail & signature", icon: Mail, Component: MailSection },
+  { id: "ai", label: "AI & voice keys", icon: Sparkles, adminOnly: true, Component: AiKeySection },
   { id: "targets", label: "Revenue targets", icon: Target, adminOnly: true, Component: TargetsSection },
   { id: "audit", label: "Audit log", icon: History, adminOnly: true, Component: AuditSection },
 ];

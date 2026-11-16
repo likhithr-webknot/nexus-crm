@@ -33,6 +33,12 @@ public class Company extends BaseEntity {
 
 	private String industry;
 
+	@Column(name = "website_url")
+	private String websiteUrl;
+
+	@Column(name = "logo_url")
+	private String logoUrl;
+
 	@Column(name = "owner_id", nullable = false)
 	private UUID ownerId;
 

@@ -13,6 +13,7 @@ import type { SortOrder } from "@/lib/pipeline-math";
 import { Plus, Settings2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { AddDealDialog } from "./add-deal-dialog";
 import { EditDealDialog } from "./edit-deal-dialog";
 import { LostDealDialog } from "./lost-deal-dialog";
@@ -36,6 +37,7 @@ export function PipelineBoard() {
   const [deleting, setDeleting] = useState<Deal | null>(null);
   // A card moved with the keyboard is re-created in its new column; this puts focus back on it.
   const refocus = useRef<string | null>(null);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const board = useDealBoard((message) => {
     setAnnouncement(message);
@@ -106,6 +108,13 @@ export function PipelineBoard() {
         {announcement}
       </p>
 
+      <DndContext sensors={sensors} autoScroll onDragStart={(event) => setDragging(String(event.active.id))} onDragOver={(event) => setDropStage(event.over ? String(event.over.id) : null)} onDragCancel={() => { setDragging(null); setDropStage(null); }} onDragEnd={(event) => {
+        const dragged = board.deals.find((deal) => deal.id === String(event.active.id));
+        const target = event.over ? String(event.over.id) : null;
+        if (dragged && target && board.stageByCode.has(target)) requestMove(dragged, target);
+        setDragging(null);
+        setDropStage(null);
+      }}>
       {/* Negative margins let the board scroll to the edge of the screen. */}
       <div className="-mx-4 overflow-x-auto px-4 pb-3 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
         <div className="flex min-w-max gap-3">
@@ -117,20 +126,7 @@ export function PipelineBoard() {
               sort={sort}
               draggingId={dragging}
               isDropTarget={dropStage === stage.code}
-              onDragOver={() => setDropStage(stage.code)}
-              onDragLeave={() => setDropStage(null)}
-              onDrop={() => {
-                const dragged = board.deals.find((d) => d.id === dragging);
-                if (dragged) requestMove(dragged, stage.code);
-                setDragging(null);
-                setDropStage(null);
-              }}
               onCardOpen={setEditing}
-              onCardDragStart={(deal) => setDragging(deal.id)}
-              onCardDragEnd={() => {
-                setDragging(null);
-                setDropStage(null);
-              }}
               onCardArrow={(deal, direction) => {
                 const target = board.stages[index + direction];
                 if (!target) return;
@@ -141,6 +137,10 @@ export function PipelineBoard() {
           ))}
         </div>
       </div>
+      <DragOverlay dropAnimation={{ duration: 160, easing: "cubic-bezier(0.22,1,0.36,1)" }}>
+        {dragging && (() => { const deal = board.deals.find((item) => item.id === dragging); return deal ? <div className="w-[248px] rotate-[.3deg] scale-[1.02] rounded-lg border border-brand/30 bg-surface p-3 shadow-xl"><p className="truncate text-[11px] text-ink-3">{deal.name}</p><p className="mt-2 text-[13px] font-semibold">{deal.company.name}</p><p className="tnum mt-3 text-[14px] font-semibold">{deal.amount.amount} {deal.amount.currency}</p></div> : null; })()}
+      </DragOverlay>
+      </DndContext>
 
       <AddDealDialog open={adding} onClose={() => setAdding(false)} onAdded={board.refresh} />
       <EditDealDialog deal={editing} onClose={() => setEditing(null)} onSaved={board.refresh} onDelete={setDeleting} />

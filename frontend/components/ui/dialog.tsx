@@ -47,7 +47,7 @@ export function Dialog({
         if (e.target === ref.current) onClose();
       }}
       className={cn(
-        "m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] overflow-y-auto rounded-xl border border-line bg-surface p-0 text-ink shadow-[0_24px_64px_-16px_rgba(15,23,42,0.35)] backdrop:bg-slate-950/45",
+        "m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] overflow-y-auto rounded-xl border border-line bg-surface p-0 text-ink shadow-[0_24px_64px_-16px_rgba(15,23,42,0.35)] backdrop:bg-scrim",
         size === "sm" ? "max-w-sm" : size === "md" ? "max-w-lg" : "max-w-2xl",
       )}
     >
@@ -107,7 +107,7 @@ export function DialogActions({
         type={onSubmit ? "button" : "submit"}
         onClick={onSubmit}
         disabled={pending || disabled}
-        className={cn(buttonPrimary, danger && "bg-rose-600 hover:bg-rose-700 disabled:hover:bg-rose-600")}
+        className={cn(buttonPrimary, danger && "bg-danger hover:bg-danger-strong disabled:hover:bg-danger")}
       >
         {pending && <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />}
         {submitLabel}
@@ -150,7 +150,7 @@ export function ConfirmDialog({
 /** A message at the bottom of a form when saving failed. */
 export function FormError({ children }: { children: React.ReactNode }) {
   return (
-    <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-[13px] text-rose-700 ring-1 ring-rose-200 ring-inset">
+    <p role="alert" className="tone tone-red rounded-lg px-3 py-2 text-[13px]">
       {children}
     </p>
   );

@@ -57,7 +57,7 @@ function SessionGate({ children }: { children: React.ReactNode }) {
       {error && !signedOut ? (
         // The backend is unreachable or failing. Stay here: the session may still be fine.
         <div className="flex max-w-sm flex-col items-center text-center" role="alert">
-          <span className="grid size-11 place-items-center rounded-full bg-rose-50 text-rose-600">
+          <span className="grid size-11 place-items-center rounded-full bg-danger-soft text-down">
             <WifiOff className="size-5" aria-hidden />
           </span>
           <h1 className="mt-4 text-[17px] font-semibold tracking-[-0.01em] text-ink">Can&apos;t reach Nexus</h1>

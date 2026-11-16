@@ -30,7 +30,7 @@ function ActivityEntry({ activity: a, joinsNext, canChange, onEdit, onDelete }: 
     <li className="relative flex gap-3.5 py-3">
       {/* Line joining this entry to the next one in the same day. */}
       {joinsNext && <span className="absolute top-12 bottom-0 left-[17px] w-px bg-line" aria-hidden />}
-      <span className={cn("grid size-9 shrink-0 place-items-center rounded-full ring-1 ring-inset", tone)}>
+      <span className={cn("grid size-9 shrink-0 place-items-center rounded-full", tone)}>
         <Icon className="size-4" aria-hidden />
       </span>
       <div className="min-w-0 flex-1">

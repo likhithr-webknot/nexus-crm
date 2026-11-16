@@ -79,7 +79,8 @@ public class TrashService {
 
 		// A restore can clash with something created since the delete, for example a new lead with the same
 		// email. The database's unique index stops it, and the global handler reports that as 409 "duplicate".
-		this.jdbc.sql("update " + type.table() + " set deleted_at = null, updated_at = now(), updated_by = :user, version = version + 1 where id = :id")
+		String updatedBy = "crm_module_record".equals(type.table()) ? "" : "updated_by = :user, ";
+		this.jdbc.sql("update " + type.table() + " set deleted_at = null, updated_at = now(), " + updatedBy + "version = version + 1 where id = :id and deleted_at is not null" + type.kindFilter())
 			.param("user", user.id())
 			.param("id", id)
 			.update();
@@ -106,7 +107,7 @@ public class TrashService {
 				: "(owner_id in (:ids)" + (type.ownerMayBeEmpty() ? " or owner_id is null" : "") + ")";
 		Collection<UUID> ids = visible.filter((v) -> !v.isEmpty()).map((v) -> (Collection<UUID>) v).orElse(List.of(NOBODY));
 		return this.jdbc.sql("select id, " + type.nameSql() + " as name, deleted_at, owner_id from " + type.table()
-				+ " where deleted_at is not null and " + scope + " order by deleted_at desc limit " + LIMIT)
+				+ " where deleted_at is not null" + type.kindFilter() + " and " + scope + " order by deleted_at desc limit " + LIMIT)
 			.param("ids", ids)
 			.query((rs, i) -> new Row(type, rs.getObject("id", UUID.class), rs.getString("name"),
 					rs.getObject("deleted_at", java.time.OffsetDateTime.class).toInstant(), rs.getObject("owner_id", UUID.class)))
@@ -115,7 +116,7 @@ public class TrashService {
 
 	private Optional<Row> read(TrashType type, UUID id) {
 		return this.jdbc.sql("select id, " + type.nameSql() + " as name, deleted_at, owner_id from " + type.table()
-				+ " where id = :id and deleted_at is not null")
+				+ " where id = :id and deleted_at is not null" + type.kindFilter())
 			.param("id", id)
 			.query((rs, i) -> new Row(type, rs.getObject("id", UUID.class), rs.getString("name"),
 					rs.getObject("deleted_at", java.time.OffsetDateTime.class).toInstant(), rs.getObject("owner_id", UUID.class)))

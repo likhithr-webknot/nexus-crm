@@ -92,12 +92,12 @@ public class NotificationService {
 
 	@EventListener
 	void onFollowUpAssigned(FollowUpAssigned e) {
-		send(e.assigneeId(), "FOLLOW_UP_ASSIGNED", "A follow-up was assigned to you: " + e.title(), "/follow-ups");
+		send(e.assigneeId(), "FOLLOW_UP_ASSIGNED", "A follow-up was assigned to you: " + e.title(), "/calendar");
 	}
 
 	@EventListener
 	void onFollowUpDue(FollowUpDue e) {
-		send(e.assigneeId(), "FOLLOW_UP_DUE", "Follow-up due: " + e.title(), "/follow-ups");
+		send(e.assigneeId(), "FOLLOW_UP_DUE", "Follow-up due: " + e.title(), "/calendar");
 	}
 
 	/** Deletes notifications older than 90 days, every night. */

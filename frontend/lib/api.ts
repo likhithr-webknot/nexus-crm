@@ -29,7 +29,7 @@ async function send(path: string, init: RequestInit) {
   const headers = new Headers(init.headers);
   const token = csrfToken();
   if (token && !/^(GET|HEAD)$/i.test(init.method ?? "GET")) headers.set("X-XSRF-TOKEN", token);
-  if (init.body) headers.set("Content-Type", "application/json");
+  if (init.body && !(init.body instanceof FormData)) headers.set("Content-Type", "application/json");
   return fetch(API_BASE_URL + path, { ...init, headers, credentials: "include" });
 }
 
@@ -78,4 +78,15 @@ export async function api<T = void>(path: string, init: RequestInit = {}): Promi
 
   if (!response.ok) throw await toError(response);
   return (response.status === 204 ? undefined : await response.json()) as T;
+}
+
+/** Opens a streamed API response with the same cookie, CSRF and refresh handling. */
+export async function apiStream(path: string, init: RequestInit): Promise<Response> {
+  let response = await send(path, init);
+  if (response.status === 401 && (await toError(response.clone())).code === "token_expired") {
+    if (!(await refresh())) throw new ApiError(401, SESSION_EXPIRED, "The session has ended. Sign in again.");
+    response = await send(path, init);
+  }
+  if (!response.ok) throw await toError(response);
+  return response;
 }

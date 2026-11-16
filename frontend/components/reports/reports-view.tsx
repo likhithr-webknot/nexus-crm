@@ -13,11 +13,13 @@ import { overview } from "@/lib/reports";
 import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { FunnelCard } from "./funnel-card";
 import { RevenueBySourceCard } from "./revenue-by-source-card";
 import { RevenueGrowthCard } from "./revenue-growth-card";
 import { SalesTargetCard } from "./sales-target-card";
 import { TeamPerformanceCard } from "./team-performance-card";
+const ReportBuilder = dynamic(() => import("./report-builder").then((module) => module.ReportBuilder), { ssr: false });
 
 export function ReportsView() {
   const { reportingCurrency, convertToReporting } = useCurrency();
@@ -84,6 +86,7 @@ export function ReportsView() {
         <FunnelCard funnel={data?.funnel ?? []} />
         <RevenueBySourceCard sources={data?.revenueBySource ?? []} loaded={Boolean(data)} />
       </div>
+      <ReportBuilder overview={data} revenue={revenue.points} />
     </Page>
   );
 }

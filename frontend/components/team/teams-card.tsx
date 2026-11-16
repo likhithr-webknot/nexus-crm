@@ -66,7 +66,7 @@ export function TeamsCard({ isAdmin }: { isAdmin: boolean }) {
                   <button aria-label={`Edit ${team.name}`} onClick={() => setEditing(team)} className="grid size-8 place-items-center rounded-md text-ink-3 hover:bg-canvas hover:text-ink">
                     <Pencil className="size-4" aria-hidden />
                   </button>
-                  <button aria-label={`Delete ${team.name}`} onClick={() => setDeleting(team)} className="grid size-8 place-items-center rounded-md text-ink-3 hover:bg-rose-50 hover:text-down">
+                  <button aria-label={`Delete ${team.name}`} onClick={() => setDeleting(team)} className="grid size-8 place-items-center rounded-md text-ink-3 hover:bg-danger-soft hover:text-down">
                     <Trash2 className="size-4" aria-hidden />
                   </button>
                 </>

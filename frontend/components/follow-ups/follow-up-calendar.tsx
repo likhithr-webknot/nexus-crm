@@ -77,14 +77,14 @@ function DayCell({ cell, items, isToday, isSelected, onSelect }: { cell: Cell; i
       {/* Phones get dots; wider screens get readable chips. */}
       <span className="flex gap-1 sm:hidden" aria-hidden>
         {items.slice(0, 4).map((f) => (
-          <span key={f.id} className={cn("size-1.5 rounded-full", f.done ? "bg-slate-300" : TYPE_STYLES[f.type].bar)} />
+          <span key={f.id} className={cn("size-1.5 rounded-full", f.done ? "bg-line-strong" : TYPE_STYLES[f.type].bar)} />
         ))}
       </span>
       <span className="hidden w-full flex-col gap-1 sm:flex" aria-hidden>
         {items.slice(0, 2).map((f) => (
           <span
             key={f.id}
-            className={cn("truncate rounded border-l-2 px-1.5 py-0.5 text-[11.5px]", f.done ? "border-slate-300 bg-slate-50 text-ink-3 line-through" : TYPE_STYLES[f.type].chip)}
+            className={cn("truncate rounded border-l-2 px-1.5 py-0.5 text-[11.5px]", f.done ? "border-line-strong bg-surface-muted text-ink-3 line-through" : TYPE_STYLES[f.type].chip)}
           >
             <span className="tnum font-semibold">{formatTime(f.local)}</span> {(f.about?.name ?? f.title).split(" ")[0]}
           </span>

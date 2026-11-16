@@ -127,6 +127,43 @@ Sign-in error codes: `not_invited`, `account_disabled`, `email_unverified`,
 
 No other actuator endpoint is exposed over HTTP.
 
+## Mail, drafts and AI
+
+Google sign-in and Gmail sending have separate consent. Enable the Gmail API
+in Google Cloud, add `NEXUS_MAIL_REDIRECT_URI` as a second authorised OAuth
+redirect URI, and set a stable `NEXUS_MAIL_TOKEN_KEY` (base64 of 32 random
+bytes). Each sender then uses **Settings → Mail & banner → Connect Google
+Workspace**. The callback accepts only the same verified Google account used
+for CRM sign-in. Refresh tokens are encrypted in PostgreSQL. Admins can upload
+a PNG or JPEG banner; the sender's CRM display name is drawn onto a copy of
+the image and embedded in outgoing email. Communication drafts are deleted 30
+days after creation by a daily job. A sent email records Gmail's message ID.
+If Gmail returns `403 PERMISSION_DENIED`, reconnect the mailbox to refresh its
+`gmail.send` grant. If it persists, confirm the Gmail API is enabled for the
+Google Cloud project and that Workspace policy allows the OAuth app and Gmail
+send scope.
+
+Set `OPENAI_API_KEY` only in the backend environment to enable the assistant,
+email drafts, workflow generation and public web research. An admin can also
+set or replace the key in **Settings → Nexus assistant**. That key overrides
+the environment key, is encrypted in PostgreSQL, and is never returned to the
+browser. `NEXUS_AI_CONFIG_KEY` may be set to a stable base64 32-byte key for
+encryption; otherwise the stable `NEXUS_MAIL_TOKEN_KEY` is used. Removing the
+admin key restores the environment key when one exists. `NEXUS_AI_KEY_NAME`
+labels environment-key quota alerts. The assistant streams answers and can
+research arbitrary public companies and markets with search-source links. It limits each user to 30
+requests per hour. A billing `insufficient_quota` response alerts admins in
+the app and, when their own Gmail connection is available, by email. An
+optional `NEXUS_AI_MONTHLY_REQUEST_LIMIT` alerts at 80% of a configured
+request allowance; it is not a measure of the OpenAI billing balance. Without
+the key, the UI displays “AI API key has not been set.”
+
+While the Google OAuth app is in Testing, add each Gmail sender to its OAuth
+test-user list in Google Cloud. Public use of the Gmail scope needs Google's
+verification. When accessing this laptop from another computer, tunnel both
+ports 3000 and 8080 and use `http://localhost:3000`; the registered OAuth
+callbacks and frontend redirect currently use `localhost`.
+
 ## Layout
 
 Code lives under `com.nexus.crm`, one package per module.

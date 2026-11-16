@@ -12,8 +12,8 @@ export const byTime = (a: Item, b: Item) => a.local.localeCompare(b.local);
 
 /** The colour of each kind of follow-up: a bar for dots and lists, a chip for the calendar. */
 export const TYPE_STYLES: Record<FollowUpType, { bar: string; chip: string }> = {
-  CALL: { bar: "bg-sky-500", chip: "border-sky-500 bg-sky-50 text-sky-800" },
-  MEETING: { bar: "bg-violet-500", chip: "border-violet-500 bg-violet-50 text-violet-800" },
-  EMAIL: { bar: "bg-amber-500", chip: "border-amber-500 bg-amber-50 text-amber-900" },
-  TASK: { bar: "bg-slate-400", chip: "border-slate-400 bg-slate-100 text-slate-700" },
+  CALL: { bar: "tone-solid tone-sky", chip: "tone-chip tone-sky" },
+  MEETING: { bar: "tone-solid tone-violet", chip: "tone-chip tone-violet" },
+  EMAIL: { bar: "tone-solid tone-amber", chip: "tone-chip tone-amber" },
+  TASK: { bar: "tone-solid tone-neutral", chip: "tone-chip tone-neutral" },
 };

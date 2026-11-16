@@ -13,11 +13,16 @@ import { AFTER } from "@/lib/query-keys";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { TYPE_STYLES } from "./follow-up-item";
+import { listLeads } from "@/lib/leads";
+import { listDeals } from "@/lib/deals";
+import { useQuery } from "@tanstack/react-query";
 
-export function NewFollowUpDialog({ open, onClose, defaultDay, onAdded }: { open: boolean; onClose: () => void; defaultDay: string; onAdded: (followUp: FollowUp) => void }) {
+export function NewFollowUpDialog({ open, onClose, defaultDay, onAdded, defaultRelated }: { open: boolean; onClose: () => void; defaultDay: string; onAdded: (followUp: FollowUp) => void; defaultRelated?: { type: "lead" | "contact" | "deal"; id: string } }) {
   const session = useSession();
   const owners = useOwnerOptions(open);
   const contacts = useContactOptions(open);
+  const leads = useQuery({ queryKey: ["follow-up-options", "leads"], queryFn: () => listLeads({ size: 100 }), enabled: open });
+  const deals = useQuery({ queryKey: ["follow-up-options", "deals"], queryFn: () => listDeals({ size: 100 }), enabled: open });
   const refresh = useRefresh();
   const [error, setError] = useState<string | null>(null);
 
@@ -42,7 +47,8 @@ export function NewFollowUpDialog({ open, onClose, defaultDay, onAdded }: { open
       error={error}
       onSubmit={(f) => {
         setError(null);
-        add.mutate({ title: f.title, type: f.type as FollowUpType, contactId: f.contact, assigneeId: f.owner || undefined, dueAt: toInstant(f.date, f.time) });
+        const [kind, id] = f.related?.split(":") ?? [];
+        add.mutate({ title: f.title, type: f.type as FollowUpType, leadId: kind === "lead" ? id : undefined, contactId: kind === "contact" ? id : undefined, dealId: kind === "deal" ? id : undefined, assigneeId: f.owner || undefined, dueAt: toInstant(f.date, f.time) });
       }}
     >
       <Field label="What needs doing" className="sm:col-span-2">
@@ -57,17 +63,12 @@ export function NewFollowUpDialog({ open, onClose, defaultDay, onAdded }: { open
           ))}
         </select>
       </Field>
-      <Field label="Contact">
-        <select name="contact" required defaultValue="" className={fieldControl}>
-          <option value="" disabled>
-            Choose a contact
-          </option>
-          {contacts.data?.items.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-              {c.company ? `, ${c.company.name}` : ""}
-            </option>
-          ))}
+      <Field label="Related record" optional>
+        <select name="related" defaultValue={defaultRelated ? `${defaultRelated.type}:${defaultRelated.id}` : ""} className={fieldControl}>
+          <option value="">No linked record</option>
+          <optgroup label="Contacts">{contacts.data?.items.map((c) => <option key={c.id} value={`contact:${c.id}`}>{c.name}{c.company ? `, ${c.company.name}` : ""}</option>)}</optgroup>
+          <optgroup label="Leads">{leads.data?.items.map((lead) => <option key={lead.id} value={`lead:${lead.id}`}>{lead.name}</option>)}</optgroup>
+          <optgroup label="Deals">{deals.data?.items.map((deal) => <option key={deal.id} value={`deal:${deal.id}`}>{deal.name}</option>)}</optgroup>
         </select>
       </Field>
       <Field label="Date">

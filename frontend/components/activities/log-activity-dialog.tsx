@@ -15,7 +15,7 @@ import { TYPES } from "./activity-types";
 // System entries are written by the app, never by hand.
 const MANUAL_TYPES = (Object.keys(TYPES) as ActivityType[]).filter((t) => t !== "SYSTEM");
 
-export function LogActivityDialog({ open, onClose, onLogged }: { open: boolean; onClose: () => void; onLogged: () => void }) {
+export function LogActivityDialog({ open, onClose, onLogged, defaultType = "CALL" }: { open: boolean; onClose: () => void; onLogged: () => void; defaultType?: ActivityType }) {
   const contacts = useContactOptions(open);
   const refresh = useRefresh();
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +46,7 @@ export function LogActivityDialog({ open, onClose, onLogged }: { open: boolean; 
       }}
     >
       <Field label="Type">
-        <select name="type" className={fieldControl}>
+        <select name="type" defaultValue={defaultType} className={fieldControl}>
           {MANUAL_TYPES.map((t) => (
             <option key={t} value={t}>
               {TYPES[t].label}

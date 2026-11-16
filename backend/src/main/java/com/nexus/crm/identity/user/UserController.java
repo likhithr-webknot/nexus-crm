@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.nexus.crm.identity.user.dto.InviteUserRequest;
+import com.nexus.crm.identity.user.dto.UpdateProfileRequest;
 import com.nexus.crm.identity.user.dto.UpdateUserRequest;
 import com.nexus.crm.identity.user.dto.UserResponse;
 import com.nexus.crm.shared.CurrentUser;
@@ -35,6 +36,12 @@ class UserController {
 	@GetMapping("/me")
 	UserResponse me(@AuthenticationPrincipal CurrentUser user) {
 		return UserResponse.from(this.users.get(user.id()));
+	}
+
+	/** The signed-in user changes their own name and job title. */
+	@PatchMapping("/me")
+	UserResponse editProfile(@Valid @RequestBody UpdateProfileRequest request, @AuthenticationPrincipal CurrentUser user) {
+		return UserResponse.from(this.users.editProfile(user.id(), request.displayName(), request.jobTitle()));
 	}
 
 	@GetMapping("/users")

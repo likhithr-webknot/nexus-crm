@@ -41,6 +41,9 @@ public class AppUser {
 	@Column(name = "display_name", nullable = false)
 	private String displayName;
 
+	@Column(name = "job_title")
+	private String jobTitle;
+
 	@Column(name = "avatar_url")
 	private String avatarUrl;
 
@@ -100,6 +103,12 @@ public class AppUser {
 
 	public void rename(String displayName) {
 		this.displayName = displayName;
+	}
+
+	/** A blank job title is stored as none. */
+	public void editProfile(String displayName, String jobTitle) {
+		this.displayName = displayName.strip();
+		this.jobTitle = (jobTitle == null || jobTitle.isBlank()) ? null : jobTitle.strip();
 	}
 
 	public void setTeamId(UUID teamId) {

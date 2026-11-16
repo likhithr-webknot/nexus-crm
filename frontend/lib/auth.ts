@@ -11,6 +11,8 @@ export type SessionUser = {
   id: string;
   email: string;
   displayName: string;
+  /** The person's designation, for example "Software Engineer". */
+  jobTitle: string | null;
   avatarUrl: string | null;
   role: Role;
 };
@@ -18,6 +20,10 @@ export type SessionUser = {
 export const ROLE_LABELS: Record<Role, string> = { ADMIN: "Admin", MANAGER: "Manager", REP: "Sales rep" };
 
 export const fetchMe = () => api<SessionUser>("/me");
+
+/** Changes the signed-in user's own name and designation. A blank designation clears it. */
+export const updateProfile = (body: { displayName: string; jobTitle: string }) =>
+  api<SessionUser>("/me", { method: "PATCH", body: JSON.stringify(body) });
 
 /** A full page load, so nothing from the session stays in memory, and Back does not return to the app. */
 export const leaveSignedOut = () => window.location.replace("/login?notice=signed_out");

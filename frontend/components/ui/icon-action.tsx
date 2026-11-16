@@ -12,7 +12,7 @@ export function IconAction({ icon: Icon, label, onClick, danger, disabled }: { i
       onClick={onClick}
       className={cn(
         "grid size-8 shrink-0 place-items-center rounded-md text-ink-3 transition-colors disabled:opacity-50",
-        danger ? "hover:bg-rose-50 hover:text-down" : "hover:bg-canvas hover:text-ink",
+        danger ? "hover:bg-danger-soft hover:text-down" : "hover:bg-canvas hover:text-ink",
       )}
     >
       <Icon className="size-4" aria-hidden />

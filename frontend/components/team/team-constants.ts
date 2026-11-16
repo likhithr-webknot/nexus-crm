@@ -5,9 +5,9 @@ import type { UserStatus } from "@/lib/users";
 export const ROLES = Object.keys(ROLE_LABELS) as Role[];
 export const ROLE_TONE: Record<Role, "violet" | "brand" | "neutral"> = { ADMIN: "violet", MANAGER: "brand", REP: "neutral" };
 export const STATUS: Record<UserStatus, { label: string; dot: string }> = {
-  ACTIVE: { label: "Active", dot: "bg-emerald-500" },
-  INVITED: { label: "Invited", dot: "bg-amber-500" },
-  DISABLED: { label: "Disabled", dot: "bg-slate-300" },
+  ACTIVE: { label: "Active", dot: "tone-solid tone-green" },
+  INVITED: { label: "Invited", dot: "tone-solid tone-amber" },
+  DISABLED: { label: "Disabled", dot: "bg-line-strong" },
 };
 
 /** What to tell the user when a save fails. The backend's own sentence when it sent one. */

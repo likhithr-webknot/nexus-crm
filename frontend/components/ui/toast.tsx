@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from "react";
 import { CircleCheck } from "lucide-react";
 
-type Toast = { id: number; message: string };
+type Toast = { id: number; message: string; action?: { label: string; run: () => void } };
 
 const SHOW_MS = 5000;
 let toasts: Toast[] = [];
@@ -15,9 +15,9 @@ const change = (next: Toast[]) => {
 };
 
 /** Shows a short confirmation in the corner of the screen. Callable from anywhere. */
-export function toast(message: string) {
+export function toast(message: string, action?: { label: string; run: () => void }) {
   const id = nextId++;
-  change([...toasts, { id, message }]);
+  change([...toasts, { id, message, action }]);
   setTimeout(() => change(toasts.filter((t) => t.id !== id)), SHOW_MS);
 }
 
@@ -43,6 +43,7 @@ export function Toaster() {
         >
           <CircleCheck className="mt-px size-4 shrink-0 text-emerald-400" aria-hidden />
           {t.message}
+          {t.action && <button onClick={() => { t.action?.run(); change(toasts.filter((item) => item.id !== t.id)); }} className="pointer-events-auto ml-2 shrink-0 font-semibold text-indigo-200 hover:text-white">{t.action.label}</button>}
         </p>
       ))}
     </div>

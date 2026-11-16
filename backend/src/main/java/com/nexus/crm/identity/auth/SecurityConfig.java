@@ -62,7 +62,7 @@ class SecurityConfig {
 	@Order(1)
 	SecurityFilterChain signInFilterChain(HttpSecurity http, ClientRegistrationRepository clientRegistrations,
 			CookieOAuth2AuthorizationRequestRepository authorizationRequests, OidcSignInHandlers handlers) {
-		http.securityMatcher("/api/v1/auth/oauth2/**", "/api/v1/auth/login/**", AuthCookies.REFRESH_PATH)
+		http.securityMatcher("/api/v1/auth/oauth2/**", "/api/v1/auth/login/**", "/api/v1/mail/callback", AuthCookies.REFRESH_PATH)
 			.authorizeHttpRequests((requests) -> requests.anyRequest().permitAll())
 			// No CSRF token needed here. Google sign-in has its own protection (the state value), and the refresh cookie is never sent on requests from other sites.
 			.csrf(AbstractHttpConfigurer::disable)
@@ -147,7 +147,7 @@ class SecurityConfig {
 		CorsConfiguration cors = new CorsConfiguration();
 		cors.setAllowedOrigins(List.of(properties.frontendUrl()));
 		cors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE"));
-		cors.setAllowedHeaders(List.of(HttpHeaders.CONTENT_TYPE, "X-XSRF-TOKEN"));
+		cors.setAllowedHeaders(List.of(HttpHeaders.CONTENT_TYPE, "X-XSRF-TOKEN", "Idempotency-Key"));
 		cors.setExposedHeaders(List.of(RequestIdFilter.HEADER, HttpHeaders.RETRY_AFTER));
 		cors.setAllowCredentials(true);
 		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

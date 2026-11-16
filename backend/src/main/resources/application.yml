@@ -1,6 +1,10 @@
 spring:
   application:
     name: nexus-crm
+  servlet:
+    multipart:
+      max-file-size: 4MB
+      max-request-size: 5MB
   # Virtual threads. What we wanted: simple blocking code that still handles many requests at once.
   #   1. spring.threads.virtual.enabled puts request threads, @Scheduled jobs and the application task
   #      executor on virtual threads. RuntimeConfigTests checks this.

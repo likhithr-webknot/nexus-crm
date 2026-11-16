@@ -28,7 +28,7 @@ export function FollowUpAgenda({ day, isToday, items, overdue, onToggle, onEdit,
 
       {overdue.length > 0 && (
         <>
-          <h3 className="border-y border-line bg-rose-50/60 px-5 py-2 text-[12px] font-semibold tracking-wide text-rose-700 uppercase">Overdue · {overdue.length}</h3>
+          <h3 className="border-y border-line tone-red bg-[var(--tone-bg)] px-5 py-2 text-[12px] font-semibold tracking-wide text-[var(--tone-ink)] uppercase">Overdue · {overdue.length}</h3>
           <ul className="divide-y divide-line">
             {overdue.map((f) => (
               <AgendaItem key={f.id} item={f} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} when={formatDay(f.local)} late />
@@ -59,7 +59,7 @@ function AgendaItem({
   return (
     <li className="flex gap-3 px-5 py-3.5">
       <span className={cn("tnum w-11 shrink-0 pt-0.5 text-[12px]", late ? "font-medium text-down" : "text-ink-3")}>{when}</span>
-      <span className={cn("w-0.5 shrink-0 rounded-full", done ? "bg-slate-200" : TYPE_STYLES[item.type].bar)} aria-hidden />
+      <span className={cn("w-0.5 shrink-0 rounded-full", done ? "bg-line-strong" : TYPE_STYLES[item.type].bar)} aria-hidden />
       <div className="min-w-0 flex-1">
         <p className={cn("truncate text-[13.5px] font-medium", done ? "text-ink-3 line-through" : "text-ink")}>{item.title}</p>
         <p className="truncate text-[12.5px] text-ink-3">

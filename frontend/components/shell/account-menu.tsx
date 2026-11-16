@@ -44,12 +44,12 @@ export function AccountMenu() {
             <button
               onClick={() => signOut()}
               disabled={pending}
-              className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] text-rose-600 hover:bg-rose-50 disabled:opacity-50"
+              className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] text-down hover:bg-danger-soft disabled:opacity-50"
             >
               <LogOut className="size-4" /> {pending ? "Signing out…" : "Sign out"}
             </button>
             {failed && (
-              <p role="alert" className="px-2 pt-1 text-[12px] text-rose-600">
+              <p role="alert" className="px-2 pt-1 text-[12px] text-down">
                 Couldn&apos;t reach the server. Try again.
               </p>
             )}

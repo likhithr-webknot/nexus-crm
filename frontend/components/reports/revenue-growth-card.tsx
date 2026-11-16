@@ -23,7 +23,7 @@ export function RevenueGrowthCard({ points, hasTargets, totalRevenue }: { points
           </span>
           {hasTargets && (
             <span className="flex items-center gap-1.5">
-              <span className="w-4 border-t-2 border-dashed border-slate-400" aria-hidden /> Target
+              <span className="w-4 border-t-2 border-dashed border-ink-3" aria-hidden /> Target
             </span>
           )}
         </div>

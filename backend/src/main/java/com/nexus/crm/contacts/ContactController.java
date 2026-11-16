@@ -131,7 +131,7 @@ class ContactController {
 
 	private java.util.function.Function<Company, CompanyResponse> companyMapper(Collection<Company> list) {
 		Map<UUID, String> ownerNames = this.users.displayNames(list.stream().map(Company::getOwnerId).collect(Collectors.toSet()));
-		return (c) -> new CompanyResponse(c.getId(), c.getName(), c.getDomain(), c.getIndustry(),
+		return (c) -> new CompanyResponse(c.getId(), c.getName(), c.getDomain(), c.getIndustry(), c.getWebsiteUrl(), c.getLogoUrl(),
 				new Ref(c.getOwnerId(), ownerNames.get(c.getOwnerId())), c.getCreatedAt(), c.getUpdatedAt(),
 				c.getVersion());
 	}

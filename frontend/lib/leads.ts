@@ -79,6 +79,7 @@ export const listLeads = (filters: LeadFilters) =>
 export const leadSummary = () => api<LeadSummary>("/leads/summary");
 
 export const createLead = (body: NewLead) => api<Lead>("/leads", { method: "POST", body: JSON.stringify(body) });
+export const getLead = (id: string) => api<Lead>(`/leads/${id}`);
 
 export const assignLead = (id: string, ownerId: string | null) =>
   api<Lead>(`/leads/${id}/assign`, { method: "POST", body: JSON.stringify({ ownerId }) });

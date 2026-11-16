@@ -10,6 +10,8 @@ public record CompanyResponse(
 	String name,
 	String domain,
 	String industry,
+	String websiteUrl,
+	String logoUrl,
 	Ref owner,
 	Instant createdAt,
 	Instant updatedAt,

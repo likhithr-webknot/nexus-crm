@@ -29,12 +29,13 @@ export type NewContact = {
   ownerId?: string;
 };
 
-export type Company = { id: string; name: string; domain: string | null; industry: string | null; owner: Ref };
+export type Company = { id: string; name: string; domain: string | null; industry: string | null; websiteUrl: string | null; logoUrl: string | null; owner: Ref };
 
 export const listContacts = (params: { q?: string; page?: number; size?: number }) =>
   api<PageResponse<Contact>>(`/contacts${qs(params)}`);
 
 export const createContact = (body: NewContact) => api<Contact>("/contacts", { method: "POST", body: JSON.stringify(body) });
+export const getContact = (id: string) => api<Contact>(`/contacts/${id}`);
 
 export const listCompanies = (params: { q?: string; page?: number; size?: number }) =>
   api<PageResponse<Company>>(`/companies${qs(params)}`);

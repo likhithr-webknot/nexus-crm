@@ -10,6 +10,7 @@ public record UserResponse(
 	UUID id,
 	String email,
 	String displayName,
+	String jobTitle,
 	String avatarUrl,
 	Role role,
 	AppUser.Status status,
@@ -18,7 +19,7 @@ public record UserResponse(
 ) {
 
 	public static UserResponse from(AppUser user) {
-		return new UserResponse(user.getId(), user.getEmail(), user.getDisplayName(), user.getAvatarUrl(),
+		return new UserResponse(user.getId(), user.getEmail(), user.getDisplayName(), user.getJobTitle(), user.getAvatarUrl(),
 				user.getRole(), user.getStatus(), user.getTeamId(), user.getLastLoginAt());
 	}
 

@@ -46,8 +46,10 @@ export const listStages = () => api<PipelineStage[]>("/pipeline/stages");
 /** Every open deal and the ones closed in the last 90 days. */
 export const pipelineBoard = (ownerId?: string) => api<Deal[]>(`/pipeline/board${qs({ ownerId })}`);
 
-export const listDeals = (params: { contactId?: string; companyId?: string; open?: boolean; page?: number; size?: number }) =>
+export const listDeals = (params: { q?: string; stage?: string; ownerId?: string; contactId?: string; companyId?: string; open?: boolean; page?: number; size?: number }) =>
   api<PageResponse<Deal>>(`/deals${qs(params)}`);
+
+export const getDeal = (id: string) => api<Deal>(`/deals/${id}`);
 
 export const createDeal = (body: NewDeal) => api<Deal>("/deals", { method: "POST", body: JSON.stringify(body) });
 

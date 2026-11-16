@@ -4,20 +4,18 @@ import type { Deal } from "@/lib/deals";
 import { cn, formatDay, localIso } from "@/lib/format";
 import { moneyValue } from "@/lib/money";
 import { MoreHorizontal } from "lucide-react";
+import { useDraggable } from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 
 /** One deal on the board. It can be dragged, or moved with the arrow keys. */
 export function DealCard({
   deal,
   dragging,
-  onDragStart,
-  onDragEnd,
   onArrow,
   onOpen,
 }: {
   deal: Deal;
   dragging: boolean;
-  onDragStart: () => void;
-  onDragEnd: () => void;
   /** -1 for the left arrow and 1 for the right. */
   onArrow: (direction: -1 | 1) => void;
   /** Opens the deal to edit or delete it. */
@@ -25,15 +23,17 @@ export function DealCard({
 }) {
   const { format } = useCurrency();
   const amount = format(moneyValue(deal.amount), deal.amount.currency);
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: deal.id, disabled: Boolean(deal.closedAt), data: { stageCode: deal.stageCode } });
 
   return (
     <li
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
       id={`deal-${deal.id}`}
       tabIndex={0}
-      draggable
+      style={{ transform: CSS.Translate.toString(transform) }}
       aria-label={`${deal.company.name}, ${deal.primaryContact?.name ?? "no contact"}, ${amount}. Arrow keys move it between stages.`}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
       onKeyDown={(e) => {
         if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
         e.preventDefault();

@@ -10,7 +10,7 @@ export function RateStatus() {
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-canvas px-3.5 py-3 text-[12.5px] text-ink-2" role="status" aria-live="polite">
       {rateState.status === "loading" && "Loading daily exchange rates…"}
       {rateState.status === "ready" && (
-        <span className={rateState.stale ? "text-amber-800" : undefined}>
+        <span className={rateState.stale ? "tone-text tone-amber" : undefined}>
           {rateState.stale
             ? `Some exchange rates are more than 7 days old (newest: ${rateState.updatedAt}). Converted totals may be out of date.`
             : `Exchange rates last updated ${rateState.updatedAt}. The server downloads new rates every day.`}

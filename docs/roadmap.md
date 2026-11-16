@@ -38,7 +38,18 @@ What we are building next, in order, and why. Each slice is finished (backend, f
 | 3.1 | **Assignment rules**: round-robin, or by source, applied to new leads. |
 | 3.2 | **Workflow rules**: when something happens, do something (assign, create a follow-up, notify). Rules run in the same transaction, have a loop guard, and every run is logged. |
 | 3.3 | **Stale-deal and overdue alerts.** |
-| 3.4 | **Email templates** (for copying into the user's own mail client; the app does not send email). |
+| 3.4 | **Email templates and Gmail delivery** through each sender's consented Google Workspace mailbox. |
+
+### Added scope from the current product request
+
+| Area | Current implementation | Remaining verification or expansion |
+| --- | --- | --- |
+| Communications | Database drafts, 30-day draft purge, Gmail OAuth and send path, admin banner with sender name embedded in the image. | Google Cloud redirect registration, sender consent and a real provider send test. |
+| Campaigns | Database-backed records with role scope and audit. | Audience enrollment, delivery, scheduling and engagement reporting. |
+| Automations | Published graph runs on deal creation, won deals and qualified leads; owner notifications, follow-ups, conditions, delays and run history. | More triggers and actions, plus broader operational controls. |
+| Products and quotes | Shared product catalog, persisted quote lines and server-calculated totals. | Document generation and approval workflow. |
+| AI | Admin-managed encrypted key, streaming CRM assistant with scoped recent records and reviewable create forms, public company and market research with provider search-source links, email drafting, workflow creation and review before applying findings. | Broader CRM actions and a signed-in browser check of streaming. |
+| Recycle bin | Restore now includes archived workspace records. | Live-browser check after backend restart. |
 
 ## Phase 4: Insights
 
@@ -64,6 +75,8 @@ What we are building next, in order, and why. Each slice is finished (backend, f
 - Security headers and a Content-Security-Policy for the frontend.
 - Database backup and restore steps written down, and a restore test.
 
-## Not planned
+## Outside the current integration
 
-Email and calendar sync were not chosen. They need an email provider, an OAuth app and a decision on storing email content. They can be added later without changing the slices above.
+Calendar and inbound email sync have not been specified. Outgoing Gmail mail
+and CRM-stored drafts are in scope. Drafts expire 30 days after creation;
+other recycled records retain the separate 90-day policy above.

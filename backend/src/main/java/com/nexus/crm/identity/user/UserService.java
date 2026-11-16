@@ -84,6 +84,14 @@ public class UserService {
 		return user;
 	}
 
+	/** A person changing their own name and job title. */
+	@Transactional
+	public AppUser editProfile(UUID id, String displayName, String jobTitle) {
+		AppUser user = get(id);
+		user.editProfile(displayName, jobTitle);
+		return user;
+	}
+
 	/** Removes a user who was invited but never signed in, for example because the email was mistyped. */
 	@Transactional
 	public void delete(UUID id, UUID actorId) {

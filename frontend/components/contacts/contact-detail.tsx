@@ -17,10 +17,11 @@ import { AFTER, KEYS } from "@/lib/query-keys";
 import { useQuery } from "@tanstack/react-query";
 import { Building2, Mail, Phone } from "lucide-react";
 import { useState } from "react";
+import Link from "next/link";
 import { EditCompanyDialog } from "./edit-company-dialog";
 import { EditContactDialog } from "./edit-contact-dialog";
 
-export function ContactDetail({ contact: c }: { contact: Contact }) {
+export function ContactDetail({ contact: c, full = false }: { contact: Contact; full?: boolean }) {
   const { format } = useCurrency();
   const refresh = useRefresh();
   const [editing, setEditing] = useState(false);
@@ -53,10 +54,11 @@ export function ContactDetail({ contact: c }: { contact: Contact }) {
           </div>
           <EditDeleteActions name={c.name} onEdit={() => setEditing(true)} onDelete={() => setDeleting(c)} />
         </div>
+        {!full && <Link href={`/contacts/${c.id}`} className="mt-3 inline-block text-[12px] font-medium text-brand hover:underline">Open full record →</Link>}
         {c.company && (
           <p className="mt-3 flex items-center gap-1 text-[12.5px] text-ink-3">
             <Building2 className="size-3.5" aria-hidden />
-            {c.company.name}
+            <Link href={`/companies/${c.company.id}`} className="hover:text-brand hover:underline">{c.company.name}</Link>
             <button onClick={() => setEditingCompany(c.company)} className="ml-1 font-medium text-brand hover:underline">
               Edit
             </button>
@@ -103,7 +105,7 @@ export function ContactDetail({ contact: c }: { contact: Contact }) {
       <Section title="Deals" empty="No deals yet." loading={deals.isPending} count={deals.data?.items.length ?? 0}>
         {deals.data?.items.map((d) => (
           <li key={d.id} className="flex items-center justify-between gap-3">
-            <span className="min-w-0 truncate text-ink">{d.name}</span>
+            <Link href={`/deals/${d.id}`} className="min-w-0 truncate text-ink hover:text-brand hover:underline">{d.name}</Link>
             <span className="flex shrink-0 items-center gap-2">
               <span className="tnum text-ink-2">{format(moneyValue(d.amount), d.amount.currency)}</span>
               <StageBadge stage={d.stageCode} />

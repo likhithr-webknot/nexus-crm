@@ -1,31 +1,74 @@
 @import "tailwindcss";
 
-/*
- * Design tokens. One accent (indigo), neutral slate surfaces, semantic
- * success/danger. Everything else in the UI should derive from these.
- */
+:root {
+  --canvas: #f8f9fb; --surface: #ffffff; --surface-muted: #f3f5f7;
+  --line: #e7e9ed; --line-strong: #d7dce3;
+  --ink: #17191c; --ink-2: #68707d; --ink-3: #7a8391;
+  --brand: #4f46e5; --brand-soft: #eef2ff; --brand-ink: #4338ca;
+  --nav: #111720; --nav-2: #202936; --nav-ink: #aeb7c4;
+  /* The app sidebar: one step darker than the canvas, never a separate colour world. */
+  --side: #f1f3f6; --side-hover: #e6e9ee; --side-active: #ffffff;
+  --side-ink: #565e6b; --side-ink-strong: #17191c; --side-line: #e1e4e9;
+  --up: #087f5b; --down: #c82d45; --focus: #4f46e5;
+  --danger: #e11d48; --danger-strong: #be123c; --danger-soft: #fff1f2;
+  --scrim: rgb(2 6 23 / 0.45);
+  --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-move: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --duration-hover: 140ms; --duration-menu: 170ms;
+  --duration-dialog: 200ms; --duration-sidebar: 220ms;
+  --duration-page: 200ms;
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --canvas: #0e1013; --surface: #15181d; --surface-muted: #1c2026;
+  --line: #292f38; --line-strong: #3c4450;
+  --ink: #f2f4f7; --ink-2: #aab3bf; --ink-3: #8993a1;
+  --brand: #818cf8; --brand-soft: #262b49; --brand-ink: #a5b4fc;
+  --nav: #101217; --nav-2: #232935; --nav-ink: #abb4c2;
+  --side: #0a0c0f; --side-hover: #15181d; --side-active: #1c2026;
+  --side-ink: #a0a8b4; --side-ink-strong: #f2f4f7; --side-line: #232830;
+  --up: #63d3a7; --down: #ff8192; --focus: #a5b4fc;
+  --danger: #e5484d; --danger-strong: #f2555a; --danger-soft: #3a1820;
+  --scrim: rgb(0 0 0 / 0.6);
+  color-scheme: dark;
+}
+
 @theme inline {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-mono-jb), ui-monospace, monospace;
 
-  --color-canvas: #f6f7f9;
-  --color-surface: #ffffff;
-  --color-line: #e7e9ee;
-  --color-line-strong: #d9dce3;
-  --color-ink: #0f172a;
-  --color-ink-2: #475569;
-  --color-ink-3: #8a94a6;
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
 
-  --color-brand: #4f46e5;
-  --color-brand-soft: #eef0ff;
-  --color-brand-ink: #3730a3;
+  --color-brand: var(--brand);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-ink: var(--brand-ink);
 
-  --color-nav: #0e1526;
-  --color-nav-2: #172036;
-  --color-nav-ink: #a3adc2;
+  --color-nav: var(--nav);
+  --color-nav-2: var(--nav-2);
+  --color-nav-ink: var(--nav-ink);
 
-  --color-up: #059669;
-  --color-down: #dc2626;
+  --color-side: var(--side);
+  --color-side-hover: var(--side-hover);
+  --color-side-active: var(--side-active);
+  --color-side-ink: var(--side-ink);
+  --color-side-ink-strong: var(--side-ink-strong);
+  --color-side-line: var(--side-line);
+
+  --color-up: var(--up);
+  --color-down: var(--down);
+  --color-danger: var(--danger);
+  --color-danger-strong: var(--danger-strong);
+  --color-danger-soft: var(--danger-soft);
+  --color-scrim: var(--scrim);
 }
 
 html {
@@ -33,8 +76,8 @@ html {
 }
 
 body {
-  background: var(--color-canvas);
-  color: var(--color-ink);
+  background: var(--canvas);
+  color: var(--ink);
 }
 
 /* Numbers in KPIs and tables should not jitter when they change. */
@@ -43,6 +86,83 @@ body {
 }
 
 :focus-visible {
-  outline: 2px solid var(--color-brand);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
+
+/* Status and category colours. A tone class sets four variables for both themes; the helpers below read them,
+   so no component names a palette colour and nothing is light-only. */
+.tone-neutral { --tone-bg: #f1f5f9; --tone-ink: #334155; --tone-line: #e2e8f0; --tone-solid: #94a3b8; }
+.tone-brand { --tone-bg: #eef2ff; --tone-ink: #4338ca; --tone-line: #c7d2fe; --tone-solid: #6366f1; }
+.tone-violet { --tone-bg: #f5f3ff; --tone-ink: #6d28d9; --tone-line: #ddd6fe; --tone-solid: #8b5cf6; }
+.tone-green { --tone-bg: #ecfdf5; --tone-ink: #047857; --tone-line: #a7f3d0; --tone-solid: #10b981; }
+.tone-amber { --tone-bg: #fffbeb; --tone-ink: #92400e; --tone-line: #fde68a; --tone-solid: #f59e0b; }
+.tone-red { --tone-bg: #fff1f2; --tone-ink: #be123c; --tone-line: #fecdd3; --tone-solid: #f43f5e; }
+.tone-sky { --tone-bg: #f0f9ff; --tone-ink: #0369a1; --tone-line: #bae6fd; --tone-solid: #0ea5e9; }
+.tone-orange { --tone-bg: #fff7ed; --tone-ink: #c2410c; --tone-line: #fed7aa; --tone-solid: #f97316; }
+[data-theme="dark"] .tone-neutral { --tone-bg: #232830; --tone-ink: #c3cad5; --tone-line: #363d48; --tone-solid: #7b8594; }
+[data-theme="dark"] .tone-brand { --tone-bg: #23284a; --tone-ink: #a5b4fc; --tone-line: #353c6e; --tone-solid: #818cf8; }
+[data-theme="dark"] .tone-violet { --tone-bg: #2a2247; --tone-ink: #c4b5fd; --tone-line: #41356e; --tone-solid: #a78bfa; }
+[data-theme="dark"] .tone-green { --tone-bg: #10291f; --tone-ink: #6ee7b7; --tone-line: #1d4636; --tone-solid: #34d399; }
+[data-theme="dark"] .tone-amber { --tone-bg: #33260d; --tone-ink: #fcd34d; --tone-line: #523c12; --tone-solid: #fbbf24; }
+[data-theme="dark"] .tone-red { --tone-bg: #3a1820; --tone-ink: #fda4af; --tone-line: #5c2531; --tone-solid: #fb7185; }
+[data-theme="dark"] .tone-sky { --tone-bg: #0f2a3a; --tone-ink: #7dd3fc; --tone-line: #1a4560; --tone-solid: #38bdf8; }
+[data-theme="dark"] .tone-orange { --tone-bg: #37200f; --tone-ink: #fdba74; --tone-line: #57321a; --tone-solid: #fb923c; }
+.tone { background: var(--tone-bg); color: var(--tone-ink); box-shadow: inset 0 0 0 1px var(--tone-line); }
+.tone-fill { background: var(--tone-line); color: var(--tone-ink); }
+.tone-solid { background: var(--tone-solid); }
+.tone-chip { border-color: var(--tone-solid); background: var(--tone-bg); color: var(--tone-ink); }
+.tone-text { color: var(--tone-ink); }
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes palette-out { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(4px) scale(.985); } }
+@keyframes page-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes tip-in { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: scale(1); } }
+@keyframes drawer-left-in { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+@keyframes palette-in { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes menu-in { from { opacity: 0; transform: scale(.98); } to { opacity: 1; transform: scale(1); } }
+@keyframes drawer-in { from { opacity: .8; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes assistant-in { from { opacity: .72; transform: translateX(80px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes assistant-out { from { opacity: 1; transform: translateX(0); } to { opacity: .9; transform: translateX(64px); } }
+@keyframes assistant-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes assistant-overlay-out { from { opacity: 1; } to { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-hover: 0ms; --duration-menu: 0ms;
+    --duration-dialog: 0ms; --duration-sidebar: 0ms;
+    --duration-page: 0ms;
+  }
+}
+
+/* A key cap, as shown in menus, tooltips and the shortcuts list. */
+.kbd {
+  display: inline-grid; min-width: 1.25rem; height: 1.25rem; place-items: center; padding: 0 .3rem;
+  border: 1px solid var(--line); border-radius: .3rem; background: var(--surface);
+  font-family: var(--font-sans); font-size: 10.5px; font-weight: 500; line-height: 1; color: var(--ink-2);
+}
+.tiptap { min-height: 10rem; outline: none; }
+.tiptap p + p { margin-top: .5rem; }
+.tiptap ul { list-style: disc; padding-left: 1.25rem; }
+.tiptap ol { list-style: decimal; padding-left: 1.25rem; }
+.assistant-markdown { overflow-wrap: anywhere; }
+.assistant-markdown > :first-child { margin-top: 0; }
+.assistant-markdown > :last-child { margin-bottom: 0; }
+.assistant-markdown p, .assistant-markdown ul, .assistant-markdown ol, .assistant-markdown blockquote, .assistant-markdown pre, .assistant-markdown table { margin-block: .65rem; }
+.assistant-markdown h1, .assistant-markdown h2, .assistant-markdown h3 { margin-block: .9rem .35rem; font-weight: 650; line-height: 1.35; }
+.assistant-markdown h1 { font-size: 1.15rem; }
+.assistant-markdown h2 { font-size: 1.05rem; }
+.assistant-markdown h3 { font-size: .98rem; }
+.assistant-markdown ul, .assistant-markdown ol { padding-left: 1.35rem; }
+.assistant-markdown ul { list-style: disc; }
+.assistant-markdown ol { list-style: decimal; }
+.assistant-markdown li + li { margin-top: .2rem; }
+.assistant-markdown blockquote { border-left: 2px solid var(--line-strong); padding-left: .75rem; color: var(--ink-2); }
+.assistant-markdown pre { overflow-x: auto; border: 1px solid var(--line); border-radius: .5rem; background: var(--surface); padding: .65rem; }
+.assistant-markdown code { border-radius: .25rem; background: var(--surface); padding: .1rem .25rem; font-family: var(--font-mono-jb), ui-monospace, monospace; font-size: .9em; }
+.assistant-markdown pre code { background: transparent; padding: 0; }
+.assistant-markdown a { color: var(--brand-ink); text-decoration: underline; text-underline-offset: 2px; }
+.assistant-markdown table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
+.assistant-markdown th, .assistant-markdown td { border: 1px solid var(--line); padding: .3rem .5rem; text-align: left; }
+.assistant-markdown th { background: var(--surface); font-weight: 600; }
