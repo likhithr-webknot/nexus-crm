@@ -73,14 +73,16 @@ export function ContactList({
               <button
                 onClick={() => onSelect(c.id)}
                 aria-current={c.id === selectedId ? "true" : undefined}
-                className={cn("flex w-full items-center gap-3 px-4 py-3 text-left transition-colors", c.id === selectedId ? "bg-brand-soft/60" : "hover:bg-canvas/70")}
+                className={cn("flex w-full items-center gap-3 px-4 py-3 text-left transition-colors", c.id === selectedId ? "bg-brand-soft/60" : "hover:bg-surface-muted")}
               >
                 <Avatar name={c.name} size="md" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[13.5px] font-medium text-ink">{c.name}</span>
                   <span className="block truncate text-[12.5px] text-ink-3">{[c.jobTitle, c.company?.name].filter(Boolean).join(" · ") || "—"}</span>
                 </span>
-                <span className="hidden w-60 shrink-0 truncate text-[12.5px] text-ink-2 md:block">{c.email}</span>
+                <span className="hidden w-64 shrink-0 truncate text-[12.5px] text-ink-2 md:block">{c.email ?? "—"}</span>
+                <span className="tnum hidden w-40 shrink-0 truncate text-[12.5px] text-ink-2 lg:block">{c.phone ?? "—"}</span>
+                <span className="hidden w-40 shrink-0 truncate text-[12.5px] text-ink-3 xl:block">{c.owner.name}</span>
               </button>
             </li>
           ))}

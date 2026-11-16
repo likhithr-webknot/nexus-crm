@@ -12,7 +12,7 @@ import { ResearchCard } from "@/components/ai/research-card";
 export function ContactRecord({ id }: { id: string }) {
   const contact = useQuery({ queryKey: [...KEYS.contacts, "record", id], queryFn: () => getContact(id) });
   if (contact.isError) return <Page><PageHeader title="Contact unavailable" subtitle="The record could not be loaded." /><Card className="p-6"><button onClick={() => contact.refetch()} className={buttonSecondary}>Try again</button></Card></Page>;
-  if (!contact.data) return <Page><div className="h-52 animate-pulse rounded-xl bg-surface motion-reduce:animate-none" role="status" aria-label="Loading contact" /></Page>;
+  if (!contact.data) return <Page><div className="h-52 rounded-xl skeleton" role="status" aria-label="Loading contact" /></Page>;
   return <Page>
     <div className="mb-4"><Link href="/contacts" className="inline-flex items-center gap-1.5 text-[12.5px] text-ink-3 hover:text-brand"><ArrowLeft className="size-3.5" />All contacts</Link></div>
     <PageHeader title={contact.data.name} subtitle={contact.data.company?.name ?? "Independent contact"} />

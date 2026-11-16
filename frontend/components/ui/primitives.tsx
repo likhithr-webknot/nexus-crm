@@ -6,9 +6,9 @@ import { cn, initials } from "@/lib/format";
 
 /* Shared control styles, so every button, input and select looks the same. */
 export const buttonPrimary =
-  "inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-brand px-3.5 text-[13px] font-semibold text-white shadow-sm transition-colors hover:bg-brand-ink disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-brand";
+  "inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-brand px-3.5 text-[13px] font-semibold text-white shadow-sm transition-[background-color,transform] duration-[var(--duration-hover)] hover:bg-brand-ink active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-brand disabled:active:scale-100";
 export const buttonSecondary =
-  "inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-line bg-surface px-3 text-[13px] font-medium text-ink-2 transition-colors hover:border-line-strong hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-line disabled:hover:text-ink-2";
+  "inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-line bg-surface px-3 text-[13px] font-medium text-ink-2 transition-[color,background-color,border-color,transform] duration-[var(--duration-hover)] hover:border-line-strong hover:bg-surface-muted hover:text-ink active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-line disabled:hover:bg-surface disabled:hover:text-ink-2 disabled:active:scale-100";
 export const control =
   "h-9 rounded-lg border border-line bg-surface text-[13px] text-ink hover:border-line-strong focus:border-brand focus:outline-none";
 
@@ -40,7 +40,7 @@ export function Field({
 }
 
 export function Page({ children }: { children: React.ReactNode }) {
-  return <div className="mx-auto max-w-[1600px] space-y-5 px-4 py-6 sm:px-6 lg:px-8">{children}</div>;
+  return <div className="stagger mx-auto max-w-[1600px] space-y-5 px-4 py-6 sm:px-6 lg:px-8">{children}</div>;
 }
 
 export function PageHeader({

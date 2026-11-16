@@ -1,6 +1,6 @@
 import { CompaniesWorkspace } from "@/components/companies/companies-workspace";
 
-export default async function CompanyPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  return <CompaniesWorkspace recordId={id} />;
+// The same screen as /companies: the workspace reads the record to open from the address.
+export default function CompanyPage() {
+  return <CompaniesWorkspace />;
 }

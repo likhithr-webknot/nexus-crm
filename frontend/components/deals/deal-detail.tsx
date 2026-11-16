@@ -30,7 +30,7 @@ export function DealDetail({ id }: { id: string }) {
   const refresh = () => { void queryClient.invalidateQueries({ queryKey: KEYS.deals }); };
 
   if (deal.isError) return <Page><Link href="/deals" className={buttonSecondary}><ArrowLeft className="size-4" />Back to deals</Link><Card className="p-8 text-[13px] text-down">This deal could not be loaded. <button className="underline" onClick={() => deal.refetch()}>Retry</button></Card></Page>;
-  if (!data) return <Page><div className="h-10 w-28 animate-pulse rounded-lg bg-surface motion-reduce:animate-none" /><Card className="h-72 animate-pulse motion-reduce:animate-none" /></Page>;
+  if (!data) return <Page><div className="h-10 w-28 rounded-lg skeleton" /><Card className="h-72 skeleton" /></Page>;
   const currentStage = stages.data?.find((stage) => stage.code === data.stageCode);
   const stageIndex = stages.data?.findIndex((stage) => stage.code === data.stageCode) ?? -1;
 

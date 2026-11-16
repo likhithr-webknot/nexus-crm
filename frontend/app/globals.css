@@ -6,9 +6,9 @@
   --ink: #17191c; --ink-2: #68707d; --ink-3: #7a8391;
   --brand: #4f46e5; --brand-soft: #eef2ff; --brand-ink: #4338ca;
   --nav: #111720; --nav-2: #202936; --nav-ink: #aeb7c4;
-  /* The app sidebar: one step darker than the canvas, never a separate colour world. */
-  --side: #f1f3f6; --side-hover: #e6e9ee; --side-active: #ffffff;
-  --side-ink: #565e6b; --side-ink-strong: #17191c; --side-line: #e1e4e9;
+  /* The app sidebar is dark in both themes. Everything in it reads these, never the page tokens. */
+  --side: #10151d; --side-hover: #1a212c; --side-active: #222b38;
+  --side-ink: #a3adbb; --side-ink-strong: #ffffff; --side-line: #252e3b; --side-accent: #a5b4fc;
   --up: #087f5b; --down: #c82d45; --focus: #4f46e5;
   --danger: #e11d48; --danger-strong: #be123c; --danger-soft: #fff1f2;
   --scrim: rgb(2 6 23 / 0.45);
@@ -17,7 +17,7 @@
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
   --duration-hover: 140ms; --duration-menu: 170ms;
   --duration-dialog: 200ms; --duration-sidebar: 220ms;
-  --duration-page: 200ms;
+  --duration-page: 200ms; --duration-drawer: 280ms;
   color-scheme: light;
 }
 
@@ -28,7 +28,7 @@
   --brand: #818cf8; --brand-soft: #262b49; --brand-ink: #a5b4fc;
   --nav: #101217; --nav-2: #232935; --nav-ink: #abb4c2;
   --side: #0a0c0f; --side-hover: #15181d; --side-active: #1c2026;
-  --side-ink: #a0a8b4; --side-ink-strong: #f2f4f7; --side-line: #232830;
+  --side-ink: #a0a8b4; --side-ink-strong: #f2f4f7; --side-line: #232830; --side-accent: #a5b4fc;
   --up: #63d3a7; --down: #ff8192; --focus: #a5b4fc;
   --danger: #e5484d; --danger-strong: #f2555a; --danger-soft: #3a1820;
   --scrim: rgb(0 0 0 / 0.6);
@@ -62,6 +62,7 @@
   --color-side-ink: var(--side-ink);
   --color-side-ink-strong: var(--side-ink-strong);
   --color-side-line: var(--side-line);
+  --color-side-accent: var(--side-accent);
 
   --color-up: var(--up);
   --color-down: var(--down);
@@ -117,12 +118,19 @@ body {
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
 @keyframes palette-out { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(4px) scale(.985); } }
-@keyframes page-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes page-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rise-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes dialog-in { from { opacity: 0; transform: translateY(10px) scale(.975); } to { opacity: 1; transform: none; } }
+@keyframes toast-in { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes indicator-in { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 @keyframes tip-in { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: scale(1); } }
 @keyframes drawer-left-in { from { transform: translateX(-100%); } to { transform: translateX(0); } }
 @keyframes palette-in { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes menu-in { from { opacity: 0; transform: scale(.98); } to { opacity: 1; transform: scale(1); } }
 @keyframes drawer-in { from { opacity: .8; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes panel-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes panel-out { from { transform: translateX(0); } to { transform: translateX(100%); } }
 @keyframes assistant-in { from { opacity: .72; transform: translateX(80px); } to { opacity: 1; transform: translateX(0); } }
 @keyframes assistant-out { from { opacity: 1; transform: translateX(0); } to { opacity: .9; transform: translateX(64px); } }
 @keyframes assistant-overlay-in { from { opacity: 0; } to { opacity: 1; } }
@@ -132,7 +140,7 @@ body {
   :root {
     --duration-hover: 0ms; --duration-menu: 0ms;
     --duration-dialog: 0ms; --duration-sidebar: 0ms;
-    --duration-page: 0ms;
+    --duration-page: 0ms; --duration-drawer: 0ms;
   }
 }
 
@@ -142,6 +150,8 @@ body {
   border: 1px solid var(--line); border-radius: .3rem; background: var(--surface);
   font-family: var(--font-sans); font-size: 10.5px; font-weight: 500; line-height: 1; color: var(--ink-2);
 }
+/* Key caps inside the sidebar follow its colours, not the page's. */
+.side .kbd { border-color: var(--side-line); background: var(--side-active); color: var(--side-ink); }
 .tiptap { min-height: 10rem; outline: none; }
 .tiptap p + p { margin-top: .5rem; }
 .tiptap ul { list-style: disc; padding-left: 1.25rem; }
@@ -166,3 +176,42 @@ body {
 .assistant-markdown table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
 .assistant-markdown th, .assistant-markdown td { border: 1px solid var(--line); padding: .3rem .5rem; text-align: left; }
 .assistant-markdown th { background: var(--surface); font-weight: 600; }
+
+/* ---- Motion that every screen inherits ---------------------------------------------------------- */
+
+/* Native dialogs: the panel rises and settles, the backdrop fades. */
+dialog[open] { animation: dialog-in var(--duration-dialog) var(--ease-enter); }
+dialog[open]::backdrop { animation: fade-in var(--duration-dialog) ease-out; }
+
+/* Buttons and links change colour smoothly instead of snapping. In the base layer, so any
+   transition utility on an element still wins. */
+@layer base {
+  a, button, [role="button"], [role="option"], [role="menuitem"], input, select, textarea {
+    transition-property: color, background-color, border-color, box-shadow, opacity;
+    transition-duration: var(--duration-hover);
+    transition-timing-function: ease-out;
+  }
+}
+
+/* A page's sections arrive one after another: important content first, 35ms apart, at most eight steps.
+   Only entrances; a section that re-renders does not replay. */
+@media (prefers-reduced-motion: no-preference) {
+  .stagger > * { animation: rise-in 360ms var(--ease-enter) both; }
+  .stagger > :nth-child(2) { animation-delay: 35ms; }
+  .stagger > :nth-child(3) { animation-delay: 70ms; }
+  .stagger > :nth-child(4) { animation-delay: 105ms; }
+  .stagger > :nth-child(5) { animation-delay: 140ms; }
+  .stagger > :nth-child(6) { animation-delay: 175ms; }
+  .stagger > :nth-child(7) { animation-delay: 210ms; }
+  .stagger > :nth-child(n + 8) { animation-delay: 245ms; }
+
+  /* Loading placeholders: a slow, faint sweep instead of a blink. */
+  .skeleton {
+    background: linear-gradient(90deg, var(--surface-muted) 25%, var(--line) 50%, var(--surface-muted) 75%) 0 0 / 200% 100%;
+    animation: shimmer 1.6s linear infinite;
+  }
+}
+.skeleton { border-radius: .375rem; background-color: var(--surface-muted); }
+
+/* Light ↔ dark: the whole page cross-fades (lib/theme.ts starts the transition). */
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: 260ms; animation-timing-function: var(--ease-move); }

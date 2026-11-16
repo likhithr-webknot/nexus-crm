@@ -39,11 +39,11 @@ export function Toaster() {
       {shown.map((t) => (
         <p
           key={t.id}
-          className="flex max-w-sm items-start gap-2.5 rounded-lg bg-ink px-3.5 py-2.5 text-[13px] text-white shadow-[0_12px_32px_-8px_rgba(15,23,42,0.4)]"
+          className="flex max-w-sm animate-[toast-in_var(--duration-dialog)_var(--ease-enter)] items-start gap-2.5 rounded-lg bg-ink px-3.5 py-2.5 text-[13px] text-surface shadow-[0_12px_32px_-8px_rgba(15,23,42,0.4)]"
         >
           <CircleCheck className="mt-px size-4 shrink-0 text-emerald-400" aria-hidden />
           {t.message}
-          {t.action && <button onClick={() => { t.action?.run(); change(toasts.filter((item) => item.id !== t.id)); }} className="pointer-events-auto ml-2 shrink-0 font-semibold text-indigo-200 hover:text-white">{t.action.label}</button>}
+          {t.action && <button onClick={() => { t.action?.run(); change(toasts.filter((item) => item.id !== t.id)); }} className="pointer-events-auto ml-2 shrink-0 font-semibold underline underline-offset-2 hover:opacity-80">{t.action.label}</button>}
         </p>
       ))}
     </div>

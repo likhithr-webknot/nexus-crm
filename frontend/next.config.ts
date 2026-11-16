@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Development only. Bottom-left would cover the sidebar's Collapse button.
+  devIndicators: { position: "bottom-right" },
   /* config options here */
   experimental: {
     agentFeedback: true,

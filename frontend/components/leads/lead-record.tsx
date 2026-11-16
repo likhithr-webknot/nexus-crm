@@ -41,7 +41,7 @@ export function LeadRecord({ id }: { id: string }) {
   });
   const c = lead.data;
   if (lead.isError) return <Page><PageHeader title="Lead unavailable" subtitle="The record could not be loaded." /><Card className="p-6"><button onClick={() => lead.refetch()} className={buttonSecondary}>Try again</button></Card></Page>;
-  if (!c) return <Page><div className="h-52 animate-pulse rounded-xl bg-surface motion-reduce:animate-none" role="status" aria-label="Loading lead" /></Page>;
+  if (!c) return <Page><div className="h-52 rounded-xl skeleton" role="status" aria-label="Loading lead" /></Page>;
 
   return <Page>
     <div className="mb-4"><Link href="/leads" className="inline-flex items-center gap-1.5 text-[12.5px] text-ink-3 hover:text-brand"><ArrowLeft className="size-3.5" />All leads</Link></div>

@@ -36,9 +36,9 @@ export function NotificationsMenu() {
       label={`Notifications, ${unread} unread`}
       className="w-80"
       trigger={
-        <span className="relative grid size-9 place-items-center text-ink-2">
+        <span className="relative grid size-8 place-items-center text-ink-2">
           <Bell className="size-[18px]" />
-          {unread > 0 && <span className="absolute top-2 right-2 size-2 rounded-full bg-danger ring-2 ring-surface" />}
+          {unread > 0 && <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-danger ring-2 ring-surface" />}
         </span>
       }
     >

@@ -5,7 +5,8 @@ import { listContacts } from "@/lib/contacts";
 import { KEYS } from "@/lib/query-keys";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
-import { useRef, useState } from "react";
+import { useState } from "react";
+import { Drawer } from "@/components/ui/drawer";
 import { AddContactDialog } from "./add-contact-dialog";
 import { ContactDetail } from "./contact-detail";
 import { ContactList } from "./contact-list";
@@ -14,18 +15,12 @@ export function ContactsView() {
   const [adding, setAdding] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | undefined>();
-  const detailRef = useRef<HTMLDivElement>(null);
 
   const q = query.trim();
   const list = useQuery({ queryKey: [...KEYS.contacts, q], queryFn: () => listContacts({ q, size: 100 }), placeholderData: keepPreviousData });
   const contacts = list.data?.items ?? [];
-  const selected = contacts.find((c) => c.id === selectedId) ?? contacts[0];
-
-  const select = (id: string) => {
-    setSelectedId(id);
-    // On a phone the details sit below the list, so bring them into view.
-    requestAnimationFrame(() => detailRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
-  };
+  const selected = contacts.find((c) => c.id === selectedId);
+  const select = setSelectedId;
 
   return (
     <Page>
@@ -36,12 +31,12 @@ export function ContactsView() {
         </button>
       </PageHeader>
 
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_400px]">
-        <ContactList query={query} onQuery={setQuery} result={list.data} status={list.status} selectedId={selected?.id} onSelect={select} onRetry={() => list.refetch()} />
-        <div ref={detailRef} className="lg:sticky lg:top-6">
-          {selected ? <ContactDetail contact={selected} /> : null}
-        </div>
-      </div>
+      <ContactList query={query} onQuery={setQuery} result={list.data} status={list.status} selectedId={selected?.id} onSelect={select} onRetry={() => list.refetch()} />
+
+      {/* The details slide in over the list, which keeps its place and its search. */}
+      <Drawer open={Boolean(selected)} onClose={() => setSelectedId(undefined)} title={selected?.name ?? "Contact"} subtitle={selected?.company?.name ?? "No company"}>
+        {selected && <ContactDetail key={selected.id} contact={selected} />}
+      </Drawer>
 
       <AddContactDialog open={adding} onClose={() => setAdding(false)} onAdded={(c) => select(c.id)} />
     </Page>

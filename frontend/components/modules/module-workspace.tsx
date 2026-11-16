@@ -1,89 +1,352 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Download, Plus, Search, SearchX, Trash2 } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { Archive, Download, Pencil, Plus, Search, SearchX } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useState } from "react";
+import { useSession } from "@/components/auth/session";
 import { ConfirmDialog } from "@/components/ui/dialog";
+import { Drawer } from "@/components/ui/drawer";
+import { LoadFailed } from "@/components/ui/load-state";
 import { Badge, Card, EmptyState, Page, PageHeader, buttonPrimary, buttonSecondary, control } from "@/components/ui/primitives";
 import { toast } from "@/components/ui/toast";
-import { MODULES } from "./module-config";
-import { RecordForm } from "./record-form";
-import { QuoteBuilder } from "./quote-builder";
-import { AutomationFlow } from "./automation-flow";
-import { modulesApi, type ModuleRecord, type ModuleKind, type ModuleValues } from "@/lib/modules";
-import { formatDay } from "@/lib/format";
-import { useSession } from "@/components/auth/session";
+import { useRecordRoute } from "@/hooks/use-record-route";
 import { api, errorMessage } from "@/lib/api";
-import dynamic from "next/dynamic";
+import { downloadSheet } from "@/lib/export";
+import { cn, formatDay } from "@/lib/format";
+import { modulesApi, type ModuleKind, type ModuleRecord, type ModuleValues } from "@/lib/modules";
+import { AutomationFlow } from "./automation-flow";
+import { MODULES } from "./module-config";
+import { QuoteBuilder } from "./quote-builder";
+import { RecordForm } from "./record-form";
+
 const CommunicationComposer = dynamic(() => import("./communication-composer").then((module) => module.CommunicationComposer), { ssr: false });
 
-export function ModuleWorkspace({ kind, recordId }: { kind: ModuleKind; recordId?: string }) {
+const money = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
+const statusTone = (status: string) => (["Active", "Approved", "Published", "Sent", "Completed"].includes(status) ? "green" : ["Failed", "Declined"].includes(status) ? "red" : status === "Unknown" ? "amber" : status === "Draft" ? "neutral" : "brand");
+const capital = (text: string) => text[0].toUpperCase() + text.slice(1);
+
+/**
+ * The list screen shared by campaigns, products, quotes, communications and automations.
+ * The table takes the full width. Choosing a record opens it in a panel on the right, and the
+ * address changes to /quotes/123 so the record can be linked to.
+ */
+export function ModuleWorkspace({ kind }: { kind: ModuleKind }) {
   const config = MODULES[kind];
   const role = useSession().role;
   const canWrite = kind === "products" || kind === "automations" ? role === "ADMIN" : kind === "campaigns" ? role !== "REP" : true;
-  const router = useRouter();
+  const isMail = kind === "communications";
   const client = useQueryClient();
+  const route = useRecordRoute(`/${kind}`);
+
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
   const [sort, setSort] = useState<"name" | "updatedAt">("updatedAt");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [form, setForm] = useState<"create" | "edit" | null>(null);
   const [compose, setCompose] = useState<"create" | "edit" | null>(null);
-  const [confirm, setConfirm] = useState(false);
+  /** The record ids waiting for the user to confirm archiving. */
+  const [archiving, setArchiving] = useState<string[] | null>(null);
   const [confirmUnsent, setConfirmUnsent] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
   const records = useQuery({ queryKey: ["workspace", kind], queryFn: () => modulesApi.list(kind), staleTime: 30_000 });
   const all = records.data ?? [];
-  const filtered = all.filter((record) => (!status || record.status === status) && (!query || `${record.name} ${record.account} ${record.owner}`.toLowerCase().includes(query.toLowerCase()))).sort((a, b) => sort === "name" ? a.name.localeCompare(b.name) : b.updatedAt.localeCompare(a.updatedAt));
-  const selected = all.find((record) => record.id === recordId) ?? filtered[0];
+  const term = query.trim().toLowerCase();
+  const filtered = all
+    .filter((record) => (!status || record.status === status) && (!term || `${record.name} ${record.account} ${record.owner}`.toLowerCase().includes(term)))
+    .sort((a, b) => (sort === "name" ? a.name.localeCompare(b.name) : b.updatedAt.localeCompare(a.updatedAt)));
+  const selected = route.id ? all.find((record) => record.id === route.id) : undefined;
+  const filtering = Boolean(term || status);
+
   const refresh = () => client.invalidateQueries({ queryKey: ["workspace", kind] });
+  const startNew = () => (isMail ? setCompose("create") : setForm("create"));
+  const amount = (record: ModuleRecord) => (kind === "automations" ? String(record.amount) : money.format(record.amount));
+
   const save = async (values: ModuleValues) => {
     if (form === "edit" && selected) await modulesApi.update(kind, selected.id, values);
     else await modulesApi.create(kind, values);
     await refresh();
-    toast(`${config.singular[0].toUpperCase()}${config.singular.slice(1)} saved.`);
+    toast(`${capital(config.singular)} saved.`);
   };
   const archive = async () => {
-    const ids = selectedIds.length ? selectedIds : selected ? [selected.id] : [];
-    await modulesApi.archive(kind, ids);
-    setSelectedIds([]);
-    setConfirm(false);
-    await refresh();
-    toast(`${ids.length} ${ids.length === 1 ? config.singular : `${config.singular}s`} archived.`);
-    if (recordId) router.push(`/${kind}`);
+    const ids = archiving ?? [];
+    try {
+      await modulesApi.archive(kind, ids);
+      setSelectedIds((current) => current.filter((id) => !ids.includes(id)));
+      if (route.id && ids.includes(route.id)) route.close();
+      await refresh();
+      toast(`${ids.length} ${ids.length === 1 ? config.singular : `${config.singular}s`} archived. Restore from the recycle bin.`);
+    } catch (cause) {
+      toast(errorMessage(cause, "The records could not be archived."));
+    } finally {
+      setArchiving(null);
+    }
   };
   const markUnsent = async () => {
     if (!selected) return;
     try {
       await api(`/mail/mark-unsent/${selected.id}`, { method: "POST" });
-      setConfirmUnsent(false);
       await refresh();
       toast("Marked as not sent. You can reopen the composer and retry.");
-    } catch (cause) { toast(errorMessage(cause, "The email status could not be updated.")); }
+    } catch (cause) {
+      toast(errorMessage(cause, "The email status could not be updated."));
+    } finally {
+      setConfirmUnsent(false);
+    }
   };
-  const exportCsv = () => {
-    const csv = ["Name,Status,Owner,Account,Value,Updated", ...filtered.map((record) => [record.name, record.status, record.owner, record.account, record.amount, record.updatedAt].map((value) => `"${String(value).replaceAll('"', '""')}"`).join(","))].join("\r\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-    const anchor = document.createElement("a"); anchor.href = url; anchor.download = `${kind}.csv`; anchor.click(); URL.revokeObjectURL(url);
-    toast(`Exported ${filtered.length} records.`);
+  const exportRows = async () => {
+    setExporting(true);
+    try {
+      const header = ["Name", "Status", "Owner", "Account", ...(config.metric ? [config.metric] : []), "Updated"];
+      await downloadSheet(kind, config.title, header, filtered.map((record) => [record.name, record.status, record.owner, record.account, ...(config.metric ? [record.amount] : []), record.updatedAt.slice(0, 10)]));
+      toast(`Exported ${filtered.length} ${filtered.length === 1 ? "record" : "records"}.`);
+    } catch (cause) {
+      toast(errorMessage(cause, "The export could not be created."));
+    } finally {
+      setExporting(false);
+    }
   };
 
-  return <Page>
-    <PageHeader title={config.title} subtitle={config.subtitle}><button onClick={exportCsv} disabled={!filtered.length} className={buttonSecondary}><Download className="size-4" />Export</button>{canWrite && <button onClick={() => kind === "communications" ? setCompose("create") : setForm("create")} className={buttonPrimary}><Plus className="size-4" />{kind === "communications" ? "Compose" : `New ${config.singular}`}</button>}</PageHeader>
-    <div className="flex items-center gap-2 rounded-lg border border-brand/20 bg-brand-soft px-3 py-2 text-[11.5px] text-brand-ink"><span className="size-1.5 shrink-0 rounded-full bg-brand" />{config.note}</div>
-    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-      <Card className="overflow-hidden"><div className="flex flex-wrap items-center gap-2 border-b border-line p-3"><div className="relative min-w-44 flex-1"><Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-3" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${config.title.toLowerCase()}`} aria-label={`Search ${config.title.toLowerCase()}`} className="h-9 w-full rounded-lg border border-line bg-canvas pr-3 pl-9 text-[13px] outline-none focus:border-brand" /></div><select value={status} onChange={(event) => setStatus(event.target.value)} className={`${control} px-2.5`} aria-label="Filter by status"><option value="">All statuses</option>{config.statuses.map((value) => <option key={value}>{value}</option>)}</select><select value={sort} onChange={(event) => setSort(event.target.value as "name" | "updatedAt")} className={`${control} px-2.5`} aria-label="Sort records"><option value="updatedAt">Recently updated</option><option value="name">Name</option></select></div>
-        {canWrite && selectedIds.length > 0 && <div className="flex items-center justify-between border-b border-line bg-brand-soft px-4 py-2 text-[12px]"><span>{selectedIds.length} selected</span><button onClick={() => setConfirm(true)} className="inline-flex items-center gap-1 font-medium text-down"><Trash2 className="size-3.5" />Archive</button></div>}
-        {records.isError ? <p className="p-6 text-[13px] text-down">Records could not be loaded. <button onClick={() => records.refetch()} className="underline">Retry</button></p> : records.isPending ? <div className="space-y-2 p-4" role="status" aria-label="Loading records">{Array.from({ length: 5 }, (_, i) => <div key={i} className="h-11 animate-pulse rounded-md bg-canvas motion-reduce:animate-none" />)}</div> : filtered.length === 0 ? <EmptyState icon={SearchX} title={query || status ? "No matching records" : `No ${config.title.toLowerCase()} yet`} body={query || status ? "Clear your filters to see everything." : `Create your first ${config.singular} to get started.`}>{query || status ? <button className={buttonSecondary} onClick={() => { setQuery(""); setStatus(""); }}>Clear filters</button> : canWrite ? <button className={buttonPrimary} onClick={() => kind === "communications" ? setCompose("create") : setForm("create")}>Create {config.singular}</button> : null}</EmptyState> : <div className="overflow-x-auto"><table className="w-full min-w-[550px] text-left text-[12.5px]"><thead className="bg-surface text-[11px] font-semibold text-ink-3 uppercase"><tr><th className="w-10 border-b border-line px-3 py-2">{canWrite && <input type="checkbox" aria-label="Select all visible records" checked={filtered.every((record) => selectedIds.includes(record.id))} onChange={(event) => setSelectedIds(event.target.checked ? filtered.map((record) => record.id) : [])} />}</th><th className="border-b border-line px-3 py-2">Name</th><th className="border-b border-line px-3 py-2">Status</th><th className="border-b border-line px-3 py-2">Owner</th><th className="border-b border-line px-3 py-2">Updated</th><th className="border-b border-line px-3 py-2"><span className="sr-only">Open</span></th></tr></thead><tbody>{filtered.map((record) => <tr key={record.id} className={selected?.id === record.id ? "bg-brand-soft/60" : "hover:bg-canvas"}><td className="border-b border-line px-3 py-3">{canWrite && <input type="checkbox" aria-label={`Select ${record.name}`} checked={selectedIds.includes(record.id)} onChange={(event) => setSelectedIds((ids) => event.target.checked ? [...ids, record.id] : ids.filter((id) => id !== record.id))} />}</td><td className="max-w-60 truncate border-b border-line px-3 py-3 font-medium">{record.name}<span className="mt-0.5 block truncate text-[11px] font-normal text-ink-3">{record.account || record.description}</span></td><td className="border-b border-line px-3 py-3"><Badge tone={record.status === "Active" || record.status === "Approved" || record.status === "Published" ? "green" : record.status === "Draft" ? "neutral" : "brand"}>{record.status}</Badge></td><td className="border-b border-line px-3 py-3 text-ink-2">{record.owner}</td><td className="tnum border-b border-line px-3 py-3 text-ink-3">{formatDay(record.updatedAt)}</td><td className="border-b border-line px-3 py-3"><Link href={`/${kind}/${record.id}`} aria-label={`Open ${record.name}`} className="text-brand"><ArrowRight className="size-4" /></Link></td></tr>)}</tbody></table></div>}
+  const allVisibleSelected = filtered.length > 0 && filtered.every((record) => selectedIds.includes(record.id));
+
+  return (
+    <Page>
+      <PageHeader title={config.title} subtitle={config.subtitle}>
+        <button onClick={() => void exportRows()} disabled={!filtered.length || exporting} className={buttonSecondary}>
+          <Download className="size-4" aria-hidden />
+          {exporting ? "Exporting…" : "Export"}
+        </button>
+        {canWrite && (
+          <button onClick={startNew} className={buttonPrimary}>
+            <Plus className="size-4" aria-hidden />
+            {isMail ? "Compose" : `New ${config.singular}`}
+          </button>
+        )}
+      </PageHeader>
+
+      <Card className="overflow-hidden">
+        <div className="flex flex-wrap items-center gap-2 border-b border-line p-3">
+          <label className="relative min-w-44 flex-1 sm:max-w-sm">
+            <span className="sr-only">Search {config.title.toLowerCase()}</span>
+            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-3" aria-hidden />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${config.title.toLowerCase()}`} className={cn(control, "w-full pr-3 pl-9 placeholder:text-ink-3")} />
+          </label>
+          <select value={status} onChange={(event) => setStatus(event.target.value)} className={cn(control, "px-2.5")} aria-label="Filter by status">
+            <option value="">All statuses</option>
+            {config.statuses.map((value) => (
+              <option key={value}>{value}</option>
+            ))}
+          </select>
+          <select value={sort} onChange={(event) => setSort(event.target.value as "name" | "updatedAt")} className={cn(control, "px-2.5")} aria-label="Sort records">
+            <option value="updatedAt">Recently updated</option>
+            <option value="name">Name</option>
+          </select>
+          {records.data && (
+            <p className="tnum ml-auto text-[12.5px] text-ink-3" aria-live="polite">
+              {filtering ? `${filtered.length} of ${all.length}` : `${all.length} ${all.length === 1 ? config.singular : `${config.singular}s`}`}
+            </p>
+          )}
+        </div>
+
+        {canWrite && selectedIds.length > 0 && (
+          <div className="flex animate-[fade-in_var(--duration-menu)_ease-out] items-center gap-3 border-b border-line bg-brand-soft/60 px-4 py-2 text-[12.5px]">
+            <span className="tnum font-medium">{selectedIds.length} selected</span>
+            <button onClick={() => setSelectedIds([])} className="text-ink-2 hover:text-ink">
+              Clear
+            </button>
+            <button onClick={() => setArchiving(selectedIds)} className="ml-auto inline-flex items-center gap-1.5 font-medium text-down hover:underline">
+              <Archive className="size-3.5" aria-hidden />
+              Archive
+            </button>
+          </div>
+        )}
+
+        {records.isError && !records.data ? (
+          <LoadFailed what={config.title.toLowerCase()} onRetry={() => records.refetch()} />
+        ) : records.isPending ? (
+          <div className="space-y-2 p-4" role="status" aria-label="Loading records">
+            {Array.from({ length: 6 }, (_, index) => (
+              <div key={index} className="skeleton h-11" />
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            icon={SearchX}
+            title={filtering ? "No matching records" : `No ${config.title.toLowerCase()} yet`}
+            body={filtering ? "Nothing matches the search and status you chose." : canWrite ? `Create your first ${config.singular} to get started.` : `Nothing has been added here yet.`}
+          >
+            {filtering ? (
+              <button
+                className={buttonSecondary}
+                onClick={() => {
+                  setQuery("");
+                  setStatus("");
+                }}
+              >
+                Clear filters
+              </button>
+            ) : (
+              canWrite && (
+                <button className={buttonPrimary} onClick={startNew}>
+                  {isMail ? "Compose email" : `Create ${config.singular}`}
+                </button>
+              )
+            )}
+          </EmptyState>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-left text-[13px]">
+              <thead className="text-[11.5px] text-ink-3">
+                <tr>
+                  {canWrite && (
+                    <th className="w-10 border-b border-line py-2.5 pr-0 pl-4">
+                      <input type="checkbox" aria-label="Select all shown" checked={allVisibleSelected} onChange={(event) => setSelectedIds(event.target.checked ? filtered.map((record) => record.id) : [])} />
+                    </th>
+                  )}
+                  <th className="border-b border-line px-4 py-2.5 font-medium">Name</th>
+                  <th className="border-b border-line px-4 py-2.5 font-medium">Status</th>
+                  <th className="border-b border-line px-4 py-2.5 font-medium">Owner</th>
+                  {config.metric && <th className="border-b border-line px-4 py-2.5 text-right font-medium">{config.metric}</th>}
+                  <th className="border-b border-line px-4 py-2.5 text-right font-medium">Updated</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((record) => (
+                  <tr
+                    key={record.id}
+                    onClick={() => route.open(record.id)}
+                    className={cn("cursor-pointer transition-colors duration-[var(--duration-hover)]", route.id === record.id ? "bg-brand-soft/60" : "hover:bg-surface-muted")}
+                  >
+                    {canWrite && (
+                      <td className="border-b border-line py-2.5 pr-0 pl-4" onClick={(event) => event.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${record.name}`}
+                          checked={selectedIds.includes(record.id)}
+                          onChange={(event) => setSelectedIds((ids) => (event.target.checked ? [...ids, record.id] : ids.filter((id) => id !== record.id)))}
+                        />
+                      </td>
+                    )}
+                    <td className="max-w-96 border-b border-line px-4 py-2.5">
+                      {/* The keyboard and screen-reader way in; the whole row is the mouse target. */}
+                      <button onClick={() => route.open(record.id)} className="block w-full rounded text-left">
+                        <span className="block truncate font-medium text-ink">{record.name}</span>
+                        {(record.account || record.description) && <span className="mt-0.5 block truncate text-[12px] text-ink-3">{record.account || record.description}</span>}
+                      </button>
+                    </td>
+                    <td className="border-b border-line px-4 py-2.5">
+                      <Badge tone={statusTone(record.status)}>{record.status}</Badge>
+                    </td>
+                    <td className="border-b border-line px-4 py-2.5 text-ink-2">{record.owner}</td>
+                    {config.metric && <td className="tnum border-b border-line px-4 py-2.5 text-right text-ink">{amount(record)}</td>}
+                    <td className="tnum border-b border-line px-4 py-2.5 text-right text-ink-3">{formatDay(record.updatedAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
-      <Card className="overflow-hidden">{selected ? <><div className="border-b border-line p-5"><p className="text-[11px] font-semibold text-ink-3 uppercase">{config.singular} detail</p><h2 className="mt-1 text-[17px] font-semibold">{selected.name}</h2><div className="mt-2"><Badge tone={selected.status === "Draft" ? "neutral" : "brand"}>{selected.status}</Badge></div></div><dl className="divide-y divide-line px-5 text-[12.5px]"><div className="flex justify-between gap-3 py-3"><dt className="text-ink-3">Owner</dt><dd className="font-medium">{selected.owner}</dd></div>{selected.account && <div className="flex justify-between gap-3 py-3"><dt className="text-ink-3">Account</dt><dd className="text-right font-medium">{selected.account}</dd></div>}{selected.recipient && <div className="flex justify-between gap-3 py-3"><dt className="text-ink-3">Recipient</dt><dd className="truncate font-medium">{selected.recipient}</dd></div>}{config.metric && <div className="flex justify-between gap-3 py-3"><dt className="text-ink-3">{config.metric}</dt><dd className="tnum font-medium">{kind === "automations" ? selected.amount : new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(selected.amount)}</dd></div>}<div className="py-3"><dt className="text-ink-3">Details</dt><dd className="mt-1 whitespace-pre-wrap leading-5">{selected.description || "No details added."}</dd></div></dl>{kind === "communications" && selected.status === "Unknown" && <div className="tone-amber border-t border-[var(--tone-line)] bg-[var(--tone-bg)] p-4 text-[12px] text-[var(--tone-ink)]"><p>Gmail did not confirm this send. Check the connected account’s Sent folder before retrying.</p><button onClick={() => setConfirmUnsent(true)} className="mt-2 font-semibold underline">Not in Sent? Mark as unsent</button></div>}{canWrite && <div className="flex gap-2 border-t border-line p-4">{(kind !== "communications" || selected.status === "Draft" || selected.status === "Failed") && <button onClick={() => kind === "communications" ? setCompose("edit") : setForm("edit")} className={buttonSecondary}>{kind === "communications" ? "Open composer" : "Edit"}</button>}<button onClick={() => setConfirm(true)} className={buttonSecondary}>Archive</button></div>}</> : <p className="p-6 text-[13px] text-ink-3">Select a record to see its details.</p>}</Card>
+      <p className="text-[12.5px] text-ink-3">{config.note}</p>
+
+      <Drawer
+        open={Boolean(route.id)}
+        onClose={route.close}
+        size={kind === "quotes" || kind === "automations" ? "xl" : "md"}
+        title={selected?.name ?? capital(config.singular)}
+        subtitle={selected && <Badge tone={statusTone(selected.status)}>{selected.status}</Badge>}
+        actions={
+          selected &&
+          canWrite && (
+            <>
+              {(!isMail || selected.status === "Draft" || selected.status === "Failed") && (
+                <button onClick={() => (isMail ? setCompose("edit") : setForm("edit"))} className={buttonSecondary}>
+                  <Pencil className="size-3.5" aria-hidden />
+                  {isMail ? "Open composer" : "Edit"}
+                </button>
+              )}
+              <button onClick={() => setArchiving([selected.id])} className={buttonSecondary} aria-label={`Archive ${selected.name}`}>
+                <Archive className="size-3.5" aria-hidden />
+              </button>
+            </>
+          )
+        }
+      >
+        {!selected ? (
+          records.isPending ? (
+            <div className="skeleton h-40" role="status" aria-label="Loading record" />
+          ) : (
+            <Card>
+              <EmptyState icon={SearchX} title={`This ${config.singular} is not available`} body="It may have been archived, or you may not have access to it." />
+            </Card>
+          )
+        ) : (
+          <>
+            <Card>
+              <dl className="divide-y divide-line px-5 text-[13px]">
+                <Fact label="Owner">{selected.owner}</Fact>
+                {selected.account && <Fact label="Account">{selected.account}</Fact>}
+                {selected.recipient && <Fact label="Recipient">{selected.recipient}</Fact>}
+                {config.metric && <Fact label={config.metric}>{amount(selected)}</Fact>}
+                <Fact label="Updated">{formatDay(selected.updatedAt)}</Fact>
+                <div className="py-3">
+                  <dt className="text-ink-3">{isMail ? "Message" : "Details"}</dt>
+                  <dd className="mt-1 leading-6 whitespace-pre-wrap">{selected.description || <span className="text-ink-3">Nothing added.</span>}</dd>
+                </div>
+              </dl>
+              {isMail && selected.status === "Unknown" && (
+                <div className="tone-amber border-t border-[var(--tone-line)] bg-[var(--tone-bg)] p-4 text-[12.5px] text-[var(--tone-ink)]">
+                  <p>Gmail did not confirm this send. Check the connected account&apos;s Sent folder before retrying.</p>
+                  <button onClick={() => setConfirmUnsent(true)} className="mt-2 font-semibold underline">
+                    Not in Sent? Mark as unsent
+                  </button>
+                </div>
+              )}
+            </Card>
+            {kind === "quotes" && <QuoteBuilder key={selected.id} quote={selected} onSaved={refresh} />}
+            {kind === "automations" && <AutomationFlow key={selected.id} workflow={selected} onSaved={refresh} />}
+          </>
+        )}
+      </Drawer>
+
+      {form && <RecordForm key={`${form}-${selected?.id ?? "new"}`} kind={kind} record={form === "edit" ? selected : undefined} open onClose={() => setForm(null)} onSave={save} />}
+      {compose && (
+        <CommunicationComposer
+          key={`${compose}-${selected?.id ?? "new"}`}
+          record={compose === "edit" ? selected : undefined}
+          onClose={() => setCompose(null)}
+          onSaved={async (item) => {
+            await refresh();
+            route.open(item.id);
+          }}
+        />
+      )}
+      <ConfirmDialog
+        open={archiving !== null}
+        onClose={() => setArchiving(null)}
+        onConfirm={() => void archive()}
+        title={archiving && archiving.length > 1 ? `Archive ${archiving.length} ${config.singular}s?` : `Archive this ${config.singular}?`}
+        body="Archived records move to the recycle bin, where a manager or admin can restore them."
+        confirmLabel="Archive"
+      />
+      <ConfirmDialog
+        open={confirmUnsent}
+        onClose={() => setConfirmUnsent(false)}
+        onConfirm={() => void markUnsent()}
+        title="Mark email as unsent?"
+        body="Only continue if this message is absent from the connected Gmail account's Sent folder. This will allow a retry."
+        confirmLabel="Mark unsent"
+      />
+    </Page>
+  );
+}
+
+function Fact({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 py-3">
+      <dt className="shrink-0 text-ink-3">{label}</dt>
+      <dd className="tnum min-w-0 truncate text-right font-medium">{children}</dd>
     </div>
-    {kind === "quotes" && selected && <QuoteBuilder key={selected.id} quote={selected} onSaved={refresh} />}
-    {kind === "automations" && selected && <AutomationFlow key={selected.id} workflow={selected} onSaved={refresh} />}
-    {form && <RecordForm key={`${form}-${selected?.id ?? "new"}`} kind={kind} record={form === "edit" ? selected : undefined} open onClose={() => setForm(null)} onSave={save} />}
-    {compose && <CommunicationComposer key={`${compose}-${selected?.id ?? "new"}`} record={compose === "edit" ? selected : undefined} onClose={() => setCompose(null)} onSaved={async (item) => { await refresh(); router.push(`/communications/${item.id}`); }} />}
-    <ConfirmDialog open={confirm} onClose={() => setConfirm(false)} onConfirm={() => void archive()} title={selectedIds.length ? `Archive ${selectedIds.length} ${selectedIds.length === 1 ? config.singular : `${config.singular}s`}?` : `Archive this ${config.singular}?`} body="The selected records will be archived in the CRM." confirmLabel="Archive" />
-    <ConfirmDialog open={confirmUnsent} onClose={() => setConfirmUnsent(false)} onConfirm={() => void markUnsent()} title="Mark email as unsent?" body="Only continue if this message is absent from the connected Gmail account’s Sent folder. This will allow a retry." confirmLabel="Mark unsent" />
-  </Page>;
+  );
 }

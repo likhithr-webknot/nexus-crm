@@ -42,6 +42,14 @@ public class AiService {
   @Value("${NEXUS_AI_MODEL:gpt-6-luna}") private String model;
   @Value("${NEXUS_AI_MONTHLY_REQUEST_LIMIT:0}") private int monthlyRequestLimit;
 
+  /** How the assistant looks for new business. Shared by the streamed and the one-shot answer. */
+  private static final String PROSPECTING = "When asked to find prospects, opportunities or companies to approach: if the user has not said what "
+    + "their organization sells, ask for that in one sentence and stop. Otherwise search the public web for organizations showing a current need "
+    + "for it, such as a tender or RFP, a hiring post, a funding or expansion announcement, or a stated problem. List at most 8, each with the "
+    + "company, the dated signal you found, why it fits, and a first step. Leave out companies already in the live CRM facts, and say so when "
+    + "a strong match is already a lead or company there. When asked about existing leads, use the live CRM facts, and for their companies you "
+    + "may search for the same kind of signal. Never invent a company, a signal or a contact detail. ";
+
   public record Status(boolean configured, String keyName, String message) { }
   public record Answer(String answer, String action) { }
   public record Workflow(boolean supported, String message, List<Map<String, Object>> nodes, List<Map<String, Object>> edges) { }
@@ -77,6 +85,7 @@ public class AiService {
     ProviderAnswer result = callResult(user, "assist", "You are the Nexus CRM assistant. Answer only about the CRM, supplied live CRM facts, and public company or market research. "
       + "Search the public web for research questions. Give a concise market assessment with competitors, demand, risks and evidence when asked. "
       + "Do not invent records, market figures or expose secrets. If the facts are insufficient, say what is missing. "
+      + PROSPECTING
       + "Return ONLY JSON with keys answer and action. action must be one of none, leads, contacts, companies, deals, "
       + "calendar, communications, campaigns, products, quotes, automations, reports, create_lead, create_contact, "
       + "create_company, create_deal, create_task, create_activity, create_note. "
@@ -205,17 +214,16 @@ public class AiService {
       var query = jdbc.sql("select count(*) from " + table + " where deleted_at is null and " + scope);
       if (visible.isPresent()) query = query.param("ids", ids);
       out.append(table).append(" count: ").append(query.query(Long.class).single()).append(". ");
-      String name = switch (table) {
-        case "lead", "contact" -> "concat_ws(' ', first_name, last_name)";
-        default -> "name";
+      // One line per record with what a salesperson would ask about. No emails or phone numbers leave the CRM.
+      String line = switch (table) {
+        case "lead" -> "concat_ws(' ', first_name, last_name) || coalesce(' at ' || company_name, '') || ' (' || status || ', source ' || source"
+          + " || coalesce(', ' || job_title, '') || coalesce(', value ' || trunc(estimated_value) || ' ' || currency, '') || ')'";
+        case "deal" -> "name || ' (' || stage_code || ', ' || trunc(amount) || ' ' || currency || coalesce(', closes ' || expected_close_date, '') || ')'";
+        case "company" -> "name || coalesce(' (' || industry || ')', '')";
+        default -> "concat_ws(' ', first_name, last_name) || coalesce(' (' || job_title || ')', '')";
       };
-      String state = switch (table) {
-        case "lead" -> "status";
-        case "deal" -> "stage_code";
-        default -> "''";
-      };
-      var recent = jdbc.sql("select " + name + " || ' (' || " + state + " || ')' from " + table
-          + " where deleted_at is null and " + scope + " order by updated_at desc limit 8");
+      var recent = jdbc.sql("select " + line + " from " + table
+          + " where deleted_at is null and " + scope + " order by updated_at desc limit " + ("contact".equals(table) ? 20 : 40));
       if (visible.isPresent()) recent = recent.param("ids", ids);
       out.append("Recent ").append(table).append(": ").append(recent.query(String.class).list()).append(". ");
     }
@@ -296,6 +304,7 @@ public class AiService {
       + "Use the supplied live CRM facts for private records and never invent a record. "
       + "For public company or market questions, search the web and assess market position, demand, competitors and risks using sourced facts. "
       + "State uncertainty when evidence is thin; never guess private contact details or precise market numbers. "
+      + PROSPECTING
       + "Do not claim you created or changed records; a user must review a form first. Write clear plain text.\nLive CRM facts:\n"
       + snapshot(user) + "\nUser: " + request;
     UUID requestId = UUID.randomUUID();
@@ -389,7 +398,8 @@ public class AiService {
 
   private boolean researchIntent(String request) {
     return request.toLowerCase(java.util.Locale.ROOT)
-      .matches("(?s).*(research|market|competitor|industry|website|latest|look up|tell me about|assess).*");
+      .matches("(?s).*(research|market|competitor|industry|website|latest|look up|tell me about|assess"
+        + "|prospect|opportunit|looking for|who needs|find (companies|leads|customers|clients|businesses)|potential (customers|clients|leads|buyers)).*");
   }
 
   @SuppressWarnings("unchecked")

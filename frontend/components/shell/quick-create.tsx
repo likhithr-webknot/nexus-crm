@@ -48,7 +48,7 @@ export function QuickCreate() {
   return (
     <>
       <DropdownMenu.Root>
-        <DropdownMenu.Trigger className={buttonPrimary} aria-label="Quick create">
+        <DropdownMenu.Trigger className={`${buttonPrimary} h-8 px-3`} aria-label="Quick create">
           <Plus className="size-4" aria-hidden />
           <span className="hidden sm:inline">Create</span>
         </DropdownMenu.Trigger>

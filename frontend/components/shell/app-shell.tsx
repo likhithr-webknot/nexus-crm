@@ -126,8 +126,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           )}
           <main id="main" tabIndex={-1} className="flex-1 overflow-y-auto outline-none">
-            {/* Only the changing content moves: a short fade and rise. The key restarts it per page. */}
-            <div key={pathname} className="animate-[page-in_var(--duration-page)_var(--ease-enter)]">
+            {/* Only the changing content fades in. Keyed by section ("/quotes"), so opening a record
+                beside its list ("/quotes/123") does not restart it. */}
+            <div key={pathname.split("/")[1]} className="animate-[page-in_var(--duration-page)_var(--ease-enter)]">
               {children}
             </div>
           </main>

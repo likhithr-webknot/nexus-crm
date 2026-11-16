@@ -2,7 +2,7 @@
 
 import { useSession } from "@/components/auth/session";
 import { LoadFailed, LoadingNote } from "@/components/ui/load-state";
-import { Card, EmptyState, Page, PageHeader, buttonSecondary, control } from "@/components/ui/primitives";
+import { Badge, Card, EmptyState, Page, PageHeader, buttonSecondary, control } from "@/components/ui/primitives";
 import { cn, formatDate } from "@/lib/format";
 import { TRASH_LABELS, type TrashType } from "@/lib/trash";
 import { Lock, Trash2, Undo2 } from "lucide-react";
@@ -55,7 +55,9 @@ export function TrashView() {
           <ul className="divide-y divide-line">
             {items.map((item) => (
               <li key={`${item.type}-${item.id}`} className="flex items-center gap-3 px-5 py-3 text-[13px]">
-                <span className="w-20 shrink-0 text-[11px] font-semibold tracking-wide text-ink-3 uppercase">{TRASH_LABELS[item.type]}</span>
+                <span className="w-32 shrink-0">
+                  <Badge>{TRASH_LABELS[item.type]}</Badge>
+                </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium text-ink">{item.name}</p>
                   <p className="truncate text-[12.5px] text-ink-3">

@@ -1,2 +1,6 @@
 import { ModuleWorkspace } from "@/components/modules/module-workspace";
-export default async function Page({ params }: { params: Promise<{ id: string }> }) { return <ModuleWorkspace kind="communications" recordId={(await params).id} />; }
+
+// The same screen as /communications: the workspace reads the record to open from the address.
+export default function Page() {
+  return <ModuleWorkspace kind="communications" />;
+}

@@ -23,7 +23,7 @@ const CLOSED_GROUPS_KEY = "nexus.sidebar.closed-groups";
    icon box. Collapsed, the sidebar is 64px wide, which is exactly padding + icon box, so icons never
    move. Labels stay mounted and only fade, so nothing wraps or jumps while the width animates. */
 const row =
-  "group relative flex h-8 w-full items-center rounded-md text-[13px] font-medium outline-offset-[-2px] transition-colors duration-[var(--duration-hover)]";
+  "group relative flex h-8 w-full items-center rounded-md text-[13px] font-medium -outline-offset-2 transition-colors duration-[var(--duration-hover)]";
 const rowIdle = "text-side-ink hover:bg-side-hover hover:text-side-ink-strong";
 const iconBox = "grid h-8 w-10 shrink-0 place-items-center";
 
@@ -74,7 +74,7 @@ export function Sidebar({
   };
 
   return (
-    <aside className="flex h-full flex-col border-r border-side-line bg-side text-side-ink">
+    <aside className="side flex h-full flex-col border-r border-side-line bg-side text-side-ink">
       <div className="flex h-14 shrink-0 items-center px-3">
         <WorkspaceMenu collapsed={collapsed} />
         {onClose && (
@@ -118,7 +118,7 @@ export function Sidebar({
                   aria-controls={listId}
                   tabIndex={collapsed ? -1 : 0}
                   className={cn(
-                    "flex h-7 w-full items-center gap-1 rounded-md pr-2 pl-3 text-[11px] font-medium tracking-[0.04em] text-side-ink uppercase outline-offset-[-2px] transition-opacity hover:text-side-ink-strong",
+                    "flex h-7 w-full items-center gap-1 rounded-md pr-2 pl-3 text-[11px] font-medium tracking-[0.04em] text-side-ink uppercase -outline-offset-2 transition-opacity hover:text-side-ink-strong",
                     collapsed ? "pointer-events-none opacity-0 duration-100" : "opacity-80 delay-75 duration-150 hover:opacity-100",
                   )}
                 >
@@ -176,9 +176,9 @@ function NavLink({ item, active, collapsed, count }: { item: NavItem; active: bo
         aria-current={active ? "page" : undefined}
         className={cn(row, active ? "bg-side-active text-side-ink-strong shadow-[inset_0_0_0_1px_var(--side-line)]" : rowIdle)}
       >
-        {active && <span className="absolute inset-y-2 left-0 w-[2px] rounded-full bg-brand" aria-hidden />}
+        {active && <span className="absolute inset-y-2 left-0 w-[2px] origin-center animate-[indicator-in_var(--duration-menu)_var(--ease-enter)] rounded-full bg-side-accent" aria-hidden />}
         <span className={iconBox}>
-          <Icon className={cn("size-4", active && "text-brand")} aria-hidden />
+          <Icon className={cn("size-4", active && "text-side-accent")} aria-hidden />
         </span>
         <span className={labelClass(collapsed)}>{item.label}</span>
         {count != null && count > 0 && (
@@ -187,7 +187,7 @@ function NavLink({ item, active, collapsed, count }: { item: NavItem; active: bo
               {count}
               <span className="sr-only"> active</span>
             </span>
-            <span className={cn("absolute top-1.5 left-[26px] size-1.5 rounded-full bg-brand transition-opacity duration-150", collapsed ? "opacity-100" : "opacity-0")} aria-hidden />
+            <span className={cn("absolute top-1.5 left-[26px] size-1.5 rounded-full bg-side-accent transition-opacity duration-150", collapsed ? "opacity-100" : "opacity-0")} aria-hidden />
           </>
         )}
       </Link>
@@ -245,7 +245,7 @@ function UserRow({ collapsed }: { collapsed: boolean }) {
       </span>
       <div className={cn(labelClass(collapsed), "leading-tight")}>
         <p className="truncate text-[13px] font-medium text-side-ink-strong">{user.displayName}</p>
-        <p className={cn("truncate text-[11.5px]", failed && "text-down")} role={failed ? "alert" : undefined}>
+        <p className={cn("truncate text-[11.5px]", failed && "text-[#ff8192]")} role={failed ? "alert" : undefined}>
           {failed ? "Couldn't sign out. Try again." : ROLE_LABELS[user.role]}
         </p>
       </div>

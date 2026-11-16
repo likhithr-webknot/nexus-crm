@@ -3,6 +3,7 @@
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import type { Kpi } from "@/lib/reports";
 import { useCurrency } from "@/components/currency/currency-provider";
+import { useCountUp } from "@/hooks/use-count-up";
 import { cn } from "@/lib/format";
 
 /** What each number is called, and whether a fall in it is good news. */
@@ -43,11 +44,14 @@ export function KpiCard({ kpi, className }: { kpi: Kpi; className?: string }) {
   const { formatCompactReporting, formatReporting } = useCurrency();
   const info = KPI_INFO[kpi.id];
   const money = kpi.id === "revenue" || kpi.id === "average";
+  // The number counts up to its value; a percentage keeps the decimals the real value has.
+  const counted = useCountUp(kpi.value);
+  const decimals = Number.isInteger(kpi.value) ? 0 : 1;
   const value = money
-    ? ((kpi.id === "revenue" ? formatCompactReporting(kpi.value, "INR") : formatReporting(Math.round(kpi.value), "INR")) ?? "—")
+    ? ((kpi.id === "revenue" ? formatCompactReporting(counted, "INR") : formatReporting(Math.round(counted), "INR")) ?? "—")
     : kpi.id === "conversion"
-      ? `${kpi.value}%`
-      : Math.round(kpi.value).toLocaleString("en-US");
+      ? `${counted.toFixed(decimals)}%`
+      : Math.round(counted).toLocaleString("en-US");
   const change = kpi.change;
   // "Good" direction depends on the metric: fewer lost deals is positive.
   const good = info.invert ? (change ?? 0) <= 0 : (change ?? 0) >= 0;
@@ -59,7 +63,7 @@ export function KpiCard({ kpi, className }: { kpi: Kpi; className?: string }) {
     <div className={cn("@container rounded-xl border border-line bg-surface px-4 py-3.5", className)}>
       <p className="truncate text-[12.5px] font-medium text-ink-2">{info.label}</p>
       <div className="mt-2 flex items-end justify-between gap-2">
-        <p className="tnum text-[24px] leading-none font-semibold tracking-[-0.02em] text-ink">{value}</p>
+        <p className="tnum text-[24px] leading-none font-semibold tracking-[-0.02em] text-ink" aria-label={`${info.label}: ${value}`}>{value}</p>
         <Sparkline data={trend} positive={good} />
       </div>
       <p className="mt-2.5 flex items-center gap-1 overflow-hidden text-[12px] whitespace-nowrap text-ink-3">
