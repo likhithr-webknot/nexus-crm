@@ -21,6 +21,7 @@ import { ConfirmDialog } from "@/components/ui/dialog";
 import { Popover } from "@/components/ui/popover";
 import { toast } from "@/components/ui/toast";
 import { cn, formatDate } from "@/lib/format";
+import { useCurrency } from "@/components/currency/currency-provider";
 
 const PAGE_SIZE = 8;
 const UNASSIGNED = "unassigned";
@@ -38,6 +39,7 @@ const VIEWS: { id: View; label: string; match: (l: Lead) => boolean; invert?: bo
 const EMPTY_FILTERS = { query: "", source: "" as Source | "", stage: "" as Stage | "", owner: "" };
 
 export function LeadsView({ leads: initial }: { leads: Lead[] }) {
+  const { format } = useCurrency();
   const [leads, setLeads] = useState(initial);
   const [dialog, setDialog] = useState<"add" | "import" | "delete" | null>(null);
   const [view, setView] = useState<View>("all");
@@ -95,8 +97,8 @@ export function LeadsView({ leads: initial }: { leads: Lead[] }) {
   const exportCsv = () =>
     downloadCsv(
       "leads.csv",
-      ["Lead name", "Company", "Email", "Phone", "Source", "Assigned to", "Stage", "Created"],
-      toExport.map((l) => [l.name, l.company, l.email, l.phone, l.source, l.owner ?? "", l.stage, l.createdAt]),
+      ["Lead name", "Company", "Email", "Phone", "Source", "Assigned to", "Stage", "Estimated value", "Currency", "Created"],
+      toExport.map((l) => [l.name, l.company, l.email, l.phone, l.source, l.owner ?? "", l.stage, l.value, l.currency, l.createdAt]),
     );
 
   // New leads go to the top, and the list returns to where they can be seen.
@@ -253,7 +255,7 @@ export function LeadsView({ leads: initial }: { leads: Lead[] }) {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-left text-[13px]">
+            <table className="w-full min-w-[1000px] text-left text-[13px]">
               <thead>
                 <tr className="border-y border-line bg-canvas/60 text-[11.5px] tracking-wide text-ink-3 uppercase">
                   <th className="w-11 py-2.5 pl-5">
@@ -278,6 +280,7 @@ export function LeadsView({ leads: initial }: { leads: Lead[] }) {
                       {h}
                     </th>
                   ))}
+                  <th className="px-3 py-2.5 text-right font-medium">Estimated value</th>
                   <th className="py-2.5 pr-5 pl-3 text-right font-medium">Created</th>
                 </tr>
               </thead>
@@ -328,6 +331,9 @@ export function LeadsView({ leads: initial }: { leads: Lead[] }) {
                       </td>
                       <td className="px-3 py-3">
                         <StageBadge stage={lead.stage} />
+                      </td>
+                      <td className="tnum px-3 py-3 text-right whitespace-nowrap font-medium text-ink-2">
+                        {format(lead.value, lead.currency)}
                       </td>
                       <td className="tnum py-3 pr-5 pl-3 text-right whitespace-nowrap text-ink-2">
                         {formatDate(lead.createdAt)}

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { RevenuePoint } from "@/lib/mock-data";
-import { formatCompactUsd, formatUsd } from "@/lib/format";
+import { useCurrency } from "@/components/currency/currency-provider";
 
 const W = 720;
 const H = 240;
@@ -20,6 +20,7 @@ function smoothPath(pts: [number, number][]) {
 
 export function RevenueChart({ data }: { data: RevenuePoint[] }) {
   const [hover, setHover] = useState<number | null>(null);
+  const { formatReporting, formatCompactReporting } = useCurrency();
 
   const max = Math.ceil(Math.max(...data.flatMap((d) => [d.revenue, d.target])) / 100_000) * 100_000;
   const ticks = Array.from({ length: max / 100_000 + 1 }, (_, i) => i * 100_000);
@@ -63,7 +64,7 @@ export function RevenueChart({ data }: { data: RevenuePoint[] }) {
           <g key={t}>
             <line x1={PAD.left} x2={W - PAD.right} y1={y(t)} y2={y(t)} stroke="var(--color-line)" />
             <text x={PAD.left - 10} y={y(t)} dy="0.32em" textAnchor="end" className="fill-ink-3 text-[11px]">
-              {formatCompactUsd(t)}
+              {formatCompactReporting(t, "USD") ?? "—"}
             </text>
           </g>
         ))}
@@ -100,10 +101,10 @@ export function RevenueChart({ data }: { data: RevenuePoint[] }) {
         >
           <p className="font-semibold text-ink">{active.month} 2025</p>
           <p className="mt-1 flex justify-between text-ink-2">
-            Revenue <span className="tnum font-medium text-ink">{formatUsd(active.revenue)}</span>
+            Revenue <span className="tnum font-medium text-ink">{formatReporting(active.revenue, "USD") ?? "—"}</span>
           </p>
           <p className="flex justify-between text-ink-2">
-            Target <span className="tnum font-medium text-ink">{formatUsd(active.target)}</span>
+            Target <span className="tnum font-medium text-ink">{formatReporting(active.target, "USD") ?? "—"}</span>
           </p>
         </div>
       )}

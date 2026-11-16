@@ -2,9 +2,11 @@ import Link from "next/link";
 import { UserPlus } from "lucide-react";
 import type { Lead } from "@/lib/mock-data";
 import { Avatar, StageBadge } from "@/components/ui/primitives";
-import { formatDate, formatUsd } from "@/lib/format";
+import { formatDate } from "@/lib/format";
+import { useCurrency } from "@/components/currency/currency-provider";
 
 export function RecentLeadsTable({ leads }: { leads: Lead[] }) {
+  const { format } = useCurrency();
   if (leads.length === 0) {
     return (
       <div className="flex flex-col items-center px-6 py-12 text-center">
@@ -56,7 +58,7 @@ export function RecentLeadsTable({ leads }: { leads: Lead[] }) {
               <td className="px-3 py-3">
                 <StageBadge stage={lead.stage} />
               </td>
-              <td className="tnum px-3 py-3 text-right font-medium">{formatUsd(lead.value)}</td>
+              <td className="tnum px-3 py-3 text-right font-medium">{format(lead.value, lead.currency)}</td>
               <td className="tnum py-3 pr-5 pl-3 text-right whitespace-nowrap text-ink-2">{formatDate(lead.createdAt)}</td>
             </tr>
           ))}

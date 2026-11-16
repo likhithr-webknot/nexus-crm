@@ -20,14 +20,15 @@ import {
 } from "@/components/ui/primitives";
 import { Dialog, DialogActions, DialogBody } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toast";
-import { cn, formatCompactUsd, formatDay, formatUsd, readForm } from "@/lib/format";
+import { cn, formatDay, readForm } from "@/lib/format";
+import { CURRENCIES, currencyMinorUnits, decimalPlaces, formatCompactCurrency, isCurrencyCode } from "@/lib/currency";
+import { useCurrency } from "@/components/currency/currency-provider";
 
 const PRIORITY_TONE: Record<Priority, "red" | "amber" | "neutral"> = { High: "red", Medium: "amber", Low: "neutral" };
 const UNASSIGNED = "unassigned";
 const isOpen = (d: Deal) => d.stage !== "Won" && d.stage !== "Lost";
-const sum = (deals: Deal[]) => deals.reduce((total, d) => total + d.value, 0);
-
 export function PipelineBoard({ deals: initial }: { deals: Deal[] }) {
+  const { reportingCurrency, convertToReporting, format } = useCurrency();
   const [deals, setDeals] = useState(initial);
   const [owner, setOwner] = useState("");
   const [sort, setSort] = useState<"value" | "recent">("value");
@@ -56,18 +57,30 @@ export function PipelineBoard({ deals: initial }: { deals: Deal[] }) {
   const open = visible.filter(isOpen);
   const won = visible.filter((d) => d.stage === "Won");
   const closed = won.length + visible.filter((d) => d.stage === "Lost").length;
-  const weighted = open.reduce((total, d) => total + (d.value * STAGE_PROBABILITY[d.stage]) / 100, 0);
+  const reportSum = (items: Deal[]) => {
+    let total = 0;
+    for (const deal of items) {
+      const converted = convertToReporting(deal.value, deal.currency);
+      if (converted == null) return null;
+      total += converted;
+    }
+    return total;
+  };
+  const weighted = open.reduce((total, deal) => {
+    const converted = convertToReporting(deal.value, deal.currency);
+    return total == null || converted == null ? null : total + (converted * STAGE_PROBABILITY[deal.stage]) / 100;
+  }, 0 as number | null);
 
   const figures = [
-    { label: "Open pipeline", value: formatUsd(sum(open)), note: `${open.length} deals` },
-    { label: "Weighted forecast", value: formatUsd(Math.round(weighted)), note: "Value × chance to win" },
-    { label: "Won", value: formatUsd(sum(won)), note: `${won.length} deals` },
+    { label: "Open pipeline", value: reportSum(open) == null ? "—" : format(reportSum(open)!, reportingCurrency), note: `${open.length} deals` },
+    { label: "Weighted forecast", value: weighted == null ? "—" : format(Math.round(weighted), reportingCurrency), note: "Value × chance to win" },
+    { label: "Won", value: reportSum(won) == null ? "—" : format(reportSum(won)!, reportingCurrency), note: `${won.length} deals` },
     { label: "Win rate", value: closed ? `${Math.round((won.length / closed) * 100)}%` : "–", note: "Of closed deals" },
   ];
 
   return (
     <Page>
-      <PageHeader title="Sales Pipeline" subtitle="Track every deal from first contact to close.">
+      <PageHeader title="Sales Pipeline" subtitle={`Track every deal from first contact to close. Totals in ${reportingCurrency}.`}>
         <Link href="/settings?section=stages" className={buttonSecondary}>
           <Settings2 className="size-4" aria-hidden />
           Stage settings
@@ -122,7 +135,13 @@ export function PipelineBoard({ deals: initial }: { deals: Deal[] }) {
           {STAGES.map((stage, index) => {
             const cards = visible
               .filter((d) => d.stage === stage)
-              .sort((a, b) => (sort === "value" ? b.value - a.value : b.updatedAt.localeCompare(a.updatedAt)));
+              .sort((a, b) => {
+                if (sort === "recent") return b.updatedAt.localeCompare(a.updatedAt);
+                const aValue = convertToReporting(a.value, a.currency);
+                const bValue = convertToReporting(b.value, b.currency);
+                return aValue == null || bValue == null ? b.updatedAt.localeCompare(a.updatedAt) : bValue - aValue;
+              });
+            const stageTotal = reportSum(cards);
             return (
               <section
                 key={stage}
@@ -151,7 +170,9 @@ export function PipelineBoard({ deals: initial }: { deals: Deal[] }) {
                     <span className="tnum rounded-full bg-surface px-1.5 text-[11.5px] font-medium text-ink-2 ring-1 ring-line">
                       {cards.length}
                     </span>
-                    <span className="tnum ml-auto text-[12.5px] font-semibold text-ink">{formatCompactUsd(sum(cards))}</span>
+                    <span className="tnum ml-auto text-[12.5px] font-semibold text-ink">
+                      {stageTotal == null ? "—" : formatCompactCurrency(stageTotal, reportingCurrency)}
+                    </span>
                   </div>
                   <p className="mt-1 text-[11.5px] text-ink-3">{STAGE_PROBABILITY[stage]}% chance to win</p>
                 </header>
@@ -163,7 +184,7 @@ export function PipelineBoard({ deals: initial }: { deals: Deal[] }) {
                       id={`deal-${deal.id}`}
                       tabIndex={0}
                       draggable
-                      aria-label={`${deal.company}, ${deal.contact}, ${formatUsd(deal.value)}, ${deal.priority} priority. Arrow keys move it between stages.`}
+                      aria-label={`${deal.company}, ${deal.contact}, ${format(deal.value, deal.currency)}, ${deal.priority} priority. Arrow keys move it between stages.`}
                       onDragStart={() => setDragging(deal.id)}
                       onDragEnd={() => {
                         setDragging(null);
@@ -188,7 +209,9 @@ export function PipelineBoard({ deals: initial }: { deals: Deal[] }) {
                       <p className="mt-2.5 truncate text-[13.5px] font-semibold text-ink">{deal.company}</p>
                       <p className="truncate text-[12.5px] text-ink-3">{deal.contact}</p>
                       <div className="mt-3 flex min-h-[38px] items-center justify-between gap-2 border-t border-line pt-2.5">
-                        <span className="tnum text-[15px] font-semibold tracking-[-0.01em] text-ink">{formatUsd(deal.value)}</span>
+                        <span className="tnum text-[15px] font-semibold tracking-[-0.01em] text-ink">
+                          {format(deal.value, deal.currency)}
+                        </span>
                         {deal.owner ? (
                           <span className="flex items-center gap-1.5 text-[12px] text-ink-2">
                             <Avatar name={deal.owner} />
@@ -219,19 +242,57 @@ export function PipelineBoard({ deals: initial }: { deals: Deal[] }) {
           setDeals((all) => [...all, { ...deal, id: `D-${Date.now()}` }]);
           toast(`${deal.company} added to ${deal.stage}. ${SESSION_ONLY}`);
         }}
+        defaultCurrency={reportingCurrency}
       />
     </Page>
   );
 }
 
-function AddDealDialog({ open, onClose, onAdd }: { open: boolean; onClose: () => void; onAdd: (deal: Omit<Deal, "id">) => void }) {
+function AddDealDialog({
+  open,
+  onClose,
+  onAdd,
+  defaultCurrency,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onAdd: (deal: Omit<Deal, "id">) => void;
+  defaultCurrency: string;
+}) {
   const submit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const f = readForm(e.currentTarget);
+    const currency = f.currency ?? "";
+    if (!isCurrencyCode(currency)) {
+      const input = e.currentTarget.elements.namedItem("currency");
+      if (input instanceof HTMLSelectElement) {
+        input.setCustomValidity("Choose a supported currency.");
+        input.reportValidity();
+      }
+      return;
+    }
+    const value = Number(f.value);
+    if (!Number.isFinite(value) || value < 0) {
+      const input = e.currentTarget.elements.namedItem("value");
+      if (input instanceof HTMLInputElement) {
+        input.setCustomValidity("Enter a non-negative amount.");
+        input.reportValidity();
+      }
+      return;
+    }
+    if (decimalPlaces(f.value ?? "") > currencyMinorUnits(currency)) {
+      const input = e.currentTarget.elements.namedItem("value");
+      if (input instanceof HTMLInputElement) {
+        input.setCustomValidity(`${currency} allows up to ${currencyMinorUnits(currency)} decimal places.`);
+        input.reportValidity();
+      }
+      return;
+    }
     onAdd({
       company: f.company,
       contact: f.contact,
-      value: Number(f.value),
+      value,
+      currency,
       stage: f.stage as Stage,
       priority: f.priority as Priority,
       owner: f.owner || null,
@@ -250,8 +311,26 @@ function AddDealDialog({ open, onClose, onAdd }: { open: boolean; onClose: () =>
           <Field label="Contact name">
             <input name="contact" required maxLength={120} autoComplete="off" className={fieldControl} />
           </Field>
-          <Field label="Value (USD)">
-            <input name="value" type="number" required min={1} inputMode="numeric" className={fieldControl} />
+          <Field label="Value">
+            <input
+              name="value"
+              type="number"
+              required
+              min={0}
+              step="any"
+              inputMode="decimal"
+              onChange={(event) => event.currentTarget.setCustomValidity("")}
+              className={fieldControl}
+            />
+          </Field>
+          <Field label="Currency">
+            <select name="currency" defaultValue={defaultCurrency} className={fieldControl}>
+              {CURRENCIES.map(({ code, name }) => (
+                <option key={code} value={code}>
+                  {code} — {name}
+                </option>
+              ))}
+            </select>
           </Field>
           <Field label="Stage">
             <select name="stage" className={fieldControl}>

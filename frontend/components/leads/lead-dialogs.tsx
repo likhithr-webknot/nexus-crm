@@ -6,6 +6,8 @@ import { Dialog, DialogActions, DialogBody, FormError } from "@/components/ui/di
 import { Field, fieldControl } from "@/components/ui/primitives";
 import { downloadCsv, parseCsv } from "@/lib/csv";
 import { readForm } from "@/lib/format";
+import { CURRENCIES, currencyMinorUnits, decimalPlaces, isCurrencyCode } from "@/lib/currency";
+import { useCurrency } from "@/components/currency/currency-provider";
 
 const EMAIL = /^\S+@\S+\.\S+$/;
 const nextId = (leads: Lead[], offset = 0) =>
@@ -22,6 +24,7 @@ export function AddLeadDialog({
   leads: Lead[];
   onAdd: (lead: Lead) => void;
 }) {
+  const { reportingCurrency } = useCurrency();
   // Set when the email belongs to an existing lead. A second submit adds it anyway.
   const [duplicate, setDuplicate] = useState<Lead | null>(null);
   const close = () => {
@@ -32,6 +35,33 @@ export function AddLeadDialog({
   const submit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const f = readForm(e.currentTarget);
+    const rawValue = f.value ?? "";
+    const currency = f.currency ?? reportingCurrency;
+    if (!isCurrencyCode(currency)) {
+      const input = e.currentTarget.elements.namedItem("currency");
+      if (input instanceof HTMLSelectElement) {
+        input.setCustomValidity("Choose a supported currency.");
+        input.reportValidity();
+      }
+      return;
+    }
+    const enteredValue = rawValue ? Number(rawValue) : 0;
+    if (!Number.isFinite(enteredValue) || enteredValue < 0) {
+      const input = e.currentTarget.elements.namedItem("value");
+      if (input instanceof HTMLInputElement) {
+        input.setCustomValidity("Enter a non-negative amount.");
+        input.reportValidity();
+      }
+      return;
+    }
+    if (rawValue && decimalPlaces(rawValue) > currencyMinorUnits(currency)) {
+      const input = e.currentTarget.elements.namedItem("value");
+      if (input instanceof HTMLInputElement) {
+        input.setCustomValidity(`${currency} allows up to ${currencyMinorUnits(currency)} decimal places.`);
+        input.reportValidity();
+      }
+      return;
+    }
     const existing = leads.find((l) => l.email.toLowerCase() === f.email.toLowerCase());
     if (existing && !duplicate) return setDuplicate(existing);
     onAdd({
@@ -43,7 +73,8 @@ export function AddLeadDialog({
       source: f.source as Source,
       owner: f.owner || null,
       stage: "New",
-      value: Number(f.value) || 0,
+      value: enteredValue,
+      currency,
       createdAt: TODAY,
     });
     close();
@@ -88,8 +119,25 @@ export function AddLeadDialog({
               ))}
             </select>
           </Field>
-          <Field label="Estimated value (USD)" optional className="sm:col-span-2">
-            <input name="value" type="number" min={0} inputMode="numeric" className={fieldControl} />
+          <Field label="Estimated value" optional>
+            <input
+              name="value"
+              type="number"
+              min={0}
+              step="any"
+              inputMode="decimal"
+              onChange={(event) => event.currentTarget.setCustomValidity("")}
+              className={fieldControl}
+            />
+          </Field>
+          <Field label="Currency">
+            <select name="currency" defaultValue={reportingCurrency} className={fieldControl}>
+              {CURRENCIES.map(({ code, name }) => (
+                <option key={code} value={code}>
+                  {code} — {name}
+                </option>
+              ))}
+            </select>
           </Field>
           {duplicate && (
             <div className="sm:col-span-2">
@@ -107,26 +155,41 @@ export function AddLeadDialog({
 
 const MAX_FILE_BYTES = 1_000_000;
 
-type Parsed = { ready: Lead[]; missing: number; badEmail: number; duplicates: number };
+type Parsed = { ready: Lead[]; missing: number; badEmail: number; duplicates: number; invalidAmount: number; invalidCurrency: number };
 
 /** Turns CSV text into leads. Rows that cannot become a lead are counted, not imported. */
-function readLeads(text: string, existing: Lead[]): Parsed | string {
+function readLeads(text: string, existing: Lead[], defaultCurrency: string): Parsed | string {
   const [header, ...rows] = parseCsv(text);
   if (!header) return "The file is empty.";
   const column = (...names: string[]) => header.findIndex((h) => names.includes(h.trim().toLowerCase()));
-  const at = { name: column("name", "lead name"), email: column("email"), company: column("company"), phone: column("phone"), source: column("source") };
+  const at = {
+    name: column("name", "lead name"),
+    email: column("email"),
+    company: column("company"),
+    phone: column("phone"),
+    source: column("source"),
+    value: column("value", "amount", "estimated value"),
+    currency: column("currency"),
+  };
   if (at.name < 0 || at.email < 0) return 'The first row must name the columns, and include "Name" and "Email".';
 
   const seen = new Set(existing.map((l) => l.email.toLowerCase()));
-  const result: Parsed = { ready: [], missing: 0, badEmail: 0, duplicates: 0 };
+  const result: Parsed = { ready: [], missing: 0, badEmail: 0, duplicates: 0, invalidAmount: 0, invalidCurrency: 0 };
   for (const row of rows) {
     // Our own export puts a quote before cells a spreadsheet could run as a formula; take it off again.
     const cell = (i: number) => (i < 0 ? "" : (row[i] ?? "").trim().replace(/^'(?=[=+\-@])/, ""));
     const name = cell(at.name);
     const email = cell(at.email).toLowerCase();
+    const rawValue = cell(at.value);
+    const value = rawValue ? Number(rawValue) : 0;
+    const currency = cell(at.currency) || defaultCurrency;
     if (!name || !email) result.missing++;
     else if (!EMAIL.test(email)) result.badEmail++;
     else if (seen.has(email)) result.duplicates++;
+    else if (!Number.isFinite(value) || value < 0)
+      result.invalidAmount++;
+    else if (!isCurrencyCode(currency)) result.invalidCurrency++;
+    else if (decimalPlaces(rawValue) > currencyMinorUnits(currency)) result.invalidAmount++;
     else {
       seen.add(email);
       const source = SOURCES.find((s) => s.toLowerCase() === cell(at.source).toLowerCase()) ?? "Manual Entry";
@@ -139,7 +202,8 @@ function readLeads(text: string, existing: Lead[]): Parsed | string {
         source,
         owner: null,
         stage: "New",
-        value: 0,
+        value,
+        currency,
         createdAt: TODAY,
       });
     }
@@ -158,6 +222,7 @@ export function ImportLeadsDialog({
   leads: Lead[];
   onImport: (leads: Lead[]) => void;
 }) {
+  const { reportingCurrency } = useCurrency();
   const [parsed, setParsed] = useState<Parsed | string | null>(null);
   const close = () => {
     setParsed(null);
@@ -167,7 +232,7 @@ export function ImportLeadsDialog({
   const pick = async (file: File | undefined) => {
     if (!file) return setParsed(null);
     if (file.size > MAX_FILE_BYTES) return setParsed("That file is larger than 1 MB. Split it into smaller files.");
-    setParsed(readLeads(await file.text(), leads));
+    setParsed(readLeads(await file.text(), leads, reportingCurrency));
   };
 
   const result = typeof parsed === "object" ? parsed : null;
@@ -176,6 +241,8 @@ export function ImportLeadsDialog({
         [result.duplicates, "already exist or repeat an email"],
         [result.missing, "have no name or email"],
         [result.badEmail, "have an email that isn't valid"],
+        [result.invalidAmount, "have an invalid amount"],
+        [result.invalidCurrency, "have an unsupported currency code"],
       ].filter(([count]) => count)
     : [];
 
@@ -187,7 +254,7 @@ export function ImportLeadsDialog({
       description="Upload a CSV file. Imported leads arrive unassigned, in the New stage."
     >
       <DialogBody>
-        <Field label="CSV file" hint="Needs a Name and an Email column. Company, Phone and Source are optional. Up to 1 MB.">
+        <Field label="CSV file" hint="Needs Name and Email columns. Company, Phone, Source, Estimated value and Currency are optional. Up to 1 MB.">
           <input
             type="file"
             accept=".csv,text/csv"
@@ -198,8 +265,8 @@ export function ImportLeadsDialog({
         <button
           type="button"
           onClick={() =>
-            downloadCsv("leads-template.csv", ["Name", "Company", "Email", "Phone", "Source"], [
-              ["Jane Doe", "Acme Inc.", "jane@acme.example", "+1 (415) 555-0100", "Referral"],
+            downloadCsv("leads-template.csv", ["Name", "Company", "Email", "Phone", "Source", "Estimated value", "Currency"], [
+              ["Jane Doe", "Acme Inc.", "jane@acme.example", "+1 (415) 555-0100", "Referral", "15000", reportingCurrency],
             ])
           }
           className="justify-self-start text-[13px] font-medium text-brand hover:underline"

@@ -1,3 +1,5 @@
+import type { CurrencyCode } from "@/lib/currency";
+
 // Static fixtures until the API exists. Shapes mirror what the backend
 // is expected to return so components won't change when it's wired up.
 
@@ -17,7 +19,7 @@ export const KPIS: Kpi[] = [
   { id: "qualified", label: "Qualified Leads", value: "1,128", delta: 14.8, trend: [10, 11, 13, 12, 15, 16, 18] },
   { id: "won", label: "Deals Won", value: "186", delta: 6.4, trend: [5, 7, 6, 8, 7, 9, 10] },
   { id: "lost", label: "Deals Lost", value: "42", delta: -4.1, trend: [9, 8, 9, 7, 8, 6, 5], invert: true },
-  { id: "revenue", label: "Revenue", value: "$1.28M", delta: 18.2, trend: [9, 10, 12, 11, 14, 16, 19] },
+  { id: "revenue", label: "Revenue", value: "—", delta: 18.2, trend: [9, 10, 12, 11, 14, 16, 19] },
   { id: "conversion", label: "Conversion Rate", value: "24.8%", delta: 2.3, trend: [20, 21, 21, 22, 23, 24, 25] },
 ];
 
@@ -61,6 +63,7 @@ export type Lead = {
   owner: string | null;
   stage: Stage;
   value: number;
+  currency: CurrencyCode;
   createdAt: string; // ISO date
 };
 
@@ -83,7 +86,7 @@ const lead = (
 ): Lead => {
   const domain = company.toLowerCase().replace(/[^a-z]/g, "");
   const email = `${name.split(" ")[0].toLowerCase()}@${domain}.example`;
-  return { id: `L-${n}`, name, company, email, phone: `+1 ${phone}`, source, owner, stage, value, createdAt };
+  return { id: `L-${n}`, name, company, email, phone: `+1 ${phone}`, source, owner, stage, value, currency: "USD", createdAt };
 };
 
 // Newest first.
@@ -203,6 +206,7 @@ export type Deal = {
   owner: string | null;
   stage: Stage;
   value: number;
+  currency: CurrencyCode;
   priority: Priority;
   updatedAt: string; // ISO date
 };
@@ -214,6 +218,7 @@ export const DEALS: Deal[] = LEADS.map((l) => ({
   owner: l.owner,
   stage: l.stage,
   value: l.value,
+  currency: l.currency,
   priority: l.value >= 60_000 ? "High" : l.value >= 30_000 ? "Medium" : "Low",
   updatedAt: l.createdAt,
 }));
@@ -223,6 +228,7 @@ export const DEALS: Deal[] = LEADS.map((l) => ({
 const JOB_TITLES = ["VP of Sales", "Head of Operations", "CTO", "Procurement Lead", "Founder", "Marketing Director"];
 
 export type Contact = Pick<Lead, "id" | "name" | "company" | "email" | "phone" | "owner" | "stage" | "value"> & {
+  currency: CurrencyCode;
   title: string;
 };
 
@@ -235,6 +241,7 @@ export const CONTACTS: Contact[] = LEADS.map((l, i) => ({
   owner: l.owner,
   stage: l.stage,
   value: l.value,
+  currency: l.currency,
   title: JOB_TITLES[i % JOB_TITLES.length],
 })).sort((a, b) => a.name.localeCompare(b.name));
 

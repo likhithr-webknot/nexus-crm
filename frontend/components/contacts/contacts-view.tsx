@@ -19,9 +19,11 @@ import {
 } from "@/components/ui/primitives";
 import { Dialog, DialogActions, DialogBody } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toast";
-import { cn, formatDay, formatTime, formatUsd, readForm } from "@/lib/format";
+import { cn, formatDay, formatTime, readForm } from "@/lib/format";
+import { useCurrency } from "@/components/currency/currency-provider";
 
 export function ContactsView({ contacts: initial }: { contacts: Contact[] }) {
+  const { reportingCurrency } = useCurrency();
   const [contacts, setContacts] = useState(initial);
   const [adding, setAdding] = useState(false);
   const [query, setQuery] = useState("");
@@ -112,6 +114,7 @@ export function ContactsView({ contacts: initial }: { contacts: Contact[] }) {
       <AddContactDialog
         open={adding}
         onClose={() => setAdding(false)}
+        defaultCurrency={reportingCurrency}
         onAdd={(contact) => {
           setContacts((all) => [...all, contact].sort((a, b) => a.name.localeCompare(b.name)));
           setQuery("");
@@ -124,13 +127,14 @@ export function ContactsView({ contacts: initial }: { contacts: Contact[] }) {
 }
 
 function ContactDetail({ contact: c }: { contact: Contact }) {
+  const { format } = useCurrency();
   const followUps = FOLLOW_UPS.filter((f) => f.contact === c.name && !f.done);
   const history = ACTIVITIES.filter((a) => a.contact === c.name);
   const facts = [
     ["Email", c.email],
     ["Phone", c.phone],
     ["Owner", c.owner ?? "Unassigned"],
-    ["Deal value", formatUsd(c.value)],
+    ["Deal value", format(c.value, c.currency)],
   ];
 
   return (
@@ -215,7 +219,17 @@ function Section({ title, empty, count, children }: { title: string; empty: stri
   );
 }
 
-function AddContactDialog({ open, onClose, onAdd }: { open: boolean; onClose: () => void; onAdd: (contact: Contact) => void }) {
+function AddContactDialog({
+  open,
+  onClose,
+  onAdd,
+  defaultCurrency,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onAdd: (contact: Contact) => void;
+  defaultCurrency: string;
+}) {
   const submit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const f = readForm(e.currentTarget);
@@ -229,6 +243,7 @@ function AddContactDialog({ open, onClose, onAdd }: { open: boolean; onClose: ()
       owner: f.owner || null,
       stage: "New",
       value: 0,
+      currency: defaultCurrency,
     });
     onClose();
   };

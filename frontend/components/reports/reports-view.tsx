@@ -6,19 +6,26 @@ import { Avatar, Card, CardHeader, Meter, Page, PageHeader, buttonSecondary } fr
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import { downloadCsv } from "@/lib/csv";
-import { formatUsd } from "@/lib/format";
+import { useCurrency } from "@/components/currency/currency-provider";
 
 const RING_R = 54;
 const RING_C = 2 * Math.PI * RING_R;
 
 export function ReportsView() {
+  const { reportingCurrency, formatReporting, formatCompactReporting, convertToReporting } = useCurrency();
   const totalRevenue = REVENUE.reduce((a, r) => a + r.revenue, 0);
   const kpi = (id: string) => KPIS.find((k) => k.id === id)!;
   const dealsWon = Number(kpi("won").value);
   const kpis: Kpi[] = [
-    kpi("revenue"),
+    { ...kpi("revenue"), value: formatCompactReporting(totalRevenue, "USD") ?? "—" },
     kpi("won"),
-    { id: "avg", label: "Avg. deal size", value: formatUsd(Math.round(totalRevenue / dealsWon)), delta: 9.1, trend: [6, 6, 7, 6, 8, 8, 9] },
+    {
+      id: "avg",
+      label: "Avg. deal size",
+      value: formatReporting(Math.round(totalRevenue / dealsWon), "USD") ?? "—",
+      delta: 9.1,
+      trend: [6, 6, 7, 6, 8, 8, 9],
+    },
     kpi("conversion"),
   ];
 
@@ -33,8 +40,15 @@ export function ReportsView() {
   const exportTeam = () =>
     downloadCsv(
       "team-performance.csv",
-      ["Sales executive", "Leads", "Deals won", "Revenue (USD)", "Conversion %", "Quota attainment %"],
-      sellers.map((m) => [m.name, m.leads, m.dealsWon, m.revenue, m.conversion, m.attainment]),
+      ["Sales executive", "Leads", "Deals won", `Revenue (${reportingCurrency})`, "Conversion %", "Quota attainment %"],
+      sellers.map((m) => [
+        m.name,
+        m.leads,
+        m.dealsWon,
+        convertToReporting(m.revenue, "USD") ?? "Exchange rate unavailable",
+        m.conversion,
+        m.attainment,
+      ]),
     );
 
   return (
@@ -54,11 +68,13 @@ export function ReportsView() {
 
       <div className="grid gap-5 lg:grid-cols-3">
         <Card className="lg:col-span-2">
-          <CardHeader title="Revenue growth" subtitle="Monthly revenue against target" />
+          <CardHeader title="Revenue growth" subtitle={`Monthly revenue against target · ${reportingCurrency}`} />
           <div className="flex flex-wrap items-end justify-between gap-4 px-5">
             <div>
               <p className="text-[12px] font-medium text-ink-3">Revenue achieved</p>
-              <p className="tnum mt-1 text-[26px] leading-none font-semibold tracking-[-0.02em]">{formatUsd(totalRevenue)}</p>
+              <p className="tnum mt-1 text-[26px] leading-none font-semibold tracking-[-0.02em]">
+                {formatReporting(totalRevenue, "USD") ?? "—"}
+              </p>
             </div>
             <div className="flex items-center gap-4 text-[12px] text-ink-2">
               <span className="flex items-center gap-1.5">
@@ -97,16 +113,18 @@ export function ReportsView() {
               </div>
             </div>
             <p className="mt-4 text-[13px] font-medium text-ink">
-              {gap >= 0 ? `Target beaten by ${formatUsd(gap)}` : `${formatUsd(-gap)} still to go`}
+              {gap >= 0
+                ? `Target beaten by ${formatReporting(gap, "USD") ?? "—"}`
+                : `${formatReporting(-gap, "USD") ?? "—"} still to go`}
             </p>
             <dl className="mt-4 grid w-full grid-cols-2 divide-x divide-line border-t border-line pt-4 text-center">
               <div>
                 <dt className="text-[12px] text-ink-3">Achieved</dt>
-                <dd className="tnum mt-0.5 text-[15px] font-semibold">{formatUsd(month.revenue)}</dd>
+                <dd className="tnum mt-0.5 text-[15px] font-semibold">{formatReporting(month.revenue, "USD") ?? "—"}</dd>
               </div>
               <div>
                 <dt className="text-[12px] text-ink-3">Target</dt>
-                <dd className="tnum mt-0.5 text-[15px] font-semibold">{formatUsd(month.target)}</dd>
+                <dd className="tnum mt-0.5 text-[15px] font-semibold">{formatReporting(month.target, "USD") ?? "—"}</dd>
               </div>
             </dl>
           </div>
@@ -138,7 +156,7 @@ export function ReportsView() {
                   </td>
                   <td className="px-3 py-3 text-right text-ink-2">{m.leads}</td>
                   <td className="px-3 py-3 text-right text-ink-2">{m.dealsWon}</td>
-                  <td className="px-3 py-3 text-right font-medium text-ink">{formatUsd(m.revenue)}</td>
+                  <td className="px-3 py-3 text-right font-medium text-ink">{formatReporting(m.revenue, "USD") ?? "—"}</td>
                   <td className="px-3 py-3 text-right text-ink-2">{m.conversion}%</td>
                   <td className="py-3 pr-5 pl-6">
                     <div className="flex items-center gap-3">
@@ -183,7 +201,8 @@ export function ReportsView() {
                 <div className="mb-1.5 flex items-baseline justify-between">
                   <span className="font-medium text-ink">{s.label}</span>
                   <span className="tnum text-ink-3">
-                    <span className="font-semibold text-ink">{formatUsd(s.revenue)}</span> · {Math.round((s.revenue / sourceTotal) * 100)}%
+                    <span className="font-semibold text-ink">{formatReporting(s.revenue, "USD") ?? "—"}</span> ·{" "}
+                    {Math.round((s.revenue / sourceTotal) * 100)}%
                   </span>
                 </div>
                 <Meter value={(s.revenue / topSource) * 100} />

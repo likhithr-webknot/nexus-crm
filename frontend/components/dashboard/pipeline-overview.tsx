@@ -1,9 +1,10 @@
 import type { PipelineStage } from "@/lib/mock-data";
-import { formatCompactUsd } from "@/lib/format";
+import { useCurrency } from "@/components/currency/currency-provider";
 
 const BAR_COLORS = ["#4f46e5", "#6366f1", "#818cf8", "#a5b4fc", "#10b981"];
 
 export function PipelineOverview({ stages }: { stages: PipelineStage[] }) {
+  const { formatCompactReporting } = useCurrency();
   const max = Math.max(...stages.map((s) => s.count));
   return (
     <ul className="space-y-3.5">
@@ -16,7 +17,8 @@ export function PipelineOverview({ stages }: { stages: PipelineStage[] }) {
             <div className="mb-1.5 flex items-baseline justify-between text-[13px]">
               <span className="font-medium text-ink">{s.stage}</span>
               <span className="tnum text-ink-3">
-                <span className="font-semibold text-ink">{s.count}</span> · {formatCompactUsd(s.value)}
+                <span className="font-semibold text-ink">{s.count}</span> ·{" "}
+                {formatCompactReporting(s.value, "USD") ?? "—"}
               </span>
             </div>
             <div className="flex items-center gap-3">

@@ -1,12 +1,14 @@
 "use client";
 
 import { useId, useState } from "react";
-import { Bell, Building2, Check, GitBranch, Megaphone, ShieldCheck, User, X, type LucideIcon } from "lucide-react";
+import { Bell, Building2, Check, GitBranch, Megaphone, RefreshCw, ShieldCheck, User, X, type LucideIcon } from "lucide-react";
 import { COMPANY, LEAD_SOURCES, STAGES, STAGE_PROBABILITY } from "@/lib/mock-data";
 import { Badge, Card, CardHeader, Page, PageHeader, STAGE_DOT, buttonPrimary, buttonSecondary, control } from "@/components/ui/primitives";
 import { ROLE_LABELS } from "@/lib/auth";
 import { UserAvatar, useSession, useSignOut } from "@/components/auth/session";
+import { useCurrency } from "@/components/currency/currency-provider";
 import { cn } from "@/lib/format";
+import { CURRENCIES } from "@/lib/currency";
 
 const SECTIONS: { id: string; label: string; icon: LucideIcon }[] = [
   { id: "company", label: "Company profile", icon: Building2 },
@@ -14,6 +16,7 @@ const SECTIONS: { id: string; label: string; icon: LucideIcon }[] = [
   { id: "roles", label: "Roles & permissions", icon: ShieldCheck },
   { id: "sources", label: "Lead sources", icon: Megaphone },
   { id: "stages", label: "Pipeline stages", icon: GitBranch },
+  { id: "currency", label: "Currency & rates", icon: Building2 },
   { id: "notifications", label: "Notifications", icon: Bell },
 ];
 
@@ -51,9 +54,64 @@ export function SettingsView({ initialSection }: { initialSection?: string }) {
         {section === "roles" && <Roles />}
         {section === "sources" && <Sources />}
         {section === "stages" && <Stages />}
+        {section === "currency" && <CurrencySettings />}
         {section === "notifications" && <Notifications />}
       </div>
     </Page>
+  );
+}
+
+function CurrencySettings() {
+  const { reportingCurrency, setReportingCurrency, rateState, refreshRates } = useCurrency();
+
+  return (
+    <Card>
+      <CardHeader
+        title="Currency & exchange rates"
+        subtitle="Set the currency used for workspace totals and reports. Deal amounts keep their original currency."
+      />
+      <div className="space-y-4 border-t border-line p-5">
+        <Field label="Reporting currency">
+          {(props) => (
+            <select
+              {...props}
+              value={reportingCurrency}
+              onChange={(event) => setReportingCurrency(event.target.value)}
+            >
+              {CURRENCIES.map(({ code, name }) => (
+                <option key={code} value={code}>
+                  {code} — {name}
+                </option>
+              ))}
+            </select>
+          )}
+        </Field>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-canvas px-3.5 py-3 text-[12.5px] text-ink-2" role="status" aria-live="polite">
+          {rateState.status === "loading" && "Loading daily exchange rates…"}
+          {rateState.status === "ready" && (
+            <>
+              Exchange rates last updated {rateState.updatedAt}. Rates provided by{" "}
+              <a className="font-medium text-brand hover:underline" href="https://www.exchangerate-api.com" target="_blank" rel="noreferrer">
+                ExchangeRate-API
+              </a>
+              .
+            </>
+          )}
+          {rateState.status === "error" && (
+            <>
+              <span className="text-down">Could not load exchange rates: {rateState.error} Converted totals are unavailable.</span>
+              <button onClick={refreshRates} className={buttonSecondary}>
+                <RefreshCw className="size-3.5" aria-hidden />
+                Retry
+              </button>
+            </>
+          )}
+        </div>
+        <p className="text-[12px] text-ink-3">
+          This preference is saved in this browser. Rates are indicative, and currencies not covered by the rate feed cannot be converted. The CRM API will provide auditable daily rates and closed-deal snapshots.
+        </p>
+      </div>
+    </Card>
   );
 }
 
