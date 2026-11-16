@@ -14,11 +14,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-/**
- * The saved answer to a request that came with an {@code Idempotency-Key}
- * header. If the same request is sent again, we return this answer instead of
- * creating a second record. Rows are deleted after 24 hours.
- */
+/** The saved answer to a request that came with an {@code Idempotency-Key} header. */
 @Entity
 @Table(name = "idempotency_key")
 @Getter

@@ -25,11 +25,7 @@ import com.nexus.crm.shared.Emails;
 import com.nexus.crm.shared.error.ErrorCode;
 import com.nexus.crm.shared.Search;
 
-/**
- * Contacts and the companies they work for. A user sees only the records owned
- * by themselves (reps), their team (managers) or anyone (admins). A record
- * outside that is reported as "not found", so its existence is not revealed.
- */
+/** Contacts and the companies they work for. */
 @Service
 @RequiredArgsConstructor
 public class ContactService {
@@ -181,10 +177,7 @@ public class ContactService {
 		return company;
 	}
 
-	/**
-	 * Finds the owner's company with this name, or creates it. Used when a lead is converted, so converting
-	 * two leads from one company does not create the company twice.
-	 */
+	/** Finds the owner's company with this name, or creates it. */
 	@Transactional
 	public Company findOrCreateCompany(CurrentUser user, String name, UUID ownerId) {
 		return this.companies.findByNameIgnoreCaseAndOwnerId(name.strip(), ownerId)
@@ -206,10 +199,7 @@ public class ContactService {
 		return this.companies.findByIdIn(ids).stream().collect(Collectors.toMap(Company::getId, Company::getName));
 	}
 
-	/**
-	 * The contact with this email, or a new one. Used when a lead is converted, so a repeat customer
-	 * keeps one contact record. An email that belongs to a contact the user cannot see is refused.
-	 */
+	/** The contact with this email, or a new one. */
 	@Transactional
 	public Contact findOrCreateContact(CurrentUser user, ContactInput in, UUID ownerId) {
 		String email = Emails.normalize(in.email());

@@ -5,14 +5,7 @@ import java.util.function.Function;
 
 import org.springframework.data.domain.Page;
 
-/**
- * One page of a list, with the total so the frontend can show "1-8 of 120".
- *
- * <p>
- * The design asked for cursor paging, but the screens show page numbers and
- * totals, which cursors cannot do. At this data size (tens of thousands of
- * rows) page numbers are fast enough.
- */
+/** One page of a list, with the total so the frontend can show "1-8 of 120". */
 public record PageResponse<T>(List<T> items, long total, int page, int size) {
 
 	public static final int MAX_SIZE = 100;

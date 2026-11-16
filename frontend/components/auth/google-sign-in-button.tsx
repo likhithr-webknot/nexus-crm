@@ -4,14 +4,10 @@ import { useEffect, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { cn } from "@/lib/format";
 
-// If the browser never leaves the page (blocked navigation, backend down and
-// the user comes back), stop showing "Redirecting" so they can try again.
+// If the browser never leaves the page (blocked navigation, backend down and the user comes back), stop showing "Redirecting" so they can try again.
 const PENDING_TIMEOUT_MS = 10_000;
 
-/**
- * A real link, not a fetch: sign-in is a full-page redirect to the backend,
- * so it also works before hydration and without JavaScript.
- */
+/** A real link, not a fetch: sign-in is a full-page redirect to the backend, so it also works before hydration and without JavaScript. */
 export function GoogleSignInButton({ href }: { href: string }) {
   const [pending, setPending] = useState(false);
 
@@ -21,8 +17,7 @@ export function GoogleSignInButton({ href }: { href: string }) {
     return () => window.clearTimeout(timer);
   }, [pending]);
 
-  // Returning with the Back button restores this page from the back/forward
-  // cache with its old state, which would leave the button stuck.
+  // Returning with the Back button restores this page from the back/forward cache with its old state, which would leave the button stuck.
   useEffect(() => {
     const onPageShow = (event: PageTransitionEvent) => {
       if (event.persisted) setPending(false);

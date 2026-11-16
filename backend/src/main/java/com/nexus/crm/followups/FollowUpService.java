@@ -81,10 +81,7 @@ public class FollowUpService {
 				PageRequest.of(Math.max(0, page - 1), size, Sort.by("dueAt", "id")));
 	}
 
-	/**
-	 * Counts for the tiles. The browser says when its "today" starts and ends, because a day depends on the
-	 * viewer's time zone, and when this month started.
-	 */
+	/** Counts for the tiles. */
 	@Transactional(readOnly = true)
 	public Summary summary(CurrentUser user, Instant dayStart, Instant dayEnd, Instant monthStart) {
 		Specification<FollowUp> mine = visible(user);

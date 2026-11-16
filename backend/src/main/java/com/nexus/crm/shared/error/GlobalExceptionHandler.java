@@ -26,11 +26,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 import com.nexus.crm.shared.web.RequestIdFilter;
 
-/**
- * Turns every exception into an error response. All errors have the same JSON
- * shape, with a {@code code} and a {@code requestId}. Login and permission
- * errors come through here too.
- */
+/** Turns every exception into an error response. */
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {

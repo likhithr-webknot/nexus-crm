@@ -14,11 +14,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-/**
- * Gives every request a short ID. The ID is sent back in the X-Request-Id
- * header, shown in error responses and added to every log line, so one
- * request can be found in the logs.
- */
+/** Gives every request a short ID. The ID is sent back in the X-Request-Id header, shown in error responses and added to every log line, so one request can be found in the logs. */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class RequestIdFilter extends OncePerRequestFilter {

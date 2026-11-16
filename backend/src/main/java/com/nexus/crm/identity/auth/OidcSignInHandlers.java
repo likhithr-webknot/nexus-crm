@@ -19,11 +19,7 @@ import com.nexus.crm.identity.auth.SessionService.ClientInfo;
 import com.nexus.crm.identity.auth.SignInService.SignInRefusedException;
 import com.nexus.crm.identity.user.AppUser;
 
-/**
- * Runs when Google sends the user back to us. If the user is allowed in, we
- * set the sign-in cookies and send them to the app. If not, we send them to
- * the login page with an error code.
- */
+/** Runs when Google sends the user back to us. */
 @Slf4j
 @Component
 @RequiredArgsConstructor

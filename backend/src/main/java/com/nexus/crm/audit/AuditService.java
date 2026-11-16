@@ -16,10 +16,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.json.JsonMapper;
 
-/**
- * Writes the audit log. Call {@link #record} inside the same transaction as the
- * change, so a change and its audit entry are saved together or not at all.
- */
+/** Writes the audit log. */
 @Service
 @RequiredArgsConstructor
 public class AuditService {

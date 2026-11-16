@@ -14,10 +14,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/**
- * One number for one user on one day, for example how many leads they created.
- * The nightly job rebuilds these rows, so running it twice gives the same result.
- */
+/** One number for one user on one day, for example how many leads they created. */
 @Entity
 @Table(name = "daily_metric")
 @Getter

@@ -51,17 +51,7 @@ import com.nexus.crm.shared.CurrentUser;
 import com.nexus.crm.shared.web.RequestIdFilter;
 import com.nexus.crm.shared.Role;
 
-/**
- * The security rules. There are two sets:
- *
- * <ol>
- * <li><b>Signing in</b> (Google sign-in and token refresh): open to everyone, because the user is not signed in
- * yet.</li>
- * <li><b>Everything else</b>: the user must be signed in. Requests that change data also need the CSRF token.</li>
- * </ol>
- *
- * The server keeps no session; everything it needs is in the cookies.
- */
+/** Security rules: sign-in and token refresh are open; everything else needs a signed-in user, and changes need the CSRF token. */
 @Configuration(proxyBeanMethods = false)
 @EnableMethodSecurity
 class SecurityConfig {
@@ -74,8 +64,7 @@ class SecurityConfig {
 			CookieOAuth2AuthorizationRequestRepository authorizationRequests, OidcSignInHandlers handlers) {
 		http.securityMatcher("/api/v1/auth/oauth2/**", "/api/v1/auth/login/**", AuthCookies.REFRESH_PATH)
 			.authorizeHttpRequests((requests) -> requests.anyRequest().permitAll())
-			// No CSRF token needed here. Google sign-in has its own protection (the state value),
-			// and the refresh cookie is never sent on requests from other sites.
+			// No CSRF token needed here. Google sign-in has its own protection (the state value), and the refresh cookie is never sent on requests from other sites.
 			.csrf(AbstractHttpConfigurer::disable)
 			.oauth2Login((login) -> login
 				.authorizationEndpoint((endpoint) -> endpoint.baseUri(AUTHORIZATION_BASE_URI)
@@ -93,8 +82,7 @@ class SecurityConfig {
 	@Order(2)
 	SecurityFilterChain apiFilterChain(HttpSecurity http, JwtDecoder jwtDecoder, UserService users,
 			AuthProperties properties, @Qualifier("handlerExceptionResolver") HandlerExceptionResolver errors) {
-		// Send "not signed in" (401) and "not allowed" (403) to the global exception handler,
-		// so they look like every other error response.
+		// Send "not signed in" (401) and "not allowed" (403) to the global exception handler, so they look like every other error response.
 		AuthenticationEntryPoint notSignedIn = (request, response, ex) -> errors.resolveException(request, response,
 				null, ex);
 		AccessDeniedHandler notAllowed = (request, response, ex) -> errors.resolveException(request, response, null,
@@ -116,14 +104,7 @@ class SecurityConfig {
 		return stateless(http).build();
 	}
 
-	/**
-	 * Signs the user in on each request, using the access token in the {@code nx_at} cookie.
-	 *
-	 * <p>
-	 * Important: do not replace this with {@code http.oauth2ResourceServer(...)}. That shortcut switches CSRF
-	 * protection off for any request that has a token. That is unsafe for us, because our token is in a cookie and
-	 * the browser sends cookies automatically, even on requests made by other websites.
-	 */
+	/** Signs the user in on each request, using the access token in the {@code nx_at} cookie. Important: do not replace this with {@code http.oauth2ResourceServer(...)}. That is unsafe for us, because our token is in a cookie and the browser sends cookies automatically, even on requests made by other websites. */
 	private static BearerTokenAuthenticationFilter accessTokenFilter(JwtDecoder jwtDecoder, UserService users,
 			AuthenticationEntryPoint notSignedIn) {
 		JwtAuthenticationProvider provider = new JwtAuthenticationProvider(jwtDecoder);
@@ -135,11 +116,7 @@ class SecurityConfig {
 		return filter;
 	}
 
-	/**
-	 * Turns a valid access token into the {@link CurrentUser} for the request. It also checks that the user is
-	 * still active and reads their role from the database, so disabling a user or changing a role works straight
-	 * away.
-	 */
+	/** Turns a valid access token into the {@link CurrentUser} for the request. */
 	private static AbstractAuthenticationToken currentUser(Jwt jwt, UserService users) {
 		UUID userId;
 		UUID sessionId;
@@ -183,17 +160,13 @@ class SecurityConfig {
 		DefaultOAuth2AuthorizationRequestResolver resolver = new DefaultOAuth2AuthorizationRequestResolver(
 				clientRegistrations, AUTHORIZATION_BASE_URI);
 		resolver.setAuthorizationRequestCustomizer(OAuth2AuthorizationRequestCustomizers.withPkce()
-			// Always let the user pick a Google account. Otherwise someone who used the
-			// wrong account would keep being signed in with it and could never switch.
+			// Always let the user pick a Google account. Otherwise someone who used the wrong account would keep being signed in with it and could never switch.
 			.andThen((request) -> request
 				.additionalParameters((parameters) -> parameters.put("prompt", "select_account"))));
 		return resolver;
 	}
 
-	/**
-	 * Makes sure the XSRF-TOKEN cookie is sent to the browser. Spring only
-	 * writes it when something reads the token, so this reads it on every request.
-	 */
+	/** Makes sure the XSRF-TOKEN cookie is sent to the browser. */
 	private static final class CsrfCookieFilter extends OncePerRequestFilter {
 
 		@Override

@@ -17,15 +17,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import com.nexus.crm.shared.error.ApiException;
 import com.nexus.crm.shared.error.ErrorCode;
 
-/**
- * The columns every business table has: an ID, who created and changed the row
- * and when, a version for optimistic locking, and a soft-delete time.
- *
- * <p>
- * The dates and users are filled in by Spring (see {@link AuditingConfig}), so
- * subclasses never set them. A subclass that can be soft-deleted should also
- * have {@code @SQLRestriction("deleted_at is null")}, so queries skip deleted rows.
- */
+/** The columns every business table has: an ID, who created and changed the row and when, a version for optimistic locking, and a soft-delete time. The dates and users are filled in by Spring (see {@link AuditingConfig}), so subclasses never set them. */
 @MappedSuperclass
 @EntityListeners(AuditingEntityListener.class)
 @Getter

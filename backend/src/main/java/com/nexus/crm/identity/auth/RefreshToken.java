@@ -15,11 +15,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-/**
- * A refresh token. We store only a hash of it, so a leaked database does not
- * give anyone a working token. All tokens from one sign-in share a
- * {@code familyId}, so they can be cancelled together.
- */
+/** A refresh token. We store only a hash of it, so a leaked database does not give anyone a working token. */
 @Entity
 @Table(name = "refresh_token")
 @Getter

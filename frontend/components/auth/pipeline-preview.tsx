@@ -1,10 +1,6 @@
 import { cn } from "@/lib/format";
 
-/*
- * Illustration for the sign-in page: a still of what the product looks like
- * once you are in. The figures are made up and the whole thing is hidden from
- * assistive technology, because it carries no information.
- */
+/* Illustration for the sign-in page: a still of what the product looks like once you are in. */
 
 const STAGES = [
   { name: "Qualified", deals: 12, value: "₹62.4L", share: 100, tone: "bg-brand/55" },

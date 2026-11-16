@@ -2,11 +2,7 @@ package com.nexus.crm.deals;
 
 import java.util.UUID;
 
-/**
- * Things that happen to deals. Other modules listen for them, for example the
- * activities module writes the timeline entry. They are sent inside the
- * deal's transaction, so a listener's work is saved or undone with the deal.
- */
+/** Things that happen to deals. */
 public final class DealEvents {
 
 	private DealEvents() {

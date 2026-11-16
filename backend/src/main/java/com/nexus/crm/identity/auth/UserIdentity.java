@@ -11,11 +11,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/**
- * Links a user to their Google account. We recognise a returning user by
- * Google's own ID for them (the "subject"), not by email, because an email
- * address can be given to someone else later.
- */
+/** Links a user to their Google account. */
 @Entity
 @Table(name = "user_identity")
 @Getter

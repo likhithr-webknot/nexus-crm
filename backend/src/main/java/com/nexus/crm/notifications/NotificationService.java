@@ -20,10 +20,7 @@ import com.nexus.crm.followups.FollowUpEvents;
 import com.nexus.crm.identity.user.UserService;
 import com.nexus.crm.leads.LeadEvents;
 
-/**
- * The messages in a user's bell menu. They are written when something happens (a lead is assigned,
- * a deal is won, a follow-up is due) and are kept for 90 days.
- */
+/** The messages in a user's bell menu. */
 @Slf4j
 @Service
 @RequiredArgsConstructor

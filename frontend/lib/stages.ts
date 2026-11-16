@@ -1,9 +1,4 @@
-/*
- * Lead statuses and deal stages. A lead is NEW, CONTACTED or QUALIFIED until it is converted
- * (it becomes a deal) or disqualified. A deal then moves through the pipeline stages.
- * Deal stages come from the API (GET /pipeline/stages); the labels here are for lead statuses
- * and a fallback for colours.
- */
+/* Lead statuses and deal stages. */
 
 export type LeadStatus = "NEW" | "CONTACTED" | "QUALIFIED" | "DISQUALIFIED" | "CONVERTED";
 

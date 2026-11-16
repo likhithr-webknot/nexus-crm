@@ -9,11 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.nexus.crm.identity.user.AppUser;
 import com.nexus.crm.identity.user.AppUserRepository;
 
-/**
- * Decides whether a person who signed in with Google may use the app. Anyone
- * can have a Google account, so they must also have been invited. This class
- * never creates a user.
- */
+/** Decides whether a person who signed in with Google may use the app. Anyone can have a Google account, so they must also have been invited. This class never creates a user. */
 @Service
 @RequiredArgsConstructor
 public class SignInService {
@@ -64,8 +60,7 @@ public class SignInService {
 		AppUser user = this.users.findByEmail(normalized)
 			.orElseThrow(() -> new SignInRefusedException("not_invited", "no user with this email"));
 		if (this.identities.existsByUserIdAndProvider(user.getId(), UserIdentity.GOOGLE)) {
-			// This email already belongs to a different Google account, so the address
-			// must have been given to someone new. Do not let them in.
+			// This email already belongs to a different Google account, so the address must have been given to someone new. Do not let them in.
 			throw new SignInRefusedException("not_invited", "email is already linked to another Google account");
 		}
 		this.identities.save(new UserIdentity(user.getId(), googleId, normalized));

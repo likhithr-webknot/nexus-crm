@@ -6,10 +6,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 
-/**
- * The error codes the API can return. The frontend reads these to decide what
- * to show, so do not rename or remove one. Adding a new one is fine.
- */
+/** The error codes the API can return. The frontend reads these to decide what to show, so do not rename or remove one. */
 @Getter
 @RequiredArgsConstructor
 public enum ErrorCode {

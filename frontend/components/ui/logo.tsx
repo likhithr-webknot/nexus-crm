@@ -1,9 +1,6 @@
 import { cn } from "@/lib/format";
 
-/*
- * The mark is an N drawn as one route between two points: a lead on one end,
- * a closed deal on the other. app/icon.svg is the same drawing for the tab icon.
- */
+/* The mark is an N drawn as one route between two points: a lead on one end, a closed deal on the other. app/icon.svg is the same drawing for the tab icon. */
 function Mark({ label }: { label?: string }) {
   return (
     <svg

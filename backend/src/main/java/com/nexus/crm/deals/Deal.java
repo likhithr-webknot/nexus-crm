@@ -18,11 +18,7 @@ import org.hibernate.type.SqlTypes;
 
 import com.nexus.crm.shared.persistence.BaseEntity;
 
-/**
- * A sale being worked on. The amount stays in the currency it was agreed in.
- * When the deal is won or lost, the INR value on that day is saved with it, so
- * reported revenue never changes afterwards.
- */
+/** A sale being worked on. When the deal is won or lost, the INR value on that day is saved with it, so reported revenue never changes afterwards. */
 @Entity
 @Table(name = "deal")
 @SQLRestriction("deleted_at is null")

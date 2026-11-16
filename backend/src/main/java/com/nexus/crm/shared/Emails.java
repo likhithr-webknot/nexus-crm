@@ -2,11 +2,7 @@ package com.nexus.crm.shared;
 
 import java.util.Locale;
 
-/**
- * Email columns are case-insensitive in the database, but a query that passes
- * the email as plain text compares it case-sensitively. So we store every email
- * in lower case and look it up in lower case.
- */
+/** Email columns are case-insensitive in the database, but a query that passes the email as plain text compares it case-sensitively. */
 public final class Emails {
 
 	private Emails() {

@@ -22,11 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.nexus.crm.identity.user.UserService;
 import com.nexus.crm.shared.CurrentUser;
 
-/**
- * The numbers on the dashboard and the reports page. They are SQL aggregates, so they are read with
- * {@link JdbcClient} rather than through entities. Every query is limited to what the user may see:
- * their own records, their team's, or everyone's. All money is in the base currency (INR).
- */
+/** The numbers on the dashboard and the reports page. */
 @Service
 @RequiredArgsConstructor
 public class ReportingService {
@@ -171,7 +167,7 @@ public class ReportingService {
 
 	// ---- revenue against target ----
 
-	/** Won revenue per month for the last {@code months} months, with each month's target. Targets are company-wide, so only admins see them. */
+	/** Won revenue per month for the last {@code months} months, with each month's target. */
 	@Transactional(readOnly = true)
 	public List<MonthRevenue> revenueByMonth(CurrentUser user, int months) {
 		Scope scope = scope(user);

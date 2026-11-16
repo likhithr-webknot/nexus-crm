@@ -17,8 +17,7 @@ export const metadata: Metadata = {
   description: "Leads, pipeline and revenue in one place.",
 };
 
-// The signed-in shell (sidebar, top bar) lives in app/(app)/layout.tsx so that
-// routes outside it, such as /login, render without it.
+// The signed-in shell (sidebar, top bar) lives in app/(app)/layout.tsx so that routes outside it, such as /login, render without it.
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${inter.variable} ${mono.variable} h-full antialiased`}>

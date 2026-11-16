@@ -16,11 +16,7 @@ import org.hibernate.annotations.SQLRestriction;
 
 import com.nexus.crm.shared.persistence.BaseEntity;
 
-/**
- * An entry on the timeline of a lead, contact or deal: a note, call or meeting
- * written by a person, or a SYSTEM entry the app writes itself (for example
- * "Stage changed"). It belongs to at least one of the three.
- */
+/** An entry on the timeline of a lead, contact or deal: a note, call or meeting written by a person, or a SYSTEM entry the app writes itself (for example "Stage changed"). */
 @Entity
 @Table(name = "activity")
 @SQLRestriction("deleted_at is null")

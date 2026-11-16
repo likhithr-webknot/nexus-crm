@@ -15,10 +15,7 @@ import com.nexus.crm.shared.Role;
 import com.nexus.crm.shared.error.ApiException;
 import com.nexus.crm.shared.error.ErrorCode;
 
-/**
- * Teams: a group of reps led by a manager. Admins create, rename and delete them. A team can only be
- * deleted when nobody is in it, so no user is ever left pointing at a team that is gone.
- */
+/** Teams: a group of reps led by a manager. */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -49,7 +46,7 @@ public class TeamService {
 		return created;
 	}
 
-	/** Changes the name, the manager, or both. A null argument leaves that field alone; {@code removeManager} clears it. */
+	/** Changes the name, the manager, or both. */
 	@Transactional
 	public TeamInfo update(UUID id, String name, UUID managerId, boolean removeManager) {
 		Team team = find(id);

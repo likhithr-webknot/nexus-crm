@@ -36,10 +36,7 @@ import com.nexus.crm.identity.team.TeamRepository;
 @RequiredArgsConstructor
 public class UserService {
 
-	/**
-	 * Remembers each user's role for 60 seconds. Every request checks it, and
-	 * this saves a database query each time. An empty value means "not active".
-	 */
+	/** Remembers each user's role for 60 seconds. */
 	private final Cache<UUID, Optional<Role>> activeRoles = Caffeine.newBuilder()
 		.expireAfterWrite(Duration.ofSeconds(60))
 		.maximumSize(10_000)
@@ -74,10 +71,7 @@ public class UserService {
 			.collect(Collectors.toMap(AppUser::getId, AppUser::getDisplayName));
 	}
 
-	/**
-	 * Whose records the user may see: an admin sees everyone's (empty result), a manager sees their own and
-	 * their teams' members', and a rep sees only their own. Every list and detail query uses this.
-	 */
+	/** Whose records the user may see: an admin sees everyone's (empty result), a manager sees their own and their teams' members', and a rep sees only their own. */
 	@Transactional(readOnly = true)
 	public Optional<Set<UUID>> visibleOwnerIds(CurrentUser user) {
 		return switch (user.role()) {
@@ -113,10 +107,7 @@ public class UserService {
 		return user;
 	}
 
-	/**
-	 * Removes a user who was invited but never signed in, for example because the email was mistyped.
-	 * Anyone who has signed in is disabled instead, because their records and history point to them.
-	 */
+	/** Removes a user who was invited but never signed in, for example because the email was mistyped. */
 	@Transactional
 	public void delete(UUID id, UUID actorId) {
 		AppUser user = get(id);
@@ -181,10 +172,7 @@ public class UserService {
 		return user;
 	}
 
-	/**
-	 * Changes a user's role, status or both. Pass null for anything that should stay the same.
-	 * @param status DISABLED to disable the user, ACTIVE to enable them again
-	 */
+	/** Changes a user's role, status or both. */
 	@Transactional
 	public AppUser update(UUID id, Role role, AppUser.Status status, UUID actorId) {
 		AppUser user = get(id);
@@ -221,12 +209,7 @@ public class UserService {
 		return user;
 	}
 
-	/**
-	 * Creates the first admin when the app starts. Only admins can invite
-	 * people, so a brand-new install needs one to begin with. If there are no
-	 * users yet and {@code nexus.auth.bootstrap-admin-email} is set, that email
-	 * is invited as an admin. Once any user exists this does nothing.
-	 */
+	/** Creates the first admin when the app starts. */
 	@EventListener(ApplicationReadyEvent.class)
 	@Transactional
 	public void inviteFirstAdmin() {

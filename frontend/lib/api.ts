@@ -1,12 +1,6 @@
-/*
- * The one place the browser talks to the backend. It sends the session
- * cookies, adds the CSRF header to requests that change data, and renews an
- * expired access token once before giving up.
- * Contract: backend/README.md, "How sign-in works".
- */
+/* The one place the browser talks to the backend. */
 
-// Same-origin by default (a reverse proxy routes /api to the backend). Local
-// development points this at the backend's own port via .env.local.
+// Same-origin by default (a reverse proxy routes /api to the backend).
 export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1").replace(/\/+$/, "");
 
 /** Set by this file, not the backend: the session could not be renewed. */
@@ -45,8 +39,7 @@ async function toError(response: Response) {
   return new ApiError(response.status, problem?.code ?? "unknown", problem?.detail ?? response.statusText);
 }
 
-// Several requests can find the token expired at the same moment. They share
-// one refresh, because the refresh token is replaced each time it is used.
+// Several requests can find the token expired at the same moment.
 let refreshing: Promise<boolean> | null = null;
 
 function refresh() {

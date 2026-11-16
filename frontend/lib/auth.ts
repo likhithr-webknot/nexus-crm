@@ -1,8 +1,4 @@
-/*
- * Sign-in contract with the backend (docs/backend-technical-design.md,
- * "Sign-in with Google"). The browser navigates to the backend, which runs the
- * whole OIDC flow and sets the session cookies; the frontend never sees a token.
- */
+/* Sign-in contract with the backend (docs/backend-technical-design.md, "Sign-in with Google"). The browser navigates to the backend, which runs the whole OIDC flow and sets the session cookies; the frontend never sees a token. */
 
 import { API_BASE_URL, api } from "@/lib/api";
 
@@ -26,10 +22,7 @@ export const fetchMe = () => api<SessionUser>("/me");
 /** A full page load, so nothing from the session stays in memory, and Back does not return to the app. */
 export const leaveSignedOut = () => window.location.replace("/login?notice=signed_out");
 
-/**
- * Ends the session on the server, then leaves for the login page. `everywhere`
- * also signs out every other browser and device.
- */
+/** Ends the session on the server, then leaves for the login page. `everywhere` also signs out every other browser and device. */
 export async function signOut({ everywhere = false } = {}) {
   await api(everywhere ? "/auth/logout-all" : "/auth/logout", { method: "POST" });
   leaveSignedOut();
@@ -41,14 +34,7 @@ export type SignInNotice = {
   body: string;
 };
 
-/*
- * When sign-in is refused the backend redirects to /login?error=<code>.
- * The frontend itself links to /login?notice=<code> after sign-out or when a
- * session can no longer be refreshed.
- *
- * Only these fixed messages are ever rendered. Text from the URL is never
- * shown, so a crafted link cannot put its own words on the sign-in page.
- */
+/* When sign-in is refused the backend redirects to /login?error=<code>. Text from the URL is never shown, so a crafted link cannot put its own words on the sign-in page. */
 const ERRORS: Record<string, SignInNotice> = {
   not_invited: {
     tone: "error",

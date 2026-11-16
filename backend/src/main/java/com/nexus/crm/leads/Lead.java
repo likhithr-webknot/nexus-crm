@@ -20,14 +20,7 @@ import org.hibernate.type.SqlTypes;
 import com.nexus.crm.shared.persistence.BaseEntity;
 import com.nexus.crm.shared.Emails;
 
-/**
- * Someone who might become a customer. A lead moves NEW, CONTACTED, QUALIFIED,
- * and then ends as CONVERTED (a deal was created) or DISQUALIFIED (with a reason).
- *
- * <p>
- * The database also has a {@code search_text} column that it fills in itself.
- * It is not mapped here because only search queries use it.
- */
+/** Someone who might become a customer. */
 @Entity
 @Table(name = "lead")
 @SQLRestriction("deleted_at is null")

@@ -3,11 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { cn } from "@/lib/format";
 
-/**
- * Minimal disclosure popover: click to toggle, closes on outside click and
- * Escape (returning focus to the trigger). Enough for header menus without
- * pulling in a headless-UI dependency.
- */
+/** Minimal disclosure popover: click to toggle, closes on outside click and Escape (returning focus to the trigger). */
 export function Popover({
   trigger,
   label,

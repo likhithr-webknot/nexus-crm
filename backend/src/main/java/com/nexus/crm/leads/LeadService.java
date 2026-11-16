@@ -43,10 +43,7 @@ import com.nexus.crm.shared.currency.Money;
 import com.nexus.crm.shared.Role;
 import com.nexus.crm.shared.Search;
 
-/**
- * Leads. A user sees the leads they own, their team's (managers), everyone's (admins),
- * and the unassigned queue. A lead outside that is reported as "not found".
- */
+/** Leads. A user sees the leads they own, their team's (managers), everyone's (admins), and the unassigned queue. */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -270,10 +267,7 @@ public class LeadService {
 		}
 	}
 
-	/**
-	 * Turns a lead into a company, a contact and a deal, all in one transaction: either everything is
-	 * created or nothing is.
-	 */
+	/** Turns a lead into a company, a contact and a deal, all in one transaction: either everything is created or nothing is. */
 	@Transactional
 	public Conversion convert(CurrentUser user, UUID id, String dealName, Money amount, LocalDate expectedCloseDate) {
 		Lead lead = get(user, id);
@@ -302,10 +296,7 @@ public class LeadService {
 		return new Conversion(id, company.getId(), contact.getId(), deal.getId());
 	}
 
-	/**
-	 * Imports leads that the browser read from a CSV file. Every row is checked here again, because the
-	 * browser cannot be trusted. Rows that fail are listed; the rest are saved. Imported leads are unassigned.
-	 */
+	/** Imports leads that the browser read from a CSV file. */
 	@Transactional
 	public ImportResult importRows(CurrentUser user, List<ImportRow> rows) {
 		if (rows.size() > MAX_IMPORT_ROWS) {

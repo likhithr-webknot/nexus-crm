@@ -17,10 +17,7 @@ import com.nexus.crm.shared.error.ApiException;
 import com.nexus.crm.shared.CurrentUser;
 import com.nexus.crm.shared.error.ErrorCode;
 
-/**
- * Refresh and sign-out. Signing in has no method here: Spring Security handles
- * the Google sign-in itself (see SecurityConfig).
- */
+/** Refresh and sign-out. Signing in has no method here: Spring Security handles the Google sign-in itself (see SecurityConfig). */
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -31,10 +28,7 @@ class AuthController {
 
 	private final AuthCookies cookies;
 
-	/**
-	 * Gives the browser new tokens. The frontend calls this when a request fails with token_expired, then tries
-	 * that request again.
-	 */
+	/** Gives the browser new tokens. */
 	@PostMapping("/refresh")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	void refresh(HttpServletRequest request, HttpServletResponse response) {

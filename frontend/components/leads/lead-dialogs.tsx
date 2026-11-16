@@ -154,7 +154,7 @@ const MAX_FILE_BYTES = 1_000_000;
 
 type Parsed = { rows: ImportRow[]; missing: number; badEmail: number; repeated: number };
 
-/** Turns CSV text into import rows. Rows without a name or a valid email are counted, not kept. The server checks the rest. */
+/** Turns CSV text into import rows. */
 function readRows(text: string, defaultCurrency: string): Parsed | string {
   const [header, ...lines] = parseCsv(text);
   if (!header) return "The file is empty.";

@@ -22,15 +22,7 @@ import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequ
 import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
 import org.springframework.stereotype.Component;
 
-/**
- * Remembers a sign-in that is in progress, from the moment we send the user to
- * Google until Google sends them back. Spring normally keeps this in a server
- * session; we keep it in a 5-minute cookie instead, so the server stores nothing.
- *
- * <p>
- * The cookie is encrypted. If someone changes it, it no longer decrypts and
- * we ignore it.
- */
+/** Remembers a sign-in that is in progress, from the moment we send the user to Google until Google sends them back. */
 @Component
 @RequiredArgsConstructor
 class CookieOAuth2AuthorizationRequestRepository implements AuthorizationRequestRepository<OAuth2AuthorizationRequest> {

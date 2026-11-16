@@ -49,10 +49,7 @@ import com.nexus.crm.shared.error.GlobalExceptionHandler;
 @Configuration(proxyBeanMethods = false)
 class JwtConfig {
 
-	/**
-	 * The key used to sign access tokens. It is loaded once at startup, and the
-	 * app will not start without it (unless a temporary key is allowed).
-	 */
+	/** The key used to sign access tokens. */
 	@Bean
 	ECKey signingKey(AuthProperties properties) throws JOSEException {
 		KeyPair pair = loadKeyPair(properties.jwt());
@@ -86,10 +83,7 @@ class JwtConfig {
 		return decoder;
 	}
 
-	/**
-	 * A second secret key, made from the signing key, used to encrypt the
-	 * sign-in cookie. This saves having another secret to configure.
-	 */
+	/** A second secret key, made from the signing key, used to encrypt the sign-in cookie. */
 	@Bean
 	SecretKey signInCookieKey(ECKey signingKey) throws GeneralSecurityException, JOSEException {
 		Mac mac = Mac.getInstance("HmacSHA256");
@@ -98,10 +92,7 @@ class JwtConfig {
 		return new SecretKeySpec(key, "AES");
 	}
 
-	/**
-	 * Checks that the token has not expired. An expired token gets its own
-	 * error name, so the API can tell the frontend to refresh.
-	 */
+	/** Checks that the token has not expired. */
 	private static OAuth2TokenValidatorResult checkNotExpired(Jwt token) {
 		Instant expiresAt = token.getExpiresAt();
 		if (expiresAt == null) {

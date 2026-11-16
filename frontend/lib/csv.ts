@@ -1,7 +1,6 @@
 /** Builds a CSV from the rows and hands it to the browser as a download. */
 export function downloadCsv(filename: string, header: string[], rows: Array<Array<string | number>>) {
-  // CRM data is typed in by outsiders. A leading quote stops a spreadsheet
-  // from running a cell that starts like a formula.
+  // CRM data is typed in by outsiders.
   const cell = (value: string | number) => {
     const text = String(value);
     return `"${(typeof value === "string" && /^[=+\-@\t\r]/.test(text) ? `'${text}` : text).replace(/"/g, '""')}"`;
@@ -15,7 +14,7 @@ export function downloadCsv(filename: string, header: string[], rows: Array<Arra
   URL.revokeObjectURL(url);
 }
 
-/** Reads CSV text into rows of cells. Handles quoted cells, doubled quotes and both line endings; skips blank rows. */
+/** Reads CSV text into rows of cells. */
 export function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];

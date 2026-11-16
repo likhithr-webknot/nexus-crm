@@ -13,10 +13,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/**
- * The revenue goal for one month. Always in INR, so there is no currency
- * field here: the database fills it in and only allows INR.
- */
+/** The revenue goal for one month. */
 @Entity
 @Table(name = "revenue_target")
 @Getter

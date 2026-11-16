@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useCurrency } from "@/components/currency/currency-provider";
 
-/** One month on the chart. Amounts are in INR, the base currency. The target is null when none is set or the user cannot see it. */
+/** One month on the chart, in INR. The target is null when none is set. */
 export type RevenuePoint = { month: string; label: string; revenue: number; target: number | null };
 
 /** A round step (1, 2, 5 times a power of ten) so the grid lines land on tidy numbers. */

@@ -7,10 +7,7 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
-/**
- * An amount with its currency, as the API sends and receives it. The amount is
- * a string in JSON ("48000.00"), because JavaScript numbers can round money.
- */
+/** An amount with its currency, as the API sends and receives it. */
 public record Money(@NotNull @DecimalMin("0") @JsonFormat(shape = JsonFormat.Shape.STRING) BigDecimal amount,
 		@NotBlank String currency) {
 

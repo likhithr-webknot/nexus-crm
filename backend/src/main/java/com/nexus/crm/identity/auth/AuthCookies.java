@@ -13,10 +13,7 @@ import org.springframework.web.util.WebUtils;
 
 import com.nexus.crm.identity.auth.SessionService.SessionTokens;
 
-/**
- * Writes and clears the sign-in cookies. Both are HttpOnly, which means
- * JavaScript on the page cannot read them.
- */
+/** Writes and clears the sign-in cookies. */
 @Component
 @RequiredArgsConstructor
 class AuthCookies {
@@ -32,9 +29,7 @@ class AuthCookies {
 	private final AuthProperties properties;
 
 	void write(HttpServletResponse response, SessionTokens tokens) {
-		// Both cookies last as long as the refresh token. The access-token cookie is kept
-		// longer than the 15-minute token inside it on purpose: the server needs to see the
-		// expired token to answer "token_expired", which tells the frontend to refresh.
+		// Both cookies last as long as the refresh token.
 		Duration lifetime = this.properties.refreshToken().ttl();
 		add(response, ACCESS_TOKEN, tokens.accessToken(), "/", "Lax", lifetime);
 		add(response, REFRESH_TOKEN, tokens.refreshToken(), REFRESH_PATH, "Strict", lifetime);

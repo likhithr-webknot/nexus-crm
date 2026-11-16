@@ -5,14 +5,7 @@ import { LoaderCircle, X } from "lucide-react";
 import { buttonPrimary, buttonSecondary } from "@/components/ui/primitives";
 import { cn } from "@/lib/format";
 
-/**
- * A modal dialog on the browser's own <dialog>. That gives us, for free:
- * focus kept inside, Escape to close, the page behind made inert, and focus
- * returned to the button that opened it.
- *
- * The content only exists while the dialog is open, so a form inside starts
- * empty every time.
- */
+/** A modal dialog on the browser's own <dialog>. */
 export function Dialog({
   open,
   onClose,

@@ -24,11 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.nexus.crm.identity.user.AppUser;
 import com.nexus.crm.identity.user.AppUserRepository;
 
-/**
- * Starts, refreshes and ends sign-in sessions. Each refresh swaps the old
- * refresh token for a new one. If an old token shows up again later, we
- * assume it was stolen and end that session.
- */
+/** Starts, refreshes and ends sign-in sessions. */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -78,11 +74,7 @@ public class SessionService {
 		return issue(user, UUID.randomUUID(), client, Instant.now());
 	}
 
-	/**
-	 * Swaps a refresh token for a new pair of tokens.
-	 * @return the new tokens, or empty if the token cannot be used. It returns empty instead of throwing, because
-	 * throwing would undo the database change that ends a stolen session.
-	 */
+	/** Swaps a refresh token for a new pair of tokens. */
 	@Transactional
 	public Optional<SessionTokens> refresh(String rawRefreshToken, ClientInfo client) {
 		RefreshToken token = this.refreshTokens.findByTokenHashForUpdate(hash(rawRefreshToken)).orElse(null);
@@ -91,8 +83,7 @@ public class SessionService {
 			return Optional.empty();
 		}
 		if (token.isUsed() && !token.wasUsedWithin(this.properties.refreshToken().reuseGrace(), now)) {
-			// The real browser always has the newest token. An old one coming back means
-			// someone else has a copy, so end the session for everyone.
+			// The real browser always has the newest token.
 			this.refreshTokens.revokeFamily(token.getFamilyId(), now);
 			log.warn("Security event: refresh_token_reuse userId={} sessionId={} ip={}", token.getUserId(),
 					token.getFamilyId(), client.ip());
@@ -105,8 +96,7 @@ public class SessionService {
 			this.refreshTokens.revokeFamily(token.getFamilyId(), now);
 			return Optional.empty();
 		}
-		// If the token was used a moment ago, this is a second browser tab refreshing at the
-		// same time. That is fine: it gets its own new tokens.
+		// If the token was used a moment ago, this is a second browser tab refreshing at the same time.
 		if (!token.isUsed()) {
 			token.markUsed(now);
 		}

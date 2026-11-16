@@ -53,11 +53,7 @@ import com.nexus.crm.shared.persistence.IdempotencyKeyRepository;
 import com.nexus.crm.shared.Role;
 import com.nexus.crm.support.IntegrationTest;
 
-/**
- * Checks that the entities match the tables, and that the database rules
- * (unique emails, required links) work. The test profile also sets
- * {@code ddl-auto: validate}, so the whole app fails to start when they drift apart.
- */
+/** Checks that the entities match the tables, and that the database rules (unique emails, required links) work. */
 class SchemaTests extends IntegrationTest {
 
 	@Autowired

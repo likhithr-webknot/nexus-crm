@@ -18,11 +18,7 @@ export function useSession() {
   return user;
 }
 
-/**
- * Wraps the signed-in part of the app. Nothing inside renders until the
- * backend confirms who is signed in; a visitor without a session is sent to
- * the login page.
- */
+/** Wraps the signed-in part of the app. */
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [client] = useState(
     () =>

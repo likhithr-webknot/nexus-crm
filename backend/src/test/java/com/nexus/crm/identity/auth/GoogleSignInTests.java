@@ -33,15 +33,7 @@ import com.nexus.crm.identity.auth.OidcSignInHandlers;
 import com.nexus.crm.identity.user.AppUser;
 import com.nexus.crm.identity.user.AppUserRepository;
 
-/**
- * Google sign-in: what we send to Google, and what we do when Google sends
- * the user back.
- *
- * <p>
- * These tests never contact Google. The step in the middle, where Spring
- * Security swaps Google's code for the user's details, needs a real Google
- * account and is checked by signing in by hand (see the README).
- */
+/** Google sign-in: what we send to Google, and what we do when Google sends the user back. These tests never contact Google. */
 class GoogleSignInTests extends IntegrationTest {
 
 	private static final String START = "/api/v1/auth/oauth2/authorization/google";

@@ -10,10 +10,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-/**
- * A currency leads and deals can use. The four launch currencies are added by
- * a migration. INR is the base currency that every report is shown in.
- */
+/** A currency leads and deals can use. */
 @Entity
 @Table(name = "currency")
 @Getter

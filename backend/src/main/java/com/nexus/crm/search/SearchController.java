@@ -16,10 +16,7 @@ import com.nexus.crm.deals.DealService;
 import com.nexus.crm.leads.LeadService;
 import com.nexus.crm.shared.CurrentUser;
 
-/**
- * The search box in the top bar. It asks each module for a few matches, so every module's own
- * visibility rules still apply: nobody finds a record they could not open.
- */
+/** The search box in the top bar. */
 @RestController
 @RequestMapping("/api/v1/search")
 @RequiredArgsConstructor

@@ -13,19 +13,13 @@ import com.nexus.crm.contacts.Contact;
 import com.nexus.crm.deals.Deal;
 import com.nexus.crm.leads.Lead;
 
-/**
- * Activities and follow-ups belong to a lead, a contact or a deal. A user may see one when they can see
- * what it belongs to. This builds that check as a query condition, so every list applies it.
- */
+/** Activities and follow-ups belong to a lead, a contact or a deal. */
 public final class RecordScope {
 
 	private RecordScope() {
 	}
 
-	/**
-	 * A condition that is true for rows linked to a lead, contact or deal owned by one of {@code ownerIds}
-	 * (or an unassigned lead). Pass null for an admin, who sees everything.
-	 */
+	/** A condition that is true for rows linked to a lead, contact or deal owned by one of {@code ownerIds} (or an unassigned lead). */
 	public static <T> Predicate linkedTo(Set<UUID> ownerIds, Root<T> root, CriteriaQuery<?> query, CriteriaBuilder cb) {
 		if (ownerIds == null) {
 			return cb.conjunction();

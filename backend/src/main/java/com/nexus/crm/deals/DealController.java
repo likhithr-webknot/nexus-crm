@@ -47,10 +47,7 @@ class DealController {
 
 	}
 
-	/**
-	 * A deal. {@code baseAmount} is the INR value saved when the deal was won or lost, with the rate used.
-	 * It is null while the deal is open.
-	 */
+	/** A deal. {@code baseAmount} is the INR value saved when the deal was won or lost, with the rate used. */
 	record DealResponse(UUID id, String name, Ref company, Ref primaryContact, Ref owner, String stageCode,
 			Money amount, @JsonFormat(shape = JsonFormat.Shape.STRING) BigDecimal baseAmount,
 			@JsonFormat(shape = JsonFormat.Shape.STRING) BigDecimal fxRate, LocalDate fxRateDate,

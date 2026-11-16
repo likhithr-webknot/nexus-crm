@@ -23,14 +23,7 @@ import com.nexus.crm.identity.user.UserService;
 import com.nexus.crm.identity.user.AppUser;
 import com.nexus.crm.shared.Role;
 
-/**
- * Base class for tests that run the whole app against a real PostgreSQL
- * (started with Testcontainers, so Docker must be running).
- *
- * <p>
- * All tests share one app and one database, so each test creates its own users
- * with unique emails.
- */
+/** Base class for tests that run the whole app against a real PostgreSQL (started with Testcontainers, so Docker must be running). */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -78,10 +71,7 @@ public abstract class IntegrationTest {
 		return this.users.invite(email, "Test User", role, null);
 	}
 
-	/**
-	 * Signs a person in, using the same services the app uses after Google
-	 * confirms who they are. Tests cannot go through Google's own pages.
-	 */
+	/** Signs a person in, using the same services the app uses after Google confirms who they are. */
 	protected Session signIn(String googleId, String email) {
 		AppUser user = this.signInService.signIn(googleId, email, true, null);
 		SessionTokens tokens = this.sessionService.start(user, new ClientInfo("test", null));

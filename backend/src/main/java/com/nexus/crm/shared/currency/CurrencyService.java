@@ -25,12 +25,7 @@ import org.springframework.web.client.RestClient;
 import com.nexus.crm.shared.error.ApiException;
 import com.nexus.crm.shared.error.ErrorCode;
 
-/**
- * Currencies and their daily exchange rates. Every report is in the base
- * currency (INR), so other currencies are converted with the rate of the day.
- * If a day has no rate, the latest earlier rate is used, up to
- * {@link #MAX_RATE_AGE_DAYS} days old. After that the rate is marked stale.
- */
+/** Currencies and their daily exchange rates. */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -180,12 +175,7 @@ public class CurrencyService {
 		return new Rate(currency, rateToBase, day, ExchangeRate.MANUAL, false);
 	}
 
-	/**
-	 * Saves a day's rates from the provider. A day that an admin has set by hand is left alone.
-	 *
-	 * @param unitsPerBase for each currency, how many units one unit of the base currency buys
-	 * @return how many rates were saved
-	 */
+	/** Saves a day's rates from the provider. */
 	@Transactional
 	public int storeProviderRates(LocalDate day, Map<String, BigDecimal> unitsPerBase, String source) {
 		int saved = 0;

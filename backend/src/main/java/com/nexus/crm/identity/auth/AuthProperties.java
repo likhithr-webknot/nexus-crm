@@ -8,12 +8,7 @@ import jakarta.validation.constraints.NotNull;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
-/**
- * The sign-in settings, read from {@code nexus.auth} in application.yml.
- *
- * @param frontendUrl the address of the frontend; users are sent back there after signing in
- * @param bootstrapAdminEmail the first admin, invited when there are no users yet (optional)
- */
+/** The sign-in settings, read from {@code nexus.auth} in application.yml. */
 @Validated
 @ConfigurationProperties("nexus.auth")
 public record AuthProperties(@NotBlank String frontendUrl, String bootstrapAdminEmail, @Valid @NotNull Jwt jwt,

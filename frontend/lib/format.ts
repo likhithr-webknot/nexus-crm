@@ -34,8 +34,7 @@ export function readForm(form: HTMLFormElement): Record<string, string> {
   return Object.fromEntries([...new FormData(form)].map(([name, value]) => [name, String(value).trim()]));
 }
 
-// ---- Dates and times ----------------------------------------------------------
-// The API sends instants in UTC ("2026-11-12T09:30:00Z"). Screens show local time.
+// ---- Dates and times ---------------------------------------------------------- The API sends instants in UTC ("2026-11-12T09:30:00Z").
 
 const pad = (n: number) => String(n).padStart(2, "0");
 

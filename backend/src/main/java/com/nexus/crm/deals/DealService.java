@@ -32,11 +32,7 @@ import com.nexus.crm.shared.error.ErrorCode;
 import com.nexus.crm.shared.currency.Money;
 import com.nexus.crm.shared.Search;
 
-/**
- * Deals and the one fixed pipeline they move through. Moving a deal to Won or
- * Lost saves its INR value at that day's exchange rate, so reported revenue
- * never changes afterwards.
- */
+/** Deals and the one fixed pipeline they move through. Moving a deal to Won or Lost saves its INR value at that day's exchange rate, so reported revenue never changes afterwards. */
 @Slf4j
 @Service
 @RequiredArgsConstructor
