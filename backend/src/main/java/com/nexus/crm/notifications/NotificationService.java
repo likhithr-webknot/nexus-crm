@@ -19,6 +19,7 @@ import com.nexus.crm.deals.event.DealReassigned;
 import com.nexus.crm.deals.event.DealStageChanged;
 import com.nexus.crm.followups.event.FollowUpAssigned;
 import com.nexus.crm.followups.event.FollowUpDue;
+import com.nexus.crm.identity.team.TeamService;
 import com.nexus.crm.identity.user.UserService;
 import com.nexus.crm.leads.event.LeadAssigned;
 
@@ -33,6 +34,8 @@ public class NotificationService {
 	private final NotificationRepository notifications;
 
 	private final UserService users;
+
+	private final TeamService teams;
 
 	@Transactional(readOnly = true)
 	public List<Notification> list(UUID userId, int size) {
@@ -80,7 +83,7 @@ public class NotificationService {
 		if (!PipelineStage.WON.equals(e.toStage())) {
 			return;
 		}
-		for (UUID leader : this.users.leadersOf(e.ownerId())) {
+		for (UUID leader : this.teams.leadersOf(e.ownerId())) {
 			if (!leader.equals(e.actorId())) {
 				send(leader, "DEAL_WON", "Deal won: " + e.name(), "/pipeline");
 			}

@@ -2,8 +2,6 @@ package com.nexus.crm.shared.currency;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.net.http.HttpClient;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -13,16 +11,10 @@ import java.util.UUID;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
-import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.http.client.JdkClientHttpRequestFactory;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestClient;
 
 import com.nexus.crm.shared.currency.dto.Rate;
 import com.nexus.crm.shared.error.ApiException;
@@ -36,22 +28,9 @@ public class CurrencyService {
 
 	public static final int MAX_RATE_AGE_DAYS = 7;
 
-	private static final int FETCH_ATTEMPTS = 3;
-
-	private static final Duration FETCH_TIMEOUT = Duration.ofSeconds(10);
-
-	/** What the provider sends back: how many units of each currency one unit of the base is worth. */
-	record ProviderResponse(String result, Map<String, BigDecimal> rates) {
-	}
-
 	private final CurrencyRepository currencies;
 
 	private final ExchangeRateRepository rates;
-
-	private final FxProperties properties;
-
-	/** Named like the bean, because the scheduler is also an AsyncTaskExecutor and Spring picks by name. */
-	private final AsyncTaskExecutor applicationTaskExecutor;
 
 	@Transactional(readOnly = true)
 	public List<Currency> list() {
@@ -178,6 +157,7 @@ public class CurrencyService {
 	}
 
 	/** Saves a day's rates from the provider. */
+	/** Called by {@link ExchangeRateFetcher}, which is another bean, so this transaction really applies. */
 	@Transactional
 	public int storeProviderRates(LocalDate day, Map<String, BigDecimal> unitsPerBase, String source) {
 		int saved = 0;
@@ -195,43 +175,6 @@ public class CurrencyService {
 			saved++;
 		}
 		return saved;
-	}
-
-	/** Runs once a day, and once when the app starts so a new install has rates straight away. */
-	@Scheduled(cron = "0 30 1 * * *", zone = "UTC")
-	public void fetchRates() {
-		if (!this.properties.enabled()) {
-			return;
-		}
-		String baseCode = base().getCode();
-		String url = this.properties.providerUrl().replace("{base}", baseCode);
-		JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(
-				HttpClient.newBuilder().connectTimeout(FETCH_TIMEOUT).build());
-		requestFactory.setReadTimeout(FETCH_TIMEOUT);
-		RestClient client = RestClient.builder().requestFactory(requestFactory).build();
-
-		for (int attempt = 1; attempt <= FETCH_ATTEMPTS; attempt++) {
-			try {
-				ProviderResponse response = client.get().uri(url).retrieve().body(ProviderResponse.class);
-				if (response == null || !"success".equals(response.result()) || response.rates() == null) {
-					throw new IllegalStateException("The rate provider sent an unexpected answer.");
-				}
-				int saved = storeProviderRates(LocalDate.now(ZoneOffset.UTC), response.rates(), "open.er-api.com");
-				log.info("Exchange rates updated: {} saved", saved);
-				return;
-			}
-			catch (RuntimeException ex) {
-				log.warn("Fetching exchange rates failed (attempt {} of {}): {}", attempt, FETCH_ATTEMPTS,
-						ex.getMessage());
-			}
-		}
-		log.error("Exchange rates could not be updated. The latest saved rates stay in use.");
-	}
-
-	@EventListener(ApplicationReadyEvent.class)
-	void fetchRatesAtStartup() {
-		// Off the main thread, so a slow provider cannot delay the app starting.
-		this.applicationTaskExecutor.execute(this::fetchRates);
 	}
 
 }

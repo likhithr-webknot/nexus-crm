@@ -13,14 +13,12 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.nexus.crm.identity.user.dto.InviteUserRequest;
-import com.nexus.crm.identity.user.dto.SetTeamRequest;
 import com.nexus.crm.identity.user.dto.UpdateUserRequest;
 import com.nexus.crm.identity.user.dto.UserResponse;
 import com.nexus.crm.shared.CurrentUser;
@@ -73,12 +71,6 @@ class UserController {
 	@GetMapping("/users/assignable")
 	List<UserResponse> assignable(@AuthenticationPrincipal CurrentUser user) {
 		return this.users.assignable(user).stream().map(UserResponse::from).toList();
-	}
-
-	@PutMapping("/users/{id}/team")
-	@PreAuthorize("hasRole('ADMIN')")
-	UserResponse setTeam(@PathVariable UUID id, @RequestBody SetTeamRequest request) {
-		return UserResponse.from(this.users.setTeam(id, request.teamId()));
 	}
 
 }

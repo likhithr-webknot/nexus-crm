@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import com.nexus.crm.identity.user.dto.TeamMemberCount;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -23,6 +24,10 @@ public interface AppUserRepository extends JpaRepository<AppUser, UUID> {
 	List<UUID> findIdsInTeamsLedBy(@Param("managerId") UUID managerId);
 
 	long countByTeamId(UUID teamId);
+
+	/** Member counts for several teams in one query, so a list of teams does not need one query per team. */
+	@Query("select new com.nexus.crm.identity.user.dto.TeamMemberCount(u.teamId, count(u)) from AppUser u where u.teamId in :teamIds group by u.teamId")
+	List<TeamMemberCount> countMembersByTeam(@Param("teamIds") Collection<UUID> teamIds);
 
 	List<AppUser> findByRoleAndStatus(Role role, AppUser.Status status);
 

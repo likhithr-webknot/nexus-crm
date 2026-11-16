@@ -14,17 +14,13 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import com.nexus.crm.identity.auth.AuthProperties;
-import com.nexus.crm.identity.auth.SessionService;
-import com.nexus.crm.identity.team.Team;
-import com.nexus.crm.identity.team.TeamRepository;
+import com.nexus.crm.identity.user.event.UserDisabled;
 import com.nexus.crm.shared.CurrentUser;
 import com.nexus.crm.shared.Role;
 import com.nexus.crm.shared.error.ApiException;
@@ -44,11 +40,7 @@ public class UserService {
 
 	private final AppUserRepository users;
 
-	private final TeamRepository teams;
-
-	private final SessionService sessions;
-
-	private final AuthProperties properties;
+	private final ApplicationEventPublisher events;
 
 	@Transactional(readOnly = true)
 	public AppUser get(UUID id) {
@@ -83,21 +75,6 @@ public class UserService {
 			}
 			case REP -> Optional.of(Set.of(user.id()));
 		};
-	}
-
-	/** Active admins, plus the manager of this user's team. They are told about big events such as a won deal. */
-	@Transactional(readOnly = true)
-	public Set<UUID> leadersOf(UUID userId) {
-		Set<UUID> leaders = this.users.findByRoleAndStatus(Role.ADMIN, AppUser.Status.ACTIVE)
-			.stream()
-			.map(AppUser::getId)
-			.collect(Collectors.toCollection(HashSet::new));
-		this.users.findById(userId)
-			.map(AppUser::getTeamId)
-			.flatMap(this.teams::findById)
-			.map(Team::getManagerId)
-			.ifPresent(leaders::add);
-		return leaders;
 	}
 
 	@Transactional
@@ -185,7 +162,8 @@ public class UserService {
 		}
 		if (status == AppUser.Status.DISABLED) {
 			user.disable();
-			this.sessions.endAll(id);
+			// The auth module listens and ends the user's sessions, so this class does not depend on it.
+			this.events.publishEvent(new UserDisabled(id));
 		}
 		else if (status == AppUser.Status.ACTIVE) {
 			user.enable();
@@ -199,21 +177,12 @@ public class UserService {
 		return user;
 	}
 
+	/**
+	 * Invites this email as an admin when there are no users yet, so a new install has someone who can invite
+	 * the others. Does nothing once any user exists.
+	 */
 	@Transactional
-	public AppUser setTeam(UUID userId, UUID teamId) {
-		AppUser user = get(userId);
-		if (teamId != null && !this.teams.existsById(teamId)) {
-			throw new ApiException(ErrorCode.NOT_FOUND, "Team not found.");
-		}
-		user.setTeamId(teamId);
-		return user;
-	}
-
-	/** Creates the first admin when the app starts. */
-	@EventListener(ApplicationReadyEvent.class)
-	@Transactional
-	public void inviteFirstAdmin() {
-		String email = this.properties.bootstrapAdminEmail();
+	public void inviteFirstAdmin(String email) {
 		if (!StringUtils.hasText(email) || this.users.count() > 0) {
 			return;
 		}

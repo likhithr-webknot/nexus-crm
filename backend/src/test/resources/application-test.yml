@@ -1,6 +1,9 @@
 # Settings for the "test" profile.
 spring:
   jpa:
+    properties:
+      # Lets a test count the SQL statements a call runs, to catch one-query-per-item loops.
+      hibernate.generate_statistics: true
     hibernate:
       # Fails startup if an entity does not match the tables the migrations create.
       ddl-auto: validate

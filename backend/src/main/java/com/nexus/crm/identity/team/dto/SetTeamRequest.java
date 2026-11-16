@@ -1,4 +1,4 @@
-package com.nexus.crm.identity.user.dto;
+package com.nexus.crm.identity.team.dto;
 
 import java.util.UUID;
 

@@ -126,4 +126,10 @@ public class SessionService {
 		}
 	}
 
+	/** A disabled user is signed out of every device at once. */
+	@org.springframework.context.event.EventListener
+	void onUserDisabled(com.nexus.crm.identity.user.event.UserDisabled event) {
+		endAll(event.userId());
+	}
+
 }

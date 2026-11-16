@@ -24,9 +24,10 @@ import com.nexus.crm.identity.user.UserService;
 import com.nexus.crm.shared.Role;
 
 /** Base class for tests that run the whole app against a real PostgreSQL (started with Testcontainers, so Docker must be running). */
-@SpringBootTest(properties = {"spring.datasource.url=jdbc:postgresql://localhost:5432/scratch_nexus","spring.datasource.username=scratch_owner","spring.datasource.password=x"})
+@SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Import(IntegrationTest.Containers.class)
 public abstract class IntegrationTest {
 
 	protected static final String FRONTEND = "http://localhost:3000";
