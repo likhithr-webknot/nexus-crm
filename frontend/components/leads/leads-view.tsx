@@ -2,21 +2,24 @@
 
 import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Download, Plus, Search, SearchX, SlidersHorizontal, Upload } from "lucide-react";
+import { AddLeadDialog, ImportLeadsDialog } from "./lead-dialogs";
 import { LEAD_VIEW_DELTAS, SOURCES, STAGES, THIS_MONTH, type Lead, type Source, type Stage } from "@/lib/mock-data";
 import {
   Avatar,
   Card,
   EmptyState,
-  NEEDS_API,
   Page,
   PageHeader,
+  SESSION_ONLY,
   StageBadge,
   buttonPrimary,
   buttonSecondary,
   control,
 } from "@/components/ui/primitives";
 import { downloadCsv } from "@/lib/csv";
+import { ConfirmDialog } from "@/components/ui/dialog";
 import { Popover } from "@/components/ui/popover";
+import { toast } from "@/components/ui/toast";
 import { cn, formatDate } from "@/lib/format";
 
 const PAGE_SIZE = 8;
@@ -34,7 +37,9 @@ const VIEWS: { id: View; label: string; match: (l: Lead) => boolean; invert?: bo
 
 const EMPTY_FILTERS = { query: "", source: "" as Source | "", stage: "" as Stage | "", owner: "" };
 
-export function LeadsView({ leads }: { leads: Lead[] }) {
+export function LeadsView({ leads: initial }: { leads: Lead[] }) {
+  const [leads, setLeads] = useState(initial);
+  const [dialog, setDialog] = useState<"add" | "import" | "delete" | null>(null);
   const [view, setView] = useState<View>("all");
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [page, setPage] = useState(1);
@@ -94,6 +99,19 @@ export function LeadsView({ leads }: { leads: Lead[] }) {
       toExport.map((l) => [l.name, l.company, l.email, l.phone, l.source, l.owner ?? "", l.stage, l.createdAt]),
     );
 
+  // New leads go to the top, and the list returns to where they can be seen.
+  const addLeads = (added: Lead[]) => {
+    setLeads((all) => [...added, ...all]);
+    clearAll();
+    toast(`${added.length === 1 ? `${added[0].name} added` : `${added.length} leads imported`}. ${SESSION_ONLY}`);
+  };
+  const deleteSelected = () => {
+    setLeads((all) => all.filter((l) => !selected.has(l.id)));
+    toast(`${selected.size === 1 ? "1 lead" : `${selected.size} leads`} deleted.`);
+    setSelected(new Set());
+    setDialog(null);
+  };
+
   return (
     <Page>
       <PageHeader
@@ -104,15 +122,15 @@ export function LeadsView({ leads }: { leads: Lead[] }) {
           </>
         }
       >
-          <button className={buttonSecondary} disabled title={NEEDS_API}>
-            <Upload className="size-4" aria-hidden />
-            Import
-          </button>
-          <button className={buttonSecondary} disabled={toExport.length === 0} onClick={exportCsv}>
-            <Download className="size-4" aria-hidden />
-            {selected.size ? `Export ${selected.size} selected` : "Export"}
-          </button>
-        <button className={buttonPrimary} disabled title={NEEDS_API}>
+        <button className={buttonSecondary} onClick={() => setDialog("import")}>
+          <Upload className="size-4" aria-hidden />
+          Import
+        </button>
+        <button className={buttonSecondary} disabled={toExport.length === 0} onClick={exportCsv}>
+          <Download className="size-4" aria-hidden />
+          {selected.size ? `Export ${selected.size} selected` : "Export"}
+        </button>
+        <button className={buttonPrimary} onClick={() => setDialog("add")}>
           <Plus className="size-4" aria-hidden />
           Add lead
         </button>
@@ -333,6 +351,10 @@ export function LeadsView({ leads }: { leads: Lead[] }) {
                   <button onClick={() => setSelected(new Set())} className="font-medium text-brand hover:underline">
                     Clear
                   </button>
+                  {" · "}
+                  <button onClick={() => setDialog("delete")} className="font-medium text-down hover:underline">
+                    Delete
+                  </button>
                 </>
               )}
             </p>
@@ -340,6 +362,17 @@ export function LeadsView({ leads }: { leads: Lead[] }) {
           </div>
         )}
       </Card>
+
+      <AddLeadDialog open={dialog === "add"} onClose={() => setDialog(null)} leads={leads} onAdd={(lead) => addLeads([lead])} />
+      <ImportLeadsDialog open={dialog === "import"} onClose={() => setDialog(null)} leads={leads} onImport={addLeads} />
+      <ConfirmDialog
+        open={dialog === "delete"}
+        onClose={() => setDialog(null)}
+        onConfirm={deleteSelected}
+        title={selected.size === 1 ? "Delete this lead?" : `Delete ${selected.size} leads?`}
+        body="They are removed from the list. This can't be undone."
+        confirmLabel="Delete"
+      />
     </Page>
   );
 }

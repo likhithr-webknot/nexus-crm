@@ -12,8 +12,35 @@ export const buttonSecondary =
 export const control =
   "h-9 rounded-lg border border-line bg-surface text-[13px] text-ink hover:border-line-strong focus:border-brand focus:outline-none";
 
-/** Tooltip for actions that cannot work until their backend module exists. */
-export const NEEDS_API = "Available once this part of the API is connected";
+/** For inputs and selects inside a Field. Turns red once the user leaves it invalid. */
+export const fieldControl = `${control} mt-1.5 block w-full px-3 placeholder:text-ink-3 user-invalid:border-down`;
+
+/** Shown after creating something that has no backend yet, so nobody expects it to survive a reload. */
+export const SESSION_ONLY = "It stays until you reload, because this part of the API isn't built yet.";
+
+/** A labelled form field. Wrapping the control in the label ties the two together. */
+export function Field({
+  label,
+  optional,
+  hint,
+  className,
+  children,
+}: {
+  label: string;
+  optional?: boolean;
+  hint?: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className={cn("block text-[12.5px] font-medium text-ink-2", className)}>
+      {label}
+      {optional && <span className="font-normal text-ink-3"> (optional)</span>}
+      {children}
+      {hint && <span className="mt-1 block font-normal text-ink-3">{hint}</span>}
+    </label>
+  );
+}
 
 export function Page({ children }: { children: React.ReactNode }) {
   return <div className="mx-auto max-w-[1600px] space-y-5 px-4 py-6 sm:px-6 lg:px-8">{children}</div>;

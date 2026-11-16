@@ -2,19 +2,24 @@
 
 import { useState } from "react";
 import { CalendarDays, Inbox, Mail, Phone, Plus, StickyNote, Zap, type LucideIcon } from "lucide-react";
-import { TODAY, type Activity, type ActivityType } from "@/lib/mock-data";
+import { CONTACTS, TODAY, type Activity, type ActivityType } from "@/lib/mock-data";
 import {
   Avatar,
   Card,
   EmptyState,
-  NEEDS_API,
+  Field,
   Page,
   PageHeader,
+  SESSION_ONLY,
   buttonPrimary,
   buttonSecondary,
   control,
+  fieldControl,
 } from "@/components/ui/primitives";
-import { cn, daysBetween, formatLongDay, formatTime } from "@/lib/format";
+import { useSession } from "@/components/auth/session";
+import { Dialog, DialogActions, DialogBody } from "@/components/ui/dialog";
+import { toast } from "@/components/ui/toast";
+import { cn, daysBetween, formatLongDay, formatTime, readForm } from "@/lib/format";
 
 const TYPES: Record<ActivityType, { icon: LucideIcon; tone: string; plural: string }> = {
   Call: { icon: Phone, tone: "bg-sky-50 text-sky-700 ring-sky-200", plural: "Calls" },
@@ -29,7 +34,9 @@ function dayHeading(iso: string) {
   return ago === 0 ? "Today" : ago === 1 ? "Yesterday" : formatLongDay(iso);
 }
 
-export function ActivitiesView({ activities }: { activities: Activity[] }) {
+export function ActivitiesView({ activities: initial }: { activities: Activity[] }) {
+  const [activities, setActivities] = useState(initial);
+  const [adding, setAdding] = useState(false);
   const [type, setType] = useState<ActivityType | "">("");
   const [actor, setActor] = useState("");
 
@@ -46,7 +53,7 @@ export function ActivitiesView({ activities }: { activities: Activity[] }) {
   return (
     <Page>
       <PageHeader title="Activities" subtitle="Every call, email, meeting and change across your team.">
-        <button className={buttonPrimary} disabled title={NEEDS_API}>
+        <button className={buttonPrimary} onClick={() => setAdding(true)}>
           <Plus className="size-4" aria-hidden />
           Log activity
         </button>
@@ -141,6 +148,78 @@ export function ActivitiesView({ activities }: { activities: Activity[] }) {
           ))
         )}
       </Card>
+
+      <LogActivityDialog
+        open={adding}
+        onClose={() => setAdding(false)}
+        onAdd={(activity) => {
+          setActivities((all) => [activity, ...all]);
+          clear();
+          toast(`${activity.type} logged. ${SESSION_ONLY}`);
+        }}
+      />
     </Page>
+  );
+}
+
+function LogActivityDialog({ open, onClose, onAdd }: { open: boolean; onClose: () => void; onAdd: (activity: Activity) => void }) {
+  const user = useSession();
+
+  const submit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const f = readForm(e.currentTarget);
+    const contact = CONTACTS.find((c) => c.id === f.contact)!;
+    // The fixtures live on one fixed day; the time is the real time it was logged.
+    const now = new Date();
+    const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    onAdd({
+      id: `a-${now.getTime()}`,
+      type: f.type as ActivityType,
+      title: f.title,
+      detail: f.detail,
+      contact: contact.name,
+      company: contact.company,
+      actor: user.displayName,
+      at: `${TODAY}T${time}`,
+    });
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} title="Log activity" description="Record something that happened with a contact.">
+      <form onSubmit={submit}>
+        <DialogBody className="sm:grid-cols-2">
+          <Field label="Type">
+            <select name="type" className={fieldControl}>
+              {/* System entries are written by the app, never by hand. */}
+              {(Object.keys(TYPES) as ActivityType[])
+                .filter((t) => t !== "System")
+                .map((t) => (
+                  <option key={t}>{t}</option>
+                ))}
+            </select>
+          </Field>
+          <Field label="Contact">
+            <select name="contact" required defaultValue="" className={fieldControl}>
+              <option value="" disabled>
+                Choose a contact
+              </option>
+              {CONTACTS.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}, {c.company}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Summary" className="sm:col-span-2">
+            <input name="title" required maxLength={120} autoComplete="off" placeholder="Pricing call" className={fieldControl} />
+          </Field>
+          <Field label="Notes" className="sm:col-span-2">
+            <textarea name="detail" required maxLength={2000} rows={4} className={`${fieldControl} h-auto py-2`} />
+          </Field>
+        </DialogBody>
+        <DialogActions onCancel={onClose} submitLabel="Log activity" />
+      </form>
+    </Dialog>
   );
 }

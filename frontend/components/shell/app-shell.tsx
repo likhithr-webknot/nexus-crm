@@ -4,6 +4,7 @@ import { useState, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
+import { Toaster } from "@/components/ui/toast";
 import { cn } from "@/lib/format";
 
 const COLLAPSE_KEY = "nexus.sidebar.collapsed";
@@ -70,6 +71,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <Topbar onOpenNav={() => setMobileOpen(true)} />
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
+      <Toaster />
     </div>
   );
 }

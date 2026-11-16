@@ -2,24 +2,30 @@
 
 import { useRef, useState } from "react";
 import { Mail, Phone, Plus, Search, SearchX } from "lucide-react";
-import { ACTIVITIES, FOLLOW_UPS, type Contact } from "@/lib/mock-data";
+import { ACTIVITIES, FOLLOW_UPS, OWNERS, type Contact } from "@/lib/mock-data";
 import {
   Avatar,
   Card,
+  Field,
   EmptyState,
-  NEEDS_API,
   Page,
   PageHeader,
+  SESSION_ONLY,
   StageBadge,
   buttonPrimary,
   buttonSecondary,
   control,
+  fieldControl,
 } from "@/components/ui/primitives";
-import { cn, formatDay, formatTime, formatUsd } from "@/lib/format";
+import { Dialog, DialogActions, DialogBody } from "@/components/ui/dialog";
+import { toast } from "@/components/ui/toast";
+import { cn, formatDay, formatTime, formatUsd, readForm } from "@/lib/format";
 
-export function ContactsView({ contacts }: { contacts: Contact[] }) {
+export function ContactsView({ contacts: initial }: { contacts: Contact[] }) {
+  const [contacts, setContacts] = useState(initial);
+  const [adding, setAdding] = useState(false);
   const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState(contacts[0]?.id);
+  const [selectedId, setSelectedId] = useState(initial[0]?.id);
   const detailRef = useRef<HTMLDivElement>(null);
 
   const q = query.trim().toLowerCase();
@@ -35,7 +41,7 @@ export function ContactsView({ contacts }: { contacts: Contact[] }) {
   return (
     <Page>
       <PageHeader title="Contacts" subtitle="Everyone you sell to, with their deals, follow-ups and history in one place.">
-        <button className={buttonPrimary} disabled title={NEEDS_API}>
+        <button className={buttonPrimary} onClick={() => setAdding(true)}>
           <Plus className="size-4" aria-hidden />
           Add contact
         </button>
@@ -102,6 +108,17 @@ export function ContactsView({ contacts }: { contacts: Contact[] }) {
           {selected ? <ContactDetail contact={selected} /> : null}
         </div>
       </div>
+
+      <AddContactDialog
+        open={adding}
+        onClose={() => setAdding(false)}
+        onAdd={(contact) => {
+          setContacts((all) => [...all, contact].sort((a, b) => a.name.localeCompare(b.name)));
+          setQuery("");
+          select(contact.id);
+          toast(`${contact.name} added. ${SESSION_ONLY}`);
+        }}
+      />
     </Page>
   );
 }
@@ -195,5 +212,57 @@ function Section({ title, empty, count, children }: { title: string; empty: stri
         <ul className="mt-2.5 space-y-2.5 text-[13px]">{children}</ul>
       )}
     </section>
+  );
+}
+
+function AddContactDialog({ open, onClose, onAdd }: { open: boolean; onClose: () => void; onAdd: (contact: Contact) => void }) {
+  const submit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const f = readForm(e.currentTarget);
+    onAdd({
+      id: `C-${Date.now()}`,
+      name: f.name,
+      title: f.title || "Contact",
+      company: f.company,
+      email: f.email,
+      phone: f.phone,
+      owner: f.owner || null,
+      stage: "New",
+      value: 0,
+    });
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} title="Add contact">
+      <form onSubmit={submit}>
+        <DialogBody className="sm:grid-cols-2">
+          <Field label="Full name">
+            <input name="name" required maxLength={120} autoComplete="off" className={fieldControl} />
+          </Field>
+          <Field label="Job title" optional>
+            <input name="title" maxLength={120} autoComplete="off" className={fieldControl} />
+          </Field>
+          <Field label="Company">
+            <input name="company" required maxLength={120} autoComplete="off" className={fieldControl} />
+          </Field>
+          <Field label="Owner">
+            <select name="owner" className={fieldControl}>
+              <option value="">Unassigned</option>
+              {OWNERS.map((o) => (
+                <option key={o}>{o}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Email">
+            <input name="email" type="email" required maxLength={254} autoComplete="off" className={fieldControl} />
+          </Field>
+          <Field label="Phone" optional>
+            <input name="phone" type="tel" maxLength={40} autoComplete="off" className={fieldControl} />
+          </Field>
+        </DialogBody>
+        <DialogActions onCancel={onClose} submitLabel="Add contact" />
+      </form>
+    </Dialog>
   );
 }

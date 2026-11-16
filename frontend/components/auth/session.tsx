@@ -100,7 +100,13 @@ export function useSignOut() {
 }
 
 /** The user's Google photo, or their initials when there is none or it fails to load. */
-export function UserAvatar({ user, className }: { user: SessionUser; className?: string }) {
+export function UserAvatar({
+  user,
+  className,
+}: {
+  user: Pick<SessionUser, "displayName" | "avatarUrl">;
+  className?: string;
+}) {
   const [broken, setBroken] = useState(false);
   const shape = cn("size-8 shrink-0 rounded-full", className);
   return user.avatarUrl && !broken ? (

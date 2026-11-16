@@ -3,20 +3,24 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Plus, Settings2 } from "lucide-react";
-import { STAGES, STAGE_PROBABILITY, type Deal, type Priority, type Stage } from "@/lib/mock-data";
+import { OWNERS, STAGES, STAGE_PROBABILITY, TODAY, type Deal, type Priority, type Stage } from "@/lib/mock-data";
 import {
   Avatar,
   Badge,
   Card,
-  NEEDS_API,
+  Field,
   Page,
   PageHeader,
+  SESSION_ONLY,
   STAGE_DOT,
   buttonPrimary,
   buttonSecondary,
   control,
+  fieldControl,
 } from "@/components/ui/primitives";
-import { cn, formatCompactUsd, formatDay, formatUsd } from "@/lib/format";
+import { Dialog, DialogActions, DialogBody } from "@/components/ui/dialog";
+import { toast } from "@/components/ui/toast";
+import { cn, formatCompactUsd, formatDay, formatUsd, readForm } from "@/lib/format";
 
 const PRIORITY_TONE: Record<Priority, "red" | "amber" | "neutral"> = { High: "red", Medium: "amber", Low: "neutral" };
 const UNASSIGNED = "unassigned";
@@ -30,6 +34,7 @@ export function PipelineBoard({ deals: initial }: { deals: Deal[] }) {
   const [dragging, setDragging] = useState<string | null>(null);
   const [dropStage, setDropStage] = useState<Stage | null>(null);
   const [announcement, setAnnouncement] = useState("");
+  const [adding, setAdding] = useState(false);
   // A card moved with the keyboard is re-created in its new column; this puts focus back on it.
   const refocus = useRef<string | null>(null);
 
@@ -67,7 +72,7 @@ export function PipelineBoard({ deals: initial }: { deals: Deal[] }) {
           <Settings2 className="size-4" aria-hidden />
           Stage settings
         </Link>
-        <button className={buttonPrimary} disabled title={NEEDS_API}>
+        <button className={buttonPrimary} onClick={() => setAdding(true)}>
           <Plus className="size-4" aria-hidden />
           Add deal
         </button>
@@ -206,6 +211,73 @@ export function PipelineBoard({ deals: initial }: { deals: Deal[] }) {
           })}
         </div>
       </div>
+
+      <AddDealDialog
+        open={adding}
+        onClose={() => setAdding(false)}
+        onAdd={(deal) => {
+          setDeals((all) => [...all, { ...deal, id: `D-${Date.now()}` }]);
+          toast(`${deal.company} added to ${deal.stage}. ${SESSION_ONLY}`);
+        }}
+      />
     </Page>
+  );
+}
+
+function AddDealDialog({ open, onClose, onAdd }: { open: boolean; onClose: () => void; onAdd: (deal: Omit<Deal, "id">) => void }) {
+  const submit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const f = readForm(e.currentTarget);
+    onAdd({
+      company: f.company,
+      contact: f.contact,
+      value: Number(f.value),
+      stage: f.stage as Stage,
+      priority: f.priority as Priority,
+      owner: f.owner || null,
+      updatedAt: TODAY,
+    });
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} title="Add deal" description="A deal is one sale you are working on with a company.">
+      <form onSubmit={submit}>
+        <DialogBody className="sm:grid-cols-2">
+          <Field label="Company">
+            <input name="company" required maxLength={120} autoComplete="off" className={fieldControl} />
+          </Field>
+          <Field label="Contact name">
+            <input name="contact" required maxLength={120} autoComplete="off" className={fieldControl} />
+          </Field>
+          <Field label="Value (USD)">
+            <input name="value" type="number" required min={1} inputMode="numeric" className={fieldControl} />
+          </Field>
+          <Field label="Stage">
+            <select name="stage" className={fieldControl}>
+              {STAGES.map((s) => (
+                <option key={s}>{s}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Priority">
+            <select name="priority" defaultValue="Medium" className={fieldControl}>
+              <option>High</option>
+              <option>Medium</option>
+              <option>Low</option>
+            </select>
+          </Field>
+          <Field label="Owner">
+            <select name="owner" className={fieldControl}>
+              <option value="">Unassigned</option>
+              {OWNERS.map((o) => (
+                <option key={o}>{o}</option>
+              ))}
+            </select>
+          </Field>
+        </DialogBody>
+        <DialogActions onCancel={onClose} submitLabel="Add deal" />
+      </form>
+    </Dialog>
   );
 }

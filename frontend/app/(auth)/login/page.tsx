@@ -13,6 +13,9 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+// The one page outside the session gate, so the one page Next.js can check for instant navigation.
+export const instant = true;
+
 export default function LoginPage({ searchParams }: PageProps<"/login">) {
   return (
     <div className="grid min-h-full lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">

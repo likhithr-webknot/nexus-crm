@@ -39,3 +39,8 @@ export function initials(name: string) {
 export function cn(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
 }
+
+/** The fields of a submitted form as trimmed strings, keyed by input name. */
+export function readForm(form: HTMLFormElement): Record<string, string> {
+  return Object.fromEntries([...new FormData(form)].map(([name, value]) => [name, String(value).trim()]));
+}

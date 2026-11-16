@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, ChevronDown, ChevronRight, CircleHelp, LogOut, Menu, Search, Settings, User } from "lucide-react";
 import { findNavItem } from "@/lib/nav";
 import { ROLE_LABELS } from "@/lib/auth";
 import { UserAvatar, useSession, useSignOut } from "@/components/auth/session";
+import { Dialog, DialogBody } from "@/components/ui/dialog";
 import { Popover } from "@/components/ui/popover";
 
 const NOTIFICATIONS = [
@@ -15,11 +16,20 @@ const NOTIFICATIONS = [
   { id: 3, title: "Ravi Menon — deal won ($94,000)", time: "Yesterday", unread: false },
 ];
 
+const SHORTCUTS: [keys: string[], what: string][] = [
+  [["⌘", "K"], "Jump to search (Ctrl K on Windows and Linux)"],
+  [["←", "→"], "Move the focused deal to the previous or next stage"],
+  [["Esc"], "Close a dialog or menu"],
+  [["Tab"], "Move to the next control"],
+];
+
 export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
   const pathname = usePathname();
   const current = findNavItem(pathname);
   const searchRef = useRef<HTMLInputElement>(null);
-  const unread = NOTIFICATIONS.filter((n) => n.unread).length;
+  const [read, setRead] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const unread = read ? 0 : NOTIFICATIONS.filter((n) => n.unread).length;
   const user = useSession();
   const { signOut, pending, failed } = useSignOut();
 
@@ -82,13 +92,19 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
         >
           <div className="flex items-center justify-between border-b border-line px-4 py-3">
             <p className="text-[14px] font-semibold">Notifications</p>
-            <button className="text-[12px] font-medium text-brand hover:underline">Mark all read</button>
+            <button
+              onClick={() => setRead(true)}
+              disabled={unread === 0}
+              className="text-[12px] font-medium text-brand hover:underline disabled:text-ink-3 disabled:no-underline"
+            >
+              Mark all read
+            </button>
           </div>
           <ul className="max-h-80 divide-y divide-line overflow-y-auto">
             {NOTIFICATIONS.map((n) => (
               <li key={n.id} className="flex gap-3 px-4 py-3 hover:bg-canvas">
                 <span
-                  className={`mt-1.5 size-2 shrink-0 rounded-full ${n.unread ? "bg-brand" : "bg-transparent"}`}
+                  className={`mt-1.5 size-2 shrink-0 rounded-full ${n.unread && !read ? "bg-brand" : "bg-transparent"}`}
                   aria-hidden
                 />
                 <div>
@@ -100,7 +116,11 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
           </ul>
         </Popover>
 
-        <button aria-label="Help" className="hidden size-9 place-items-center rounded-lg text-ink-2 hover:bg-canvas sm:grid">
+        <button
+          aria-label="Help"
+          onClick={() => setHelpOpen(true)}
+          className="hidden size-9 place-items-center rounded-lg text-ink-2 hover:bg-canvas sm:grid"
+        >
           <CircleHelp className="size-[18px]" />
         </button>
 
@@ -155,6 +175,25 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
           )}
         </Popover>
       </div>
+
+      <Dialog open={helpOpen} onClose={() => setHelpOpen(false)} title="Keyboard shortcuts" size="sm">
+        <DialogBody>
+          <dl className="divide-y divide-line text-[13px]">
+            {SHORTCUTS.map(([keys, what]) => (
+              <div key={what} className="flex items-center justify-between gap-4 py-2.5">
+                <dt className="text-ink-2">{what}</dt>
+                <dd className="flex shrink-0 gap-1">
+                  {keys.map((k) => (
+                    <kbd key={k} className="rounded border border-line bg-canvas px-1.5 py-0.5 font-mono text-[11px] text-ink-2">
+                      {k}
+                    </kbd>
+                  ))}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </DialogBody>
+      </Dialog>
     </header>
   );
 }

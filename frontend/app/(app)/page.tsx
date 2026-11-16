@@ -40,10 +40,11 @@ export default function DashboardPage() {
           <p className="mt-1 text-[14px] text-ink-2">Here&apos;s how your pipeline is tracking this month.</p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="inline-flex h-9 items-center gap-2 rounded-lg border border-line bg-surface px-3 text-[13px] font-medium text-ink-2 hover:border-line-strong hover:text-ink">
+          {/* Plain text, not a button: the period is fixed until reports can be filtered by date. */}
+          <p className="inline-flex h-9 items-center gap-2 px-1 text-[13px] font-medium text-ink-2">
             <CalendarDays className="size-4" aria-hidden />
             Jun 1 – Jun 30, 2025
-          </button>
+          </p>
           <Link
             href="/leads"
             className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand px-3.5 text-[13px] font-semibold text-white shadow-sm hover:bg-brand-ink"

@@ -316,6 +316,9 @@ export const TEAM: TeamMember[] = [
   { id: "u6", name: "Owen Clarke", email: "owen@nexuscrm.example", role: "Rep", status: "Disabled", leads: 0, dealsWon: 0, revenue: 0, conversion: 0, attainment: 0, lastActive: "2025-04-28" },
 ];
 
+/** People a lead, deal or follow-up can be assigned to. */
+export const OWNERS = TEAM.filter((m) => m.status === "Active").map((m) => m.name);
+
 // ---- Reports ---------------------------------------------------------------
 
 export const FUNNEL = [

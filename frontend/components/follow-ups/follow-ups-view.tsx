@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { CalendarCheck, Check, ChevronLeft, ChevronRight, Plus } from "lucide-react";
-import { TODAY, type FollowUp, type FollowUpType } from "@/lib/mock-data";
-import { Avatar, Card, NEEDS_API, Page, PageHeader, buttonPrimary } from "@/components/ui/primitives";
-import { cn, daysBetween, formatDay, formatLongDay, formatTime } from "@/lib/format";
+import { CONTACTS, OWNERS, TODAY, type FollowUp, type FollowUpType } from "@/lib/mock-data";
+import { Avatar, Card, Field, Page, PageHeader, SESSION_ONLY, buttonPrimary, fieldControl } from "@/components/ui/primitives";
+import { Dialog, DialogActions, DialogBody } from "@/components/ui/dialog";
+import { toast } from "@/components/ui/toast";
+import { cn, daysBetween, formatDay, formatLongDay, formatTime, readForm } from "@/lib/format";
 
 const TYPE_STYLES: Record<FollowUpType, { bar: string; chip: string }> = {
   Call: { bar: "bg-sky-500", chip: "border-sky-500 bg-sky-50 text-sky-800" },
@@ -31,8 +33,10 @@ function monthGrid(year: number, month: number) {
   });
 }
 
-export function FollowUpsView({ followUps }: { followUps: FollowUp[] }) {
-  const [done, setDone] = useState<ReadonlySet<string>>(() => new Set(followUps.filter((f) => f.done).map((f) => f.id)));
+export function FollowUpsView({ followUps: initial }: { followUps: FollowUp[] }) {
+  const [followUps, setFollowUps] = useState(initial);
+  const [adding, setAdding] = useState(false);
+  const [done, setDone] = useState<ReadonlySet<string>>(() => new Set(initial.filter((f) => f.done).map((f) => f.id)));
   const [selected, setSelected] = useState(TODAY);
   const [cursor, setCursor] = useState(() => ({ year: Number(TODAY.slice(0, 4)), month: Number(TODAY.slice(5, 7)) - 1 }));
 
@@ -70,7 +74,7 @@ export function FollowUpsView({ followUps }: { followUps: FollowUp[] }) {
   return (
     <Page>
       <PageHeader title="Follow-ups" subtitle="Stay on top of every customer conversation.">
-        <button className={buttonPrimary} disabled title={NEEDS_API}>
+        <button className={buttonPrimary} onClick={() => setAdding(true)}>
           <Plus className="size-4" aria-hidden />
           New follow-up
         </button>
@@ -198,6 +202,19 @@ export function FollowUpsView({ followUps }: { followUps: FollowUp[] }) {
           )}
         </Card>
       </div>
+
+      <NewFollowUpDialog
+        open={adding}
+        onClose={() => setAdding(false)}
+        defaultDay={selected}
+        onAdd={(followUp) => {
+          setFollowUps((all) => [...all, followUp]);
+          // Show the day it landed on, so the new entry is visible straight away.
+          setSelected(day(followUp));
+          setCursor({ year: Number(followUp.dueAt.slice(0, 4)), month: Number(followUp.dueAt.slice(5, 7)) - 1 });
+          toast(`Follow-up scheduled for ${formatDay(followUp.dueAt)}. ${SESSION_ONLY}`);
+        }}
+      />
     </Page>
   );
 }
@@ -242,5 +259,79 @@ function AgendaItem({
         <Check className="size-4" strokeWidth={2.5} aria-hidden />
       </button>
     </li>
+  );
+}
+
+function NewFollowUpDialog({
+  open,
+  onClose,
+  defaultDay,
+  onAdd,
+}: {
+  open: boolean;
+  onClose: () => void;
+  defaultDay: string;
+  onAdd: (followUp: FollowUp) => void;
+}) {
+  const submit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const f = readForm(e.currentTarget);
+    const contact = CONTACTS.find((c) => c.id === f.contact)!;
+    onAdd({
+      id: `f-${Date.now()}`,
+      title: f.title,
+      type: f.type as FollowUpType,
+      contact: contact.name,
+      company: contact.company,
+      owner: f.owner,
+      dueAt: `${f.date}T${f.time}`,
+      done: false,
+    });
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} title="New follow-up" description="A reminder to get back to someone.">
+      <form onSubmit={submit}>
+        <DialogBody className="sm:grid-cols-2">
+          <Field label="What needs doing" className="sm:col-span-2">
+            <input name="title" required maxLength={120} autoComplete="off" placeholder="Send revised proposal" className={fieldControl} />
+          </Field>
+          <Field label="Type">
+            <select name="type" className={fieldControl}>
+              {Object.keys(TYPE_STYLES).map((t) => (
+                <option key={t}>{t}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Contact">
+            <select name="contact" required defaultValue="" className={fieldControl}>
+              <option value="" disabled>
+                Choose a contact
+              </option>
+              {CONTACTS.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}, {c.company}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Date">
+            <input name="date" type="date" required defaultValue={defaultDay} className={fieldControl} />
+          </Field>
+          <Field label="Time">
+            <input name="time" type="time" required defaultValue="09:00" className={fieldControl} />
+          </Field>
+          <Field label="Assigned to" className="sm:col-span-2">
+            <select name="owner" className={fieldControl}>
+              {OWNERS.map((o) => (
+                <option key={o}>{o}</option>
+              ))}
+            </select>
+          </Field>
+        </DialogBody>
+        <DialogActions onCancel={onClose} submitLabel="Schedule" />
+      </form>
+    </Dialog>
   );
 }
