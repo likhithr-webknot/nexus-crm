@@ -80,9 +80,12 @@ public class MailBannerService {
         // Re-encoding keeps only the pixels: anything else hidden in the file is dropped.
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         ImageIO.write(reader.read(0), "png", output);
-        jdbc.sql("insert into mail_banner (id,image_png,kind,company_name,updated_by) values (1,:image,:kind,:company,:user) "
-            + "on conflict (id) do update set image_png=excluded.image_png,kind=excluded.kind,company_name=excluded.company_name,"
-            + "updated_by=excluded.updated_by,updated_at=now()")
+        // A logo is also kept on its own (logo_png) and survives a later switch to a finished banner: exports use it.
+        jdbc.sql("insert into mail_banner (id,image_png,kind,company_name,logo_png,updated_by) "
+            + "values (1,:image,:kind,:company,case when :kind='logo' then :image end,:user) "
+            + "on conflict (id) do update set image_png=excluded.image_png,kind=excluded.kind,"
+            + "company_name=coalesce(excluded.company_name,mail_banner.company_name),"
+            + "logo_png=coalesce(excluded.logo_png,mail_banner.logo_png),updated_by=excluded.updated_by,updated_at=now()")
           .param("image", output.toByteArray()).param("kind", logo ? "logo" : "banner").param("company", company).param("user", adminId).update();
         audit.record(adminId, "MailBanner", AUDIT_ID, AuditLog.Action.UPDATE, null);
       } finally { reader.dispose(); }
@@ -92,6 +95,14 @@ public class MailBannerService {
   @Transactional
   public void remove(UUID adminId) {
     if (jdbc.sql("delete from mail_banner where id=1").update() > 0) audit.record(adminId, "MailBanner", AUDIT_ID, AuditLog.Action.DELETE, null);
+  }
+
+  /** The company's logo and name, for anything that carries the brand. Either may be null. */
+  public record Brand(byte[] logoPng, String companyName) { }
+
+  public Brand brand() {
+    return jdbc.sql("select logo_png,company_name from mail_banner where id=1")
+      .query((rs, n) -> new Brand(rs.getBytes("logo_png"), rs.getString("company_name"))).optional().orElse(new Brand(null, null));
   }
 
   /** The image for this sender, or null when no banner is set up. */
