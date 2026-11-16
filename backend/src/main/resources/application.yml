@@ -1,6 +1,8 @@
 spring:
   application:
     name: nexus-crm
+  # Request threads, @Scheduled jobs and the application task executor all run on virtual threads.
+  # Blocking JDBC and HTTP calls are fine there; the database pool below is the real concurrency limit.
   threads:
     virtual:
       enabled: true
@@ -10,6 +12,12 @@ spring:
     url: ${NEXUS_DB_URL:jdbc:postgresql://localhost:5432/nexus_crm}
     username: ${NEXUS_DB_USERNAME:nexus_crm}
     password: ${NEXUS_DB_PASSWORD:}
+    hikari:
+      pool-name: nexus-crm-pool
+      minimum-idle: 3
+      maximum-pool-size: 20
+      # With virtual threads many requests can wait for a connection at once. Fail fast instead of hanging.
+      connection-timeout: 10s
   jpa:
     open-in-view: false
     hibernate:
@@ -29,6 +37,11 @@ spring:
             scope: openid, email, profile
             # Must be registered, character for character, as an authorised redirect URI in Google Cloud.
             redirect-uri: "{baseUrl}/api/v1/auth/login/oauth2/code/{registrationId}"
+
+# Flyway logs the full database URL at INFO. Keep only its warnings and errors.
+logging:
+  level:
+    org.flywaydb.core.FlywayExecutor: WARN
 
 server:
   port: 8080

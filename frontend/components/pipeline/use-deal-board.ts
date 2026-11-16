@@ -1,0 +1,46 @@
+import { toast } from "@/components/ui/toast";
+import { useRefresh } from "@/hooks/use-refresh";
+import { errorMessage } from "@/lib/api";
+import { listStages, moveDeal, pipelineBoard, type Deal } from "@/lib/deals";
+import { AFTER, KEYS } from "@/lib/query-keys";
+import { useMutation, useQuery } from "@tanstack/react-query";
+
+export function useStages() {
+  return useQuery({ queryKey: KEYS.stages, queryFn: listStages, staleTime: Infinity });
+}
+
+/** The stages and deals on the board, and the one action you can take on a deal: move it. */
+export function useDealBoard(onMoved: (message: string) => void) {
+  const refresh = useRefresh();
+  const stagesQuery = useStages();
+  const boardQuery = useQuery({ queryKey: [...KEYS.pipeline, "board"], queryFn: () => pipelineBoard() });
+  const stages = stagesQuery.data ?? [];
+  const stageByCode = new Map(stages.map((s) => [s.code, s]));
+
+  const move = useMutation({
+    mutationFn: (v: { deal: Deal; stageCode: string; lostReason?: string }) =>
+      moveDeal(v.deal.id, { stageCode: v.stageCode, version: v.deal.version, lostReason: v.lostReason }),
+    onSuccess: (deal, v) => {
+      onMoved(`${deal.company.name} moved to ${stageByCode.get(v.stageCode)?.name ?? v.stageCode}.`);
+      void refresh(AFTER.deal);
+    },
+    onError: (e) => {
+      toast(errorMessage(e, "The deal could not be moved."));
+      // Someone else may have changed the deal, so show what it looks like now.
+      void refresh(AFTER.deal);
+    },
+  });
+
+  return {
+    stages,
+    stageByCode,
+    deals: boardQuery.data ?? [],
+    failed: boardQuery.isError || stagesQuery.isError,
+    retry: () => {
+      void boardQuery.refetch();
+      void stagesQuery.refetch();
+    },
+    move,
+    refresh: () => refresh(AFTER.deal),
+  };
+}

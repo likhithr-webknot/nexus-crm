@@ -1,13 +1,14 @@
 "use client";
 
-import { createContext, use, useEffect, useState } from "react";
-import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { LoaderCircle, WifiOff } from "lucide-react";
-import { SESSION_EXPIRED, ApiError, isSignedOut } from "@/lib/api";
-import { fetchMe, leaveSignedOut, signOut, type SessionUser } from "@/lib/auth";
 import { Logo } from "@/components/ui/logo";
 import { buttonPrimary } from "@/components/ui/primitives";
+import { ApiError, isSignedOut, SESSION_EXPIRED } from "@/lib/api";
+import { fetchMe, leaveSignedOut, signOut, type SessionUser } from "@/lib/auth";
 import { cn, initials } from "@/lib/format";
+import { KEYS } from "@/lib/query-keys";
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
+import { LoaderCircle, WifiOff } from "lucide-react";
+import { createContext, use, useEffect, useState } from "react";
 
 const SessionContext = createContext<SessionUser | null>(null);
 
@@ -41,7 +42,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
 function SessionGate({ children }: { children: React.ReactNode }) {
   // Asked again whenever the tab regains focus, so a session that ended elsewhere is noticed.
-  const { data: user, error, refetch, isFetching } = useQuery({ queryKey: ["me"], queryFn: fetchMe });
+  const { data: user, error, refetch, isFetching } = useQuery({ queryKey: KEYS.me, queryFn: fetchMe });
   const signedOut = isSignedOut(error);
   const expired = error instanceof ApiError && error.code === SESSION_EXPIRED;
 

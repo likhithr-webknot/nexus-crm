@@ -13,8 +13,10 @@ import java.util.UUID;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
@@ -50,6 +52,9 @@ public class CurrencyService {
 	private final ExchangeRateRepository rates;
 
 	private final FxProperties properties;
+
+	@Qualifier("applicationTaskExecutor")
+	private final AsyncTaskExecutor executor;
 
 	@Transactional(readOnly = true)
 	public List<Currency> list() {
@@ -228,8 +233,8 @@ public class CurrencyService {
 
 	@EventListener(ApplicationReadyEvent.class)
 	void fetchRatesAtStartup() {
-		// On its own thread, so a slow provider cannot delay the app starting.
-		Thread.startVirtualThread(this::fetchRates);
+		// Off the main thread, so a slow provider cannot delay the app starting.
+		this.executor.execute(this::fetchRates);
 	}
 
 }

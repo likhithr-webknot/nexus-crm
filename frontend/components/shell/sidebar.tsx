@@ -1,15 +1,16 @@
 "use client";
 
+import { UserAvatar, useSession, useSignOut } from "@/components/auth/session";
+import { Logo } from "@/components/ui/logo";
+import { ROLE_LABELS } from "@/lib/auth";
+import { cn } from "@/lib/format";
+import { leadSummary } from "@/lib/leads";
+import { NAV_ITEMS, findNavItem } from "@/lib/nav";
+import { KEYS } from "@/lib/query-keys";
+import { useQuery } from "@tanstack/react-query";
+import { LogOut, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
-import { leadSummary } from "@/lib/leads";
-import { LogOut, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
-import { NAV_ITEMS, findNavItem } from "@/lib/nav";
-import { ROLE_LABELS } from "@/lib/auth";
-import { UserAvatar, useSession, useSignOut } from "@/components/auth/session";
-import { cn } from "@/lib/format";
-import { Logo } from "@/components/ui/logo";
 
 const GROUPS = [...new Set(NAV_ITEMS.map((item) => item.group))];
 
@@ -23,7 +24,7 @@ export function Sidebar({
   onClose?: () => void;
 }) {
   const pathname = usePathname();
-  const leads = useQuery({ queryKey: ["lead-summary"], queryFn: leadSummary });
+  const leads = useQuery({ queryKey: KEYS.leadSummary, queryFn: leadSummary });
   /** The number shown beside a menu item. Only Leads has one: how many are still being worked. */
   const badge = (href: string) => (href === "/leads" ? leads.data?.active : undefined);
   const active = findNavItem(pathname);

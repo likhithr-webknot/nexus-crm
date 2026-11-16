@@ -1,7 +1,5 @@
 "use client";
 
-import { createContext, use, useCallback, useMemo, useSyncExternalStore } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { latestRates, listCurrencies, type CurrencyInfo } from "@/lib/currencies";
 import {
   DEFAULT_REPORTING_CURRENCY,
@@ -11,6 +9,9 @@ import {
   isCurrencyCode,
   type CurrencyCode,
 } from "@/lib/currency";
+import { KEYS } from "@/lib/query-keys";
+import { useQuery } from "@tanstack/react-query";
+import { createContext, use, useCallback, useMemo, useSyncExternalStore } from "react";
 
 const PREFERENCE_KEY = "nexus.currency.reporting";
 const preferenceListeners = new Set<() => void>();
@@ -65,8 +66,8 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     currencyPreferenceStore.get,
     currencyPreferenceStore.getServerSnapshot,
   );
-  const ratesQuery = useQuery({ queryKey: ["exchange-rates"], queryFn: latestRates, staleTime: 5 * 60_000 });
-  const currenciesQuery = useQuery({ queryKey: ["currencies"], queryFn: listCurrencies, staleTime: 5 * 60_000 });
+  const ratesQuery = useQuery({ queryKey: KEYS.rates, queryFn: latestRates, staleTime: 5 * 60_000 });
+  const currenciesQuery = useQuery({ queryKey: KEYS.currencies, queryFn: listCurrencies, staleTime: 5 * 60_000 });
 
   // The API gives each rate as "1 unit = N INR". The conversion works with "units per INR", so invert them.
   const rateState = useMemo<RateState>(() => {

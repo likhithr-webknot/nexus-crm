@@ -1,24 +1,24 @@
 "use client";
 
-import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, Plus } from "lucide-react";
 import { SessionFirstName } from "@/components/auth/session";
-import { Card, CardHeader, CardLink } from "@/components/ui/primitives";
-import { KpiCard } from "@/components/dashboard/kpi-card";
-import { RevenueChart, type RevenuePoint } from "@/components/dashboard/revenue-chart";
-import { LeadSourcesDonut } from "@/components/dashboard/lead-sources";
-import { RecentLeadsTable } from "@/components/dashboard/recent-leads";
-import { PipelineOverview } from "@/components/dashboard/pipeline-overview";
-import { FollowUpList } from "@/components/dashboard/follow-ups";
 import { useCurrency } from "@/components/currency/currency-provider";
-import { dashboard, revenueByMonth } from "@/lib/reports";
-import { listLeads } from "@/lib/leads";
+import { FollowUpList } from "@/components/dashboard/follow-ups";
+import { KpiCard } from "@/components/dashboard/kpi-card";
+import { LeadSourcesDonut } from "@/components/dashboard/lead-sources";
+import { PipelineOverview } from "@/components/dashboard/pipeline-overview";
+import { RecentLeadsTable } from "@/components/dashboard/recent-leads";
+import { RevenueChart } from "@/components/dashboard/revenue-chart";
+import { Card, CardHeader, CardLink } from "@/components/ui/primitives";
+import { useRevenuePoints } from "@/hooks/use-revenue";
 import { listFollowUps } from "@/lib/follow-ups";
 import { formatDay, localIso, todayLocal, toInstant } from "@/lib/format";
+import { listLeads } from "@/lib/leads";
+import { KEYS } from "@/lib/query-keys";
+import { dashboard } from "@/lib/reports";
+import { useQuery } from "@tanstack/react-query";
+import { CalendarDays, Plus } from "lucide-react";
+import Link from "next/link";
 
-const monthName = new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" });
-const monthFull = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
 
 /** The block shown while a card's numbers are on their way. */
 function Loading({ error, retry }: { error?: boolean; retry?: () => void }) {
@@ -40,26 +40,21 @@ function Loading({ error, retry }: { error?: boolean; retry?: () => void }) {
 
 export function DashboardView() {
   const { reportingCurrency, formatReporting, formatCompactReporting } = useCurrency();
-  const summary = useQuery({ queryKey: ["dashboard", "summary"], queryFn: () => dashboard() });
-  const months = useQuery({ queryKey: ["dashboard", "revenue"], queryFn: () => revenueByMonth(6) });
-  const recent = useQuery({ queryKey: ["leads", "recent"], queryFn: () => listLeads({ size: 6 }) });
+  const summary = useQuery({ queryKey: [...KEYS.dashboard, "summary"], queryFn: () => dashboard() });
+  const revenue = useRevenuePoints();
+  const months = revenue.query;
+  const recent = useQuery({ queryKey: [...KEYS.leads, "recent"], queryFn: () => listLeads({ size: 6 }) });
   const today = todayLocal();
   const dueNow = useQuery({
-    queryKey: ["follow-ups", "dashboard", today],
+    queryKey: [...KEYS.followUps, "dashboard", today],
     queryFn: () => listFollowUps({ status: "OPEN", to: toInstant(today, "23:59"), size: 20 }),
   });
 
   const data = summary.data?.data;
-  const chart: RevenuePoint[] = (months.data ?? []).map((m) => ({
-    month: monthFull.format(new Date(`${m.month}-01T00:00:00Z`)),
-    label: monthName.format(new Date(`${m.month}-01T00:00:00Z`)),
-    revenue: m.revenue,
-    target: m.target == null ? null : Number(m.target),
-  }));
-  const totalRevenue = chart.reduce((a, r) => a + r.revenue, 0);
-  const withTarget = chart.filter((r) => r.target != null);
-  const totalTarget = withTarget.reduce((a, r) => a + (r.target ?? 0), 0);
-  const attainment = totalTarget > 0 ? Math.round((withTarget.reduce((a, r) => a + r.revenue, 0) / totalTarget) * 100) : null;
+  const chart = revenue.points;
+  const totalRevenue = revenue.totalRevenue;
+  const totalTarget = revenue.totalTarget;
+  const attainment = totalTarget > 0 ? Math.round((revenue.revenueWithTarget / totalTarget) * 100) : null;
   const pipelineValue = (data?.pipeline ?? []).reduce((a, s) => a + s.amount, 0);
   const range = summary.data
     ? `${formatDay(summary.data.from)} – ${formatDay(summary.data.to)}, ${summary.data.to.slice(0, 4)}`
@@ -114,7 +109,7 @@ export function DashboardView() {
         <Card className="lg:col-span-2">
           <CardHeader
             title="Revenue performance"
-            subtitle={`Monthly revenue${withTarget.length ? " against target" : ""} · ${reportingCurrency}`}
+            subtitle={`Monthly revenue${revenue.hasTargets ? " against target" : ""} · ${reportingCurrency}`}
             action={<CardLink href="/reports">Last 6 months</CardLink>}
           />
           {months.isError ? (
@@ -139,7 +134,7 @@ export function DashboardView() {
                   <span className="flex items-center gap-1.5">
                     <span className="h-0.5 w-4 rounded bg-brand" aria-hidden /> Revenue
                   </span>
-                  {withTarget.length > 0 && (
+                  {revenue.hasTargets && (
                     <span className="flex items-center gap-1.5">
                       <span className="w-4 border-t-2 border-dashed border-slate-400" aria-hidden /> Target
                     </span>

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
-import { LoaderCircle, X } from "lucide-react";
 import { buttonPrimary, buttonSecondary } from "@/components/ui/primitives";
-import { cn } from "@/lib/format";
+import { cn, readForm } from "@/lib/format";
+import { LoaderCircle, X } from "lucide-react";
+import { useEffect, useId, useRef } from "react";
 
 /** A modal dialog on the browser's own <dialog>. */
 export function Dialog({
@@ -153,5 +153,59 @@ export function FormError({ children }: { children: React.ReactNode }) {
     <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-[13px] text-rose-700 ring-1 ring-rose-200 ring-inset">
       {children}
     </p>
+  );
+}
+
+/**
+ * A dialog that holds one form. It reads the fields by name, shows the error, and keeps Cancel and Submit in
+ * place, so each dialog only declares its fields and what to do with the values.
+ */
+export function FormDialog({
+  open,
+  onClose,
+  title,
+  description,
+  size,
+  submitLabel,
+  pending,
+  error,
+  danger,
+  disabled,
+  onSubmit,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  description?: React.ReactNode;
+  size?: "sm" | "md" | "lg";
+  submitLabel: string;
+  pending?: boolean;
+  error?: string | null;
+  danger?: boolean;
+  disabled?: boolean;
+  /** Gets the form's fields as trimmed strings, keyed by input name, and the form itself for custom validation. */
+  onSubmit: (values: Record<string, string>, form: HTMLFormElement) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Dialog open={open} onClose={onClose} title={title} description={description} size={size}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSubmit(readForm(e.currentTarget), e.currentTarget);
+        }}
+      >
+        <DialogBody className="sm:grid-cols-2">
+          {children}
+          {error && (
+            <div className="sm:col-span-2">
+              <FormError>{error}</FormError>
+            </div>
+          )}
+        </DialogBody>
+        <DialogActions onCancel={onClose} submitLabel={submitLabel} pending={pending} danger={danger} disabled={disabled} />
+      </form>
+    </Dialog>
   );
 }

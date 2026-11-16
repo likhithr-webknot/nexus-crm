@@ -1,17 +1,19 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check } from "lucide-react";
 import { toast } from "@/components/ui/toast";
+import { useRefresh } from "@/hooks/use-refresh";
 import { errorMessage } from "@/lib/api";
 import { setFollowUpDone, type FollowUp } from "@/lib/follow-ups";
 import { cn, formatDay, formatTime, localIso, todayLocal } from "@/lib/format";
+import { AFTER } from "@/lib/query-keys";
+import { useMutation } from "@tanstack/react-query";
+import { Check } from "lucide-react";
 
 export function FollowUpList({ tasks }: { tasks: FollowUp[] }) {
-  const queryClient = useQueryClient();
+  const refresh = useRefresh();
   const complete = useMutation({
     mutationFn: (id: string) => setFollowUpDone(id, true),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["follow-ups"] }),
+    onSuccess: () => refresh(AFTER.followUp),
     onError: (e) => toast(errorMessage(e, "Couldn't update the follow-up.")),
   });
 

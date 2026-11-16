@@ -1,0 +1,37 @@
+/** Every query key in one place, so a screen never invents its own and invalidation stays correct. */
+export const KEYS = {
+  me: ["me"],
+  users: ["users"],
+  teams: ["teams"],
+  assignable: ["assignable"],
+  leads: ["leads"],
+  leadSummary: ["lead-summary"],
+  contacts: ["contacts"],
+  companies: ["companies"],
+  deals: ["deals"],
+  pipeline: ["pipeline"],
+  stages: ["pipeline", "stages"],
+  activities: ["activities"],
+  followUps: ["follow-ups"],
+  dashboard: ["dashboard"],
+  overview: ["overview"],
+  notifications: ["notifications"],
+  currencies: ["currencies"],
+  rates: ["exchange-rates"],
+  targets: ["targets"],
+  audit: ["audit"],
+} as const;
+
+type Key = readonly string[];
+
+/** What goes stale after each kind of change. A screen names the change, not the keys. */
+export const AFTER = {
+  lead: [KEYS.leads, KEYS.leadSummary, KEYS.deals, KEYS.pipeline, KEYS.contacts, KEYS.dashboard, KEYS.overview, KEYS.activities],
+  deal: [KEYS.pipeline, KEYS.deals, KEYS.dashboard, KEYS.overview, KEYS.activities],
+  contact: [KEYS.contacts],
+  followUp: [KEYS.followUps],
+  activity: [KEYS.activities],
+  team: [KEYS.teams, KEYS.users, KEYS.assignable],
+  currency: [KEYS.currencies, KEYS.rates],
+  target: [KEYS.targets, KEYS.dashboard],
+} as const satisfies Record<string, readonly Key[]>;

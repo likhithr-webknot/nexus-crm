@@ -1,25 +1,25 @@
 "use client";
 
-import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Plus, Trash2, Users } from "lucide-react";
-import { Card, CardHeader, EmptyState, Field, buttonSecondary, fieldControl } from "@/components/ui/primitives";
 import { ConfirmDialog, Dialog, DialogActions, DialogBody, FormError } from "@/components/ui/dialog";
+import { Card, CardHeader, EmptyState, Field, buttonSecondary, fieldControl } from "@/components/ui/primitives";
 import { toast } from "@/components/ui/toast";
+import { useRefresh } from "@/hooks/use-refresh";
 import { errorMessage } from "@/lib/api";
+import { AFTER, KEYS } from "@/lib/query-keys";
 import { createTeam, deleteTeam, listTeams, updateTeam, type Team } from "@/lib/teams";
 import { listUsers } from "@/lib/users";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Pencil, Plus, Trash2, Users } from "lucide-react";
+import { useState } from "react";
 
 /** The teams, with how many people are in each. Admins can add, rename, change the manager of, and delete them. */
 export function TeamsCard({ isAdmin }: { isAdmin: boolean }) {
-  const queryClient = useQueryClient();
-  const teams = useQuery({ queryKey: ["teams"], queryFn: listTeams });
+  const refreshKeys = useRefresh();
+  const teams = useQuery({ queryKey: KEYS.teams, queryFn: listTeams });
   const [editing, setEditing] = useState<Team | "new" | null>(null);
   const [deleting, setDeleting] = useState<Team | null>(null);
 
-  const refresh = () => {
-    for (const key of ["teams", "users"]) void queryClient.invalidateQueries({ queryKey: [key] });
-  };
+  const refresh = () => void refreshKeys(AFTER.team);
   const remove = useMutation({
     mutationFn: (team: Team) => deleteTeam(team.id),
     onSuccess: (_, team) => {
@@ -94,7 +94,7 @@ export function TeamsCard({ isAdmin }: { isAdmin: boolean }) {
 function TeamDialog({ editing, onClose, onSaved }: { editing: Team | "new" | null; onClose: () => void; onSaved: () => void }) {
   const team = editing === "new" ? null : editing;
   const [error, setError] = useState<string | null>(null);
-  const users = useQuery({ queryKey: ["users"], queryFn: listUsers, enabled: editing !== null });
+  const users = useQuery({ queryKey: KEYS.users, queryFn: listUsers, enabled: editing !== null });
   // A team can only be led by a manager or an admin.
   const leaders = (users.data ?? []).filter((u) => u.role !== "REP" && u.status !== "DISABLED");
 
