@@ -20,6 +20,7 @@ export const KEYS = {
   rates: ["exchange-rates"],
   targets: ["targets"],
   audit: ["audit"],
+  trash: ["trash"],
 } as const;
 
 type Key = readonly string[];
@@ -34,4 +35,5 @@ export const AFTER = {
   team: [KEYS.teams, KEYS.users, KEYS.assignable],
   currency: [KEYS.currencies, KEYS.rates],
   target: [KEYS.targets, KEYS.dashboard],
+  restore: [KEYS.trash, KEYS.leads, KEYS.leadSummary, KEYS.contacts, KEYS.companies, KEYS.deals, KEYS.pipeline, KEYS.dashboard],
 } as const satisfies Record<string, readonly Key[]>;

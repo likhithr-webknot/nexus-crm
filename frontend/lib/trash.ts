@@ -1,0 +1,14 @@
+/* The recycle bin (backend: TrashController). Managers and admins only. */
+
+import { api, qs } from "@/lib/api";
+
+export type TrashType = "LEAD" | "CONTACT" | "COMPANY" | "DEAL";
+
+export type TrashItem = { type: TrashType; id: string; name: string; deletedAt: string; ownerName: string | null };
+
+export const TRASH_LABELS: Record<TrashType, string> = { LEAD: "Lead", CONTACT: "Contact", COMPANY: "Company", DEAL: "Deal" };
+
+export const listTrash = (type?: TrashType) => api<TrashItem[]>(`/trash${qs({ type })}`);
+
+/** Brings a deleted record back. The API refuses with a reason when that would break a rule. */
+export const restoreFromTrash = (type: TrashType, id: string) => api(`/trash/${type}/${id}/restore`, { method: "POST" });

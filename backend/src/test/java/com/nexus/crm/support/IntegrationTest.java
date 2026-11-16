@@ -23,7 +23,25 @@ import com.nexus.crm.identity.user.AppUser;
 import com.nexus.crm.identity.user.UserService;
 import com.nexus.crm.shared.Role;
 
-/** Base class for tests that run the whole app against a real PostgreSQL (started with Testcontainers, so Docker must be running). */
+/**
+ * Base class for tests that run the whole app against a real PostgreSQL (started with Testcontainers, so Docker
+ * must be running).
+ *
+ * <p>
+ * Problem we had in CI (2026-11-16): two runs failed with "ApplicationContext failure threshold (1) exceeded".
+ * That message only means "the first attempt to start the app already failed, so I will not try again for every
+ * other test". The real cause is the first error in the log, and there were two:
+ * <ol>
+ * <li>{@code spring.datasource.hikari.connection-timeout} was written as {@code 10s}. Hikari needs milliseconds.
+ * <li>This class was edited temporarily to point at a local database so tests could run without Docker, and a
+ * commit happened while it was edited. CI has no PostgreSQL on localhost, so every test failed with
+ * "Connection to localhost:5432 refused".
+ * </ol>
+ * How we fixed it, in order: (1) read the first {@code Caused by} in the CI log of each failed run;
+ * (2) changed the timeout to {@code 10000}; (3) restored this class and stopped editing it: local runs without
+ * Docker now happen in a throwaway copy of the project; (4) added {@code TestSetupGuardTests}, which fails with a
+ * clear message if this class stops using Testcontainers.
+ */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")

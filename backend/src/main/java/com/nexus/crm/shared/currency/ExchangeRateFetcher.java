@@ -18,9 +18,24 @@ import org.springframework.web.client.RestClient;
 import com.nexus.crm.shared.currency.dto.ProviderResponse;
 
 /**
- * Downloads the daily exchange rates. It is a bean of its own so that saving the rates goes through
- * {@link CurrencyService}'s proxy: a call from a method to another method of the same class would skip
- * the transaction.
+ * Downloads the daily exchange rates.
+ *
+ * <p>
+ * Problem we had (self-invocation): the download used to live inside {@code CurrencyService} and called that
+ * class's own {@code @Transactional storeProviderRates(...)}. Spring adds transactions through a proxy, and a
+ * call from one method to another method of the same object never goes through the proxy. So the annotation
+ * was silently ignored and every rate was saved in its own transaction: a failure half way left a half-updated day.
+ *
+ * <p>
+ * How we fixed it, in order:
+ * <ol>
+ * <li>Found it by listing every {@code @Transactional} method that another method of the same class calls.
+ * <li>Moved the download (timeouts, retries, scheduling) into this class, which is a separate bean.
+ * <li>This class now calls {@code CurrencyService.storeProviderRates} on the other bean, through its proxy, so
+ * the whole day's rates are saved in one transaction.
+ * <li>The slow HTTP call stays outside any transaction, so it never holds a database connection.
+ * </ol>
+ * We did not use {@code ApplicationContext} or self-injection to work around it: splitting the class is simpler.
  */
 @Slf4j
 @Component

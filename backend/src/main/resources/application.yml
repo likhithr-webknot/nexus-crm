@@ -1,8 +1,11 @@
 spring:
   application:
     name: nexus-crm
-  # Request threads, @Scheduled jobs and the application task executor all run on virtual threads.
-  # Blocking JDBC and HTTP calls are fine there; the database pool below is the real concurrency limit.
+  # Virtual threads. What we wanted: simple blocking code that still handles many requests at once.
+  #   1. spring.threads.virtual.enabled puts request threads, @Scheduled jobs and the application task
+  #      executor on virtual threads. RuntimeConfigTests checks this.
+  #   2. Blocking JDBC and HTTP calls are fine on a virtual thread.
+  #   3. So the real limit on concurrent database work is the connection pool below.
   threads:
     virtual:
       enabled: true
@@ -14,9 +17,12 @@ spring:
     password: ${NEXUS_DB_PASSWORD:}
     hikari:
       pool-name: nexus-crm-pool
+      # Pool size: keep 3 connections ready, never open more than 20 (RuntimeConfigTests checks both).
       minimum-idle: 3
       maximum-pool-size: 20
-      # In milliseconds. With virtual threads many requests can wait for a connection, so fail fast instead of hanging.
+      # Problem we had in CI: "10s" is not accepted here and the whole application context failed to start
+      # ("Failed to bind ... connection-timeout to long"). Hikari wants plain milliseconds.
+      # With virtual threads many requests can wait for a connection, so fail fast instead of hanging.
       connection-timeout: 10000
   jpa:
     open-in-view: false
@@ -38,7 +44,9 @@ spring:
             # Must be registered, character for character, as an authorised redirect URI in Google Cloud.
             redirect-uri: "{baseUrl}/api/v1/auth/login/oauth2/code/{registrationId}"
 
-# Flyway logs the full database URL at INFO. Keep only its warnings and errors.
+# Problem we had: at startup Flyway logs "Database: jdbc:postgresql://host:port/name" at INFO, which puts
+# the database address in the logs. Fix: raise only that one logger to WARN. Other Flyway messages
+# (how many migrations ran) are still logged.
 logging:
   level:
     org.flywaydb.core.FlywayExecutor: WARN

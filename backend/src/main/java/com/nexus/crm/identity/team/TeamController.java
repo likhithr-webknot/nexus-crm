@@ -58,7 +58,10 @@ class TeamController {
 		this.teams.delete(id);
 	}
 
-	/** The URL is under /users, but moving someone between teams is a team operation, so it is served here. */
+	/**
+	 * The URL is under /users, but moving someone between teams is a team operation, so it is served here.
+	 * Keeping it in the team package lets the user package stay free of any dependency on teams (no cycle).
+	 */
 	@PutMapping("/users/{id}/team")
 	@PreAuthorize("hasRole('ADMIN')")
 	UserResponse setMember(@PathVariable UUID id, @RequestBody SetTeamRequest request) {

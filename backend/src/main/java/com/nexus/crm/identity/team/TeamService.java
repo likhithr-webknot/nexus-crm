@@ -89,7 +89,17 @@ public class TeamService {
 		return infos(List.of(team)).getFirst();
 	}
 
-	/** Adds each team's manager name and member count. Two queries however many teams there are. */
+	/**
+	 * Adds each team's manager name and member count.
+	 *
+	 * <p>
+	 * Problem we had (N+1 queries): listing teams ran two extra queries for every team, one for the manager's
+	 * name and one for the member count, so 20 teams meant 41 queries. How we fixed it, in order: (1) checked
+	 * the entities: there are no {@code @OneToMany} or {@code @ManyToOne} associations (records link by UUID),
+	 * so {@code JOIN FETCH} had nothing to fetch; (2) found the real cause, a query inside a per-team loop;
+	 * (3) read all managers with one {@code findByIdIn}; (4) counted all members with one grouped query;
+	 * (5) added {@code QueryShapeTests}, which fails if a list needs more than 3 queries.
+	 */
 	private List<TeamInfo> infos(List<Team> list) {
 		if (list.isEmpty()) {
 			return List.of();

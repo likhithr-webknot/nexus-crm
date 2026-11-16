@@ -1,0 +1,69 @@
+# Nexus CRM roadmap
+
+What we are building next, in order, and why. Each slice is finished (backend, frontend, tests) before the next one starts, so the app is shippable after every slice.
+
+**Rules for every slice** (production readiness is part of the work, not a last pass):
+
+1. Every endpoint checks the caller's role and record scope on the server. The frontend only hides buttons.
+2. Every change writes an audit entry in the same transaction.
+3. Every create that a client may retry accepts an `Idempotency-Key`.
+4. Every public endpoint has a rate limit, input size limits and spam protection.
+5. Lists are paged and read with a fixed number of queries (`QueryShapeTests` style).
+6. Changes to a table are a new Flyway migration, safe to run on a database that already has data.
+7. A failure shows a clear message in the UI, never a blank screen.
+
+## Phase 1: Sales productivity
+
+| Slice | What | Status |
+| --- | --- | --- |
+| 1.1 | **Recycle bin and restore** for leads, contacts, companies and deals. Managers and admins only. A restore that would break a rule (a duplicate email, a deleted company) is refused with the reason. | **Done** (backend, frontend, 6 tests) |
+| 1.2 | **Bulk actions** on leads: assign, change status, delete, tag. One request, all or nothing, one audit entry per record. | Planned |
+| 1.3 | **Saved views**: a named set of filters and sort order, private or shared with the team. | Planned |
+| 1.4 | **Notes and attachments** on leads, contacts and deals. Files go to object storage, never into the database; type and size are checked; downloads are scoped. | Planned |
+| 1.5 | **Tags** on leads, contacts and deals, with filtering. | Planned |
+| 1.6 | **Duplicate detection and merge** for contacts and companies. A merge moves every deal, activity and follow-up to the surviving record, in one transaction. | Planned |
+
+## Phase 2: Customization
+
+| Slice | What |
+| --- | --- |
+| 2.1 | **Multiple pipelines** with editable stages (name, order, win probability). Closing a deal keeps its history. |
+| 2.2 | **Custom fields** (text, number, date, pick-list) on leads, contacts and deals. Stored as typed columns in a field-values table, not free-form JSON, so reports and filters stay fast. |
+| 2.3 | **Field visibility by role.** |
+
+## Phase 3: Automation
+
+| Slice | What |
+| --- | --- |
+| 3.1 | **Assignment rules**: round-robin, or by source, applied to new leads. |
+| 3.2 | **Workflow rules**: when something happens, do something (assign, create a follow-up, notify). Rules run in the same transaction, have a loop guard, and every run is logged. |
+| 3.3 | **Stale-deal and overdue alerts.** |
+| 3.4 | **Email templates** (for copying into the user's own mail client; the app does not send email). |
+
+## Phase 4: Insights
+
+| Slice | What |
+| --- | --- |
+| 4.1 | **Per-rep quotas** and attainment. |
+| 4.2 | **Sales forecast** by stage and month. |
+| 4.3 | **Report builder** with saved reports and dashboards. Only fields from an allow-list can be chosen, and every query is scoped, so a report can never show a record the user cannot open. |
+
+## Phase 5: Integrations
+
+| Slice | What |
+| --- | --- |
+| 5.1 | **Web-to-lead**: a public endpoint with a rate limit, a honeypot field, a size limit, and an idempotency key. |
+| 5.2 | **API keys** for scripts, shown once, stored hashed, revocable, with their own role and rate limit. |
+| 5.3 | **Outgoing webhooks**: signed (HMAC) payloads, retries with backoff, a delivery log, and automatic pause after repeated failures. |
+
+## Operations, in parallel with the phases
+
+- Rate limiting on sign-in and refresh (the design asks for 10 per minute per address).
+- Hard delete of records that have been in the recycle bin for 90 days (a nightly job).
+- Metrics and a readiness check that covers the database.
+- Security headers and a Content-Security-Policy for the frontend.
+- Database backup and restore steps written down, and a restore test.
+
+## Not planned
+
+Email and calendar sync were not chosen. They need an email provider, an OAuth app and a decision on storing email content. They can be added later without changing the slices above.

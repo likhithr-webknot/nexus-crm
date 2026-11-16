@@ -5,7 +5,7 @@ import { Logo } from "@/components/ui/logo";
 import { ROLE_LABELS } from "@/lib/auth";
 import { cn } from "@/lib/format";
 import { leadSummary } from "@/lib/leads";
-import { NAV_ITEMS, findNavItem } from "@/lib/nav";
+import { NAV_ITEMS, findNavItem, navItemsFor } from "@/lib/nav";
 import { KEYS } from "@/lib/query-keys";
 import { useQuery } from "@tanstack/react-query";
 import { LogOut, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
@@ -55,7 +55,7 @@ export function Sidebar({
               <p className="mb-1.5 px-3 text-[10.5px] font-semibold tracking-[0.08em] text-nav-ink/60 uppercase">{group}</p>
             )}
             <ul className="space-y-0.5">
-              {NAV_ITEMS.filter((item) => item.group === group).map((item) => {
+              {navItemsFor(user.role).filter((item) => item.group === group).map((item) => {
                 const isActive = item === active;
                 const Icon = item.icon;
                 return (

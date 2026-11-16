@@ -18,6 +18,9 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
+ * Guards against circular dependencies between packages.
+ *
+ * <p>
  * Modules may depend on each other in one direction only. If leads uses deals, deals must not use leads,
  * directly or through a third module. A cycle makes modules impossible to understand or change on their own.
  *

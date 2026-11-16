@@ -25,7 +25,7 @@ public interface AppUserRepository extends JpaRepository<AppUser, UUID> {
 
 	long countByTeamId(UUID teamId);
 
-	/** Member counts for several teams in one query, so a list of teams does not need one query per team. */
+	/** Member counts for several teams in one query. One grouped query replaces one count per team (the N+1 fixed in TeamService.infos). */
 	@Query("select new com.nexus.crm.identity.user.dto.TeamMemberCount(u.teamId, count(u)) from AppUser u where u.teamId in :teamIds group by u.teamId")
 	List<TeamMemberCount> countMembersByTeam(@Param("teamIds") Collection<UUID> teamIds);
 

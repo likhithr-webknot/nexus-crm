@@ -15,7 +15,13 @@ import com.nexus.crm.identity.user.AppUser;
 import com.nexus.crm.shared.Role;
 import com.nexus.crm.support.IntegrationTest;
 
-/** Lists are read with a fixed number of queries, however many rows they have. */
+/**
+ * Lists are read with a fixed number of queries, however many rows they have.
+ *
+ * <p>
+ * This is the safety net for the N+1 problem. Hibernate statistics are switched on for tests
+ * ({@code application-test.yml}), so a test can count the SQL statements a call runs.
+ */
 class QueryShapeTests extends IntegrationTest {
 
 	@Autowired
