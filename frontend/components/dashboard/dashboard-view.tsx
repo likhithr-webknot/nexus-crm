@@ -18,7 +18,7 @@ import { dashboard } from "@/lib/reports";
 import { listAllDeals, listStages } from "@/lib/deals";
 import { RANGES, rangeDays, type RangeId } from "@/lib/date-range";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, Plus } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -129,13 +129,6 @@ export function DashboardView() {
             <CalendarDays className="size-4" aria-hidden />
             {rangeLabel}
           </p>
-          <Link
-            href="/leads"
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand px-3.5 text-[13px] font-semibold text-white shadow-sm hover:bg-brand-ink"
-          >
-            <Plus className="size-4" aria-hidden />
-            Add lead
-          </Link>
         </div>
       </div>
 
