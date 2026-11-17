@@ -112,9 +112,18 @@ export function UserAvatar({
   return user.avatarUrl && !broken ? (
     // A plain img: the photo is a small file on Google's servers, and next/image would need that host allow-listed.
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={user.avatarUrl} alt="" referrerPolicy="no-referrer" onError={() => setBroken(true)} className={cn(shape, "object-cover")} />
+    <img
+      src={user.avatarUrl}
+      alt=""
+      referrerPolicy="no-referrer"
+      onError={() => setBroken(true)}
+      className={cn(shape, "object-cover")}
+    />
   ) : (
-    <span aria-hidden className={cn(shape, "grid place-items-center bg-brand-soft text-[12px] font-semibold text-brand-ink")}>
+    <span
+      aria-hidden
+      className={cn(shape, "grid place-items-center bg-brand-soft text-[12px] font-semibold text-brand-ink")}
+    >
       {initials(user.displayName)}
     </span>
   );

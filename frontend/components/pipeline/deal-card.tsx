@@ -23,7 +23,11 @@ export function DealCard({
 }) {
   const { format } = useCurrency();
   const amount = format(moneyValue(deal.amount), deal.amount.currency);
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: deal.id, disabled: Boolean(deal.closedAt), data: { stageCode: deal.stageCode } });
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+    id: deal.id,
+    disabled: Boolean(deal.closedAt),
+    data: { stageCode: deal.stageCode },
+  });
 
   return (
     <li
@@ -48,7 +52,12 @@ export function DealCard({
         <span className="truncate text-[11.5px] text-ink-3">{deal.name}</span>
         <span className="flex shrink-0 items-center gap-1">
           <span className="tnum text-[11.5px] text-ink-3">{formatDay(localIso(deal.updatedAt))}</span>
-          <button type="button" aria-label={`Edit or delete ${deal.company.name}`} onClick={onOpen} className="-mr-1.5 grid size-6 place-items-center rounded text-ink-3 hover:bg-canvas hover:text-ink">
+          <button
+            type="button"
+            aria-label={`Edit or delete ${deal.company.name}`}
+            onClick={onOpen}
+            className="-mr-1.5 grid size-6 place-items-center rounded text-ink-3 hover:bg-canvas hover:text-ink"
+          >
             <MoreHorizontal className="size-4" aria-hidden />
           </button>
         </span>

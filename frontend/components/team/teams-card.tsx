@@ -49,7 +49,11 @@ export function TeamsCard({ isAdmin }: { isAdmin: boolean }) {
         <p className="border-t border-line px-5 py-6 text-[13px] text-down">Couldn&apos;t load teams.</p>
       ) : teams.data.length === 0 ? (
         <div className="border-t border-line">
-          <EmptyState icon={Users} title="No teams yet" body={isAdmin ? "Create a team, then put members in it from Manage." : "An admin can create teams."} />
+          <EmptyState
+            icon={Users}
+            title="No teams yet"
+            body={isAdmin ? "Create a team, then put members in it from Manage." : "An admin can create teams."}
+          />
         </div>
       ) : (
         <ul className="divide-y divide-line border-t border-line">
@@ -58,15 +62,24 @@ export function TeamsCard({ isAdmin }: { isAdmin: boolean }) {
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium text-ink">{team.name}</p>
                 <p className="truncate text-[12.5px] text-ink-3">
-                  {team.managerName ? `Led by ${team.managerName}` : "No manager"} · {team.memberCount} {team.memberCount === 1 ? "member" : "members"}
+                  {team.managerName ? `Led by ${team.managerName}` : "No manager"} · {team.memberCount}{" "}
+                  {team.memberCount === 1 ? "member" : "members"}
                 </p>
               </div>
               {isAdmin && (
                 <>
-                  <button aria-label={`Edit ${team.name}`} onClick={() => setEditing(team)} className="grid size-8 place-items-center rounded-md text-ink-3 hover:bg-canvas hover:text-ink">
+                  <button
+                    aria-label={`Edit ${team.name}`}
+                    onClick={() => setEditing(team)}
+                    className="grid size-8 place-items-center rounded-md text-ink-3 hover:bg-canvas hover:text-ink"
+                  >
                     <Pencil className="size-4" aria-hidden />
                   </button>
-                  <button aria-label={`Delete ${team.name}`} onClick={() => setDeleting(team)} className="grid size-8 place-items-center rounded-md text-ink-3 hover:bg-danger-soft hover:text-down">
+                  <button
+                    aria-label={`Delete ${team.name}`}
+                    onClick={() => setDeleting(team)}
+                    className="grid size-8 place-items-center rounded-md text-ink-3 hover:bg-danger-soft hover:text-down"
+                  >
                     <Trash2 className="size-4" aria-hidden />
                   </button>
                 </>
@@ -91,7 +104,15 @@ export function TeamsCard({ isAdmin }: { isAdmin: boolean }) {
   );
 }
 
-function TeamDialog({ editing, onClose, onSaved }: { editing: Team | "new" | null; onClose: () => void; onSaved: () => void }) {
+function TeamDialog({
+  editing,
+  onClose,
+  onSaved,
+}: {
+  editing: Team | "new" | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
   const team = editing === "new" ? null : editing;
   const [error, setError] = useState<string | null>(null);
   const users = useQuery({ queryKey: KEYS.users, queryFn: listUsers, enabled: editing !== null });
@@ -101,7 +122,11 @@ function TeamDialog({ editing, onClose, onSaved }: { editing: Team | "new" | nul
   const save = useMutation({
     mutationFn: (f: { name: string; managerId: string }) =>
       team
-        ? updateTeam(team.id, { name: f.name, managerId: f.managerId || undefined, removeManager: !f.managerId && team.managerId !== null })
+        ? updateTeam(team.id, {
+            name: f.name,
+            managerId: f.managerId || undefined,
+            removeManager: !f.managerId && team.managerId !== null,
+          })
         : createTeam({ name: f.name, managerId: f.managerId || undefined }),
     onSuccess: (saved) => {
       toast(team ? `${saved.name} updated.` : `${saved.name} created.`);
@@ -127,7 +152,14 @@ function TeamDialog({ editing, onClose, onSaved }: { editing: Team | "new" | nul
       >
         <DialogBody>
           <Field label="Team name">
-            <input name="name" required maxLength={80} defaultValue={team?.name ?? ""} autoComplete="off" className={fieldControl} />
+            <input
+              name="name"
+              required
+              maxLength={80}
+              defaultValue={team?.name ?? ""}
+              autoComplete="off"
+              className={fieldControl}
+            />
           </Field>
           <Field label="Manager" optional>
             <select name="manager" defaultValue={team?.managerId ?? ""} className={fieldControl}>

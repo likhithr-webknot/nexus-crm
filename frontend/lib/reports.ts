@@ -36,9 +36,13 @@ export const revenueByMonth = (months = 6) => api<MonthRevenue[]>(`/reports/reve
 
 export const overview = (from?: string, to?: string) => api<Overview>(`/reports/overview${qs({ from, to })}`);
 
-export const listTargets = (year: number) => api<{ month: string; amount: string }[]>(`/revenue-targets${qs({ year })}`);
+export const listTargets = (year: number) =>
+  api<{ month: string; amount: string }[]>(`/revenue-targets${qs({ year })}`);
 
 export const setTarget = (month: string, amount: string) =>
-  api<{ month: string; amount: string }>(`/revenue-targets/${month}`, { method: "PUT", body: JSON.stringify({ amount }) });
+  api<{ month: string; amount: string }>(`/revenue-targets/${month}`, {
+    method: "PUT",
+    body: JSON.stringify({ amount }),
+  });
 
 export const deleteTarget = (month: string) => api(`/revenue-targets/${month}`, { method: "DELETE" });

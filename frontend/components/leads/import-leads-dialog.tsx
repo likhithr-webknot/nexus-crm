@@ -27,7 +27,11 @@ export function ImportLeadsDialog({ open, onClose }: { open: boolean; onClose: (
   const upload = useMutation({
     mutationFn: importLeads,
     onSuccess: (result) => {
-      toast(result.errors.length ? `${result.imported} leads imported. ${result.errors.length} rows were skipped.` : `${result.imported} leads imported.`);
+      toast(
+        result.errors.length
+          ? `${result.imported} leads imported. ${result.errors.length} rows were skipped.`
+          : `${result.imported} leads imported.`,
+      );
       void refresh(AFTER.lead);
       close();
     },
@@ -37,7 +41,8 @@ export function ImportLeadsDialog({ open, onClose }: { open: boolean; onClose: (
   const pick = async (file: File | undefined) => {
     setError(null);
     if (!file) return setParsed(null);
-    if (file.size > MAX_IMPORT_FILE_BYTES) return setParsed("That file is larger than 1 MB. Split it into smaller files.");
+    if (file.size > MAX_IMPORT_FILE_BYTES)
+      return setParsed("That file is larger than 1 MB. Split it into smaller files.");
     setParsed(readLeadRows(await file.text(), reportingCurrency));
   };
 
@@ -51,9 +56,17 @@ export function ImportLeadsDialog({ open, onClose }: { open: boolean; onClose: (
     : [];
 
   return (
-    <Dialog open={open} onClose={close} title="Import leads" description="Upload a CSV file. Imported leads arrive unassigned, in the New stage.">
+    <Dialog
+      open={open}
+      onClose={close}
+      title="Import leads"
+      description="Upload a CSV file. Imported leads arrive unassigned, in the New stage."
+    >
       <DialogBody>
-        <Field label="CSV file" hint="Needs Name and Email columns. Company, Phone, Source, Estimated value and Currency are optional. Up to 1 MB.">
+        <Field
+          label="CSV file"
+          hint="Needs Name and Email columns. Company, Phone, Source, Estimated value and Currency are optional. Up to 1 MB."
+        >
           <input
             type="file"
             accept=".csv,text/csv"
@@ -64,9 +77,21 @@ export function ImportLeadsDialog({ open, onClose }: { open: boolean; onClose: (
         <button
           type="button"
           onClick={() =>
-            downloadCsv("leads-template.csv", ["Name", "Company", "Email", "Phone", "Source", "Estimated value", "Currency"], [
-              ["Jane Doe", "Acme Inc.", "jane@acme.example", "+1 (415) 555-0100", "Referral", "15000", reportingCurrency],
-            ])
+            downloadCsv(
+              "leads-template.csv",
+              ["Name", "Company", "Email", "Phone", "Source", "Estimated value", "Currency"],
+              [
+                [
+                  "Jane Doe",
+                  "Acme Inc.",
+                  "jane@acme.example",
+                  "+1 (415) 555-0100",
+                  "Referral",
+                  "15000",
+                  reportingCurrency,
+                ],
+              ],
+            )
           }
           className="justify-self-start text-[13px] font-medium text-brand hover:underline"
         >
@@ -76,8 +101,13 @@ export function ImportLeadsDialog({ open, onClose }: { open: boolean; onClose: (
         {typeof parsed === "string" && <FormError>{parsed}</FormError>}
         {error && <FormError>{error}</FormError>}
         {result && (
-          <div role="status" className="rounded-lg bg-canvas px-3.5 py-3 text-[13px] text-ink-2 ring-1 ring-line ring-inset">
-            <p className="font-medium text-ink">{result.rows.length === 1 ? "1 row is" : `${result.rows.length} rows are`} ready to send.</p>
+          <div
+            role="status"
+            className="rounded-lg bg-canvas px-3.5 py-3 text-[13px] text-ink-2 ring-1 ring-line ring-inset"
+          >
+            <p className="font-medium text-ink">
+              {result.rows.length === 1 ? "1 row is" : `${result.rows.length} rows are`} ready to send.
+            </p>
             <p className="mt-0.5">Leads whose email is already used by an open lead are skipped when you import.</p>
             {skipped.length > 0 && (
               <ul className="mt-1.5 list-disc space-y-0.5 pl-4">

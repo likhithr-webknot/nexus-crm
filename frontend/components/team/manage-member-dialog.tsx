@@ -15,7 +15,12 @@ import { ROLES, failure } from "./team-constants";
 
 export function ManageDialog({ user, onClose }: { user: User | null; onClose: () => void }) {
   return (
-    <Dialog open={user !== null} onClose={onClose} title={user ? `Manage ${user.displayName}` : ""} description={user?.email}>
+    <Dialog
+      open={user !== null}
+      onClose={onClose}
+      title={user ? `Manage ${user.displayName}` : ""}
+      description={user?.email}
+    >
       {user && <ManageForm user={user} onClose={onClose} />}
     </Dialog>
   );
@@ -33,7 +38,10 @@ function ManageForm({ user, onClose }: { user: User; onClose: () => void }) {
   // Someone who never signed in (a mistyped invite, for example) can be removed. Everyone else is disabled instead.
   const removable = user.status === "INVITED" && user.lastLoginAt === null;
   const changed =
-    name.trim() !== user.displayName || role !== user.role || disabled !== wasDisabled || teamId !== (user.teamId ?? "");
+    name.trim() !== user.displayName ||
+    role !== user.role ||
+    disabled !== wasDisabled ||
+    teamId !== (user.teamId ?? "");
 
   const refresh = () => void refreshKeys(AFTER.team);
 
@@ -76,7 +84,13 @@ function ManageForm({ user, onClose }: { user: User; onClose: () => void }) {
       >
         <DialogBody>
           <Field label="Name">
-            <input value={name} onChange={(e) => setName(e.target.value)} required maxLength={120} className={fieldControl} />
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              maxLength={120}
+              className={fieldControl}
+            />
           </Field>
           <Field label="Role">
             <select value={role} onChange={(e) => setRole(e.target.value as Role)} className={fieldControl}>
@@ -98,7 +112,12 @@ function ManageForm({ user, onClose }: { user: User; onClose: () => void }) {
             </select>
           </Field>
           <label className="flex items-start gap-3 rounded-lg border border-line px-3.5 py-3">
-            <input type="checkbox" checked={disabled} onChange={(e) => setDisabled(e.target.checked)} className="mt-0.5 size-4 accent-rose-600" />
+            <input
+              type="checkbox"
+              checked={disabled}
+              onChange={(e) => setDisabled(e.target.checked)}
+              className="mt-0.5 size-4 accent-rose-600"
+            />
             <span>
               <span className="block text-[13px] font-medium text-ink">Disable this account</span>
               <span className="block text-[12.5px] text-ink-3">
@@ -107,7 +126,11 @@ function ManageForm({ user, onClose }: { user: User; onClose: () => void }) {
             </span>
           </label>
           {removable && (
-            <button type="button" onClick={() => setRemoving(true)} className="justify-self-start text-[13px] font-medium text-down hover:underline">
+            <button
+              type="button"
+              onClick={() => setRemoving(true)}
+              className="justify-self-start text-[13px] font-medium text-down hover:underline"
+            >
               Remove this invitation…
             </button>
           )}

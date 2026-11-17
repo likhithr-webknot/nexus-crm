@@ -41,7 +41,10 @@ const securityHeaders = [
   // Page addresses hold record ids, so other sites only get the origin.
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   // The microphone is for voice questions to the assistant.
-  { key: "Permissions-Policy", value: "camera=(), geolocation=(), microphone=(self), payment=(), usb=(), interest-cohort=()" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), geolocation=(), microphone=(self), payment=(), usb=(), interest-cohort=()",
+  },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
   ...(isProduction ? [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" }] : []),
 ];

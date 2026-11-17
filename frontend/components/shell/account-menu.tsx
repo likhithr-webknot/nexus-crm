@@ -37,7 +37,12 @@ export function AccountMenu() {
           </div>
           <div className="p-1.5">
             {LINKS.map(({ href, label, icon: Icon }) => (
-              <Link key={label} href={href} onClick={close} className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] text-ink-2 hover:bg-canvas hover:text-ink">
+              <Link
+                key={label}
+                href={href}
+                onClick={close}
+                className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] text-ink-2 hover:bg-canvas hover:text-ink"
+              >
                 <Icon className="size-4" /> {label}
               </Link>
             ))}

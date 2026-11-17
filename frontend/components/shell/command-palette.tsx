@@ -11,7 +11,21 @@ import { CREATE, SHELL_EVENTS, createKeys, goToKeys, openCreate, openShortcuts }
 import { useTheme } from "@/lib/theme";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useQuery } from "@tanstack/react-query";
-import { Building2, Contact, CornerDownLeft, Handshake, History, Keyboard, Moon, PanelLeft, Plus, Search, Sun, UserPlus, type LucideIcon } from "lucide-react";
+import {
+  Building2,
+  Contact,
+  CornerDownLeft,
+  Handshake,
+  History,
+  Keyboard,
+  Moon,
+  PanelLeft,
+  Plus,
+  Search,
+  Sun,
+  UserPlus,
+  type LucideIcon,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 
@@ -28,7 +42,12 @@ type Entry = {
 
 const SECTIONS: Entry["section"][] = ["Records", "Recent", "Go to", "Create", "Actions"];
 const RECORD_FILTERS = ["All", "Lead", "Contact", "Company", "Deal"];
-const RECORD_ICONS: Record<string, LucideIcon> = { lead: UserPlus, contact: Contact, company: Building2, deal: Handshake };
+const RECORD_ICONS: Record<string, LucideIcon> = {
+  lead: UserPlus,
+  contact: Contact,
+  company: Building2,
+  deal: Handshake,
+};
 const recordIcon = (type: string) => RECORD_ICONS[type.toLowerCase()] ?? Search;
 
 /** The text with the part that matches the query marked. */
@@ -63,7 +82,12 @@ export function CommandPalette() {
   const q = query.trim().toLowerCase();
   const term = useDebounced(q, 180);
   const searching = q.length >= 2;
-  const hits = useQuery({ queryKey: ["command-search", term], queryFn: () => search(term), enabled: open && term.length >= 2, staleTime: 30_000 });
+  const hits = useQuery({
+    queryKey: ["command-search", term],
+    queryFn: () => search(term),
+    enabled: open && term.length >= 2,
+    staleTime: 30_000,
+  });
 
   const show = () => {
     setRecents(readRecents());
@@ -128,7 +152,14 @@ export function CommandPalette() {
     })),
     ...navItemsFor(user.role)
       .filter((item) => matches(item.label))
-      .map((item): Entry => ({ key: `go-${item.href}`, section: "Go to", label: item.label, icon: item.icon, keys: goToKeys(item.href), run: () => go(item.href) })),
+      .map((item): Entry => ({
+        key: `go-${item.href}`,
+        section: "Go to",
+        label: item.label,
+        icon: item.icon,
+        keys: goToKeys(item.href),
+        run: () => go(item.href),
+      })),
     ...Object.values(CREATE)
       .filter(({ label }) => matches(`create new ${label}`))
       .map(({ kind, label }): Entry => ({
@@ -144,8 +175,19 @@ export function CommandPalette() {
       })),
     ...(
       [
-        { key: "theme", label: theme === "light" ? "Switch to dark theme" : "Switch to light theme", icon: theme === "light" ? Moon : Sun, run: () => setTheme(theme === "light" ? "dark" : "light") },
-        { key: "sidebar", label: sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar", icon: PanelLeft, keys: ["["], run: toggleSidebar },
+        {
+          key: "theme",
+          label: theme === "light" ? "Switch to dark theme" : "Switch to light theme",
+          icon: theme === "light" ? Moon : Sun,
+          run: () => setTheme(theme === "light" ? "dark" : "light"),
+        },
+        {
+          key: "sidebar",
+          label: sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar",
+          icon: PanelLeft,
+          keys: ["["],
+          run: toggleSidebar,
+        },
         { key: "shortcuts", label: "Keyboard shortcuts", icon: Keyboard, keys: ["?"], run: openShortcuts },
       ] as const
     )
@@ -223,7 +265,11 @@ export function CommandPalette() {
           </div>
 
           {searching && (
-            <div className="flex gap-1 border-b border-line px-3 py-2" role="group" aria-label="Limit records to one type">
+            <div
+              className="flex gap-1 border-b border-line px-3 py-2"
+              role="group"
+              aria-label="Limit records to one type"
+            >
               {RECORD_FILTERS.map((name) => (
                 <button
                   key={name}
@@ -234,7 +280,9 @@ export function CommandPalette() {
                   aria-pressed={filter === name}
                   className={cn(
                     "rounded-md px-2 py-1 text-[11.5px] font-medium transition-colors duration-[var(--duration-hover)]",
-                    filter === name ? "bg-brand-soft text-brand-ink" : "text-ink-3 hover:bg-surface-muted hover:text-ink-2",
+                    filter === name
+                      ? "bg-brand-soft text-brand-ink"
+                      : "text-ink-3 hover:bg-surface-muted hover:text-ink-2",
                   )}
                 >
                   {name === "All" ? "All records" : `${name}s`.replace("Companys", "Companies")}
@@ -243,7 +291,12 @@ export function CommandPalette() {
             </div>
           )}
 
-          <div id={listId} role="listbox" aria-label="Results" className="max-h-[min(56vh,420px)] overflow-y-auto p-1.5">
+          <div
+            id={listId}
+            role="listbox"
+            aria-label="Results"
+            className="max-h-[min(56vh,420px)] overflow-y-auto p-1.5"
+          >
             {hits.isError && searching && (
               <p className="px-2.5 py-2 text-[12px] text-down" role="alert">
                 Record search is unavailable right now. Pages and actions still work.
@@ -271,7 +324,9 @@ export function CommandPalette() {
               </div>
             )}
             {SECTIONS.map((section) => {
-              const rows = entries.map((entry, index) => ({ entry, index })).filter(({ entry }) => entry.section === section);
+              const rows = entries
+                .map((entry, index) => ({ entry, index }))
+                .filter(({ entry }) => entry.section === section);
               const showPending = section === "Records" && recordsPending;
               if (rows.length === 0 && !showPending) return null;
               return (
@@ -288,15 +343,31 @@ export function CommandPalette() {
                       aria-selected={index === current}
                       onPointerMove={() => index !== current && setActive(index)}
                       onClick={entry.run}
-                      className={cn("flex h-9 cursor-pointer items-center gap-2.5 rounded-md px-2.5", index === current && "bg-surface-muted")}
+                      className={cn(
+                        "flex h-9 cursor-pointer items-center gap-2.5 rounded-md px-2.5",
+                        index === current && "bg-surface-muted",
+                      )}
                     >
-                      <entry.icon className={cn("size-4 shrink-0", index === current ? "text-ink" : "text-ink-3")} aria-hidden />
+                      <entry.icon
+                        className={cn("size-4 shrink-0", index === current ? "text-ink" : "text-ink-3")}
+                        aria-hidden
+                      />
                       <span className="min-w-0 truncate text-[13px]">
                         <Highlight text={entry.label} query={q} />
                       </span>
-                      {entry.detail && <span className="min-w-0 shrink truncate text-[12px] text-ink-3">{entry.detail}</span>}
+                      {entry.detail && (
+                        <span className="min-w-0 shrink truncate text-[12px] text-ink-3">{entry.detail}</span>
+                      )}
                       <span className="ml-auto flex shrink-0 items-center gap-0.5" aria-hidden>
-                        {index === current ? <CornerDownLeft className="size-3.5 text-ink-3" /> : entry.keys?.map((key) => <kbd key={key} className="kbd">{key}</kbd>)}
+                        {index === current ? (
+                          <CornerDownLeft className="size-3.5 text-ink-3" />
+                        ) : (
+                          entry.keys?.map((key) => (
+                            <kbd key={key} className="kbd">
+                              {key}
+                            </kbd>
+                          ))
+                        )}
                       </span>
                     </div>
                   ))}
@@ -305,10 +376,20 @@ export function CommandPalette() {
             })}
           </div>
 
-          <div className="flex items-center gap-4 border-t border-line bg-canvas/60 px-4 py-2 text-[11px] text-ink-3" aria-hidden>
-            <span className="flex items-center gap-1"><kbd className="kbd">↑</kbd><kbd className="kbd">↓</kbd> Move</span>
-            <span className="flex items-center gap-1"><kbd className="kbd">↵</kbd> Open</span>
-            <span className="ml-auto flex items-center gap-1"><kbd className="kbd">?</kbd> All shortcuts</span>
+          <div
+            className="flex items-center gap-4 border-t border-line bg-canvas/60 px-4 py-2 text-[11px] text-ink-3"
+            aria-hidden
+          >
+            <span className="flex items-center gap-1">
+              <kbd className="kbd">↑</kbd>
+              <kbd className="kbd">↓</kbd> Move
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd className="kbd">↵</kbd> Open
+            </span>
+            <span className="ml-auto flex items-center gap-1">
+              <kbd className="kbd">?</kbd> All shortcuts
+            </span>
           </div>
         </Dialog.Content>
       </Dialog.Portal>

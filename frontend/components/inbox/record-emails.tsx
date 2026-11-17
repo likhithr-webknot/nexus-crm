@@ -29,13 +29,22 @@ export function RecordEmails({ owner }: { owner: EmailOwner }) {
       ) : emails.isError ? (
         <LoadFailed what="emails" onRetry={() => emails.refetch()} />
       ) : emails.data.length === 0 ? (
-        <p className="mt-2 text-[13px] text-ink-3">No emails yet. Mail to and from this person appears here once inbox sync is turned on in Settings.</p>
+        <p className="mt-2 text-[13px] text-ink-3">
+          No emails yet. Mail to and from this person appears here once inbox sync is turned on in Settings.
+        </p>
       ) : (
         <ul className="mt-2.5 divide-y divide-line">
           {emails.data.map((m) => (
             <li key={m.id} className="flex gap-3 py-3">
-              <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-canvas text-ink-2" title={m.direction === "IN" ? "Received" : "Sent"}>
-                {m.direction === "IN" ? <ArrowDownLeft className="size-3.5" aria-label="Received" /> : <ArrowUpRight className="size-3.5" aria-label="Sent" />}
+              <span
+                className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-canvas text-ink-2"
+                title={m.direction === "IN" ? "Received" : "Sent"}
+              >
+                {m.direction === "IN" ? (
+                  <ArrowDownLeft className="size-3.5" aria-label="Received" />
+                ) : (
+                  <ArrowUpRight className="size-3.5" aria-label="Sent" />
+                )}
               </span>
               <div className="min-w-0 flex-1 text-[13px]">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -49,7 +58,12 @@ export function RecordEmails({ owner }: { owner: EmailOwner }) {
                 </p>
                 {m.snippet && <p className="mt-1 line-clamp-2 text-[12.5px] text-ink-2">{m.snippet}</p>}
                 {m.gmailUrl && (
-                  <a href={m.gmailUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex items-center gap-1 text-[12px] font-medium text-brand hover:underline">
+                  <a
+                    href={m.gmailUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1 inline-flex items-center gap-1 text-[12px] font-medium text-brand hover:underline"
+                  >
                     Open in Gmail
                     <ExternalLink className="size-3" aria-hidden />
                   </a>

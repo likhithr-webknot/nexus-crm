@@ -21,7 +21,10 @@ export function CurrencySection() {
 
   return (
     <Card>
-      <CardHeader title="Currency & exchange rates" subtitle="Set the currency used for workspace totals and reports. Deal amounts keep their original currency." />
+      <CardHeader
+        title="Currency & exchange rates"
+        subtitle="Set the currency used for workspace totals and reports. Deal amounts keep their original currency."
+      />
       <div className="space-y-4 border-t border-line p-5">
         <Field label="Reporting currency">
           {(props) => (
@@ -31,12 +34,21 @@ export function CurrencySection() {
                   {code} — {name}
                 </option>
               ))}
-              {!currencies.some((c) => c.code === reportingCurrency) && <option value={reportingCurrency}>{reportingCurrency}</option>}
+              {!currencies.some((c) => c.code === reportingCurrency) && (
+                <option value={reportingCurrency}>{reportingCurrency}</option>
+              )}
             </select>
           )}
         </Field>
         <RateStatus />
-        {rates.data && rates.data.length > 0 && <RatesTable rates={rates.data} canRevert={isAdmin} reverting={revert.isPending} onRevert={(rate) => revert.mutate(rate)} />}
+        {rates.data && rates.data.length > 0 && (
+          <RatesTable
+            rates={rates.data}
+            canRevert={isAdmin}
+            reverting={revert.isPending}
+            onRevert={(rate) => revert.mutate(rate)}
+          />
+        )}
         {isAdmin && <CurrencyAdminPanel />}
       </div>
     </Card>

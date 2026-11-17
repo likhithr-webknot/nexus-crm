@@ -22,14 +22,21 @@ export function ContactsView() {
   const tags = useTags();
 
   const q = query.trim();
-  const list = useQuery({ queryKey: [...KEYS.contacts, q, tag], queryFn: () => listContacts({ q, tag, size: 100 }), placeholderData: keepPreviousData });
+  const list = useQuery({
+    queryKey: [...KEYS.contacts, q, tag],
+    queryFn: () => listContacts({ q, tag, size: 100 }),
+    placeholderData: keepPreviousData,
+  });
   const contacts = list.data?.items ?? [];
   const selected = contacts.find((c) => c.id === selectedId);
   const select = setSelectedId;
 
   return (
     <Page>
-      <PageHeader title="Contacts" subtitle="Everyone you sell to, with their deals, follow-ups and history in one place.">
+      <PageHeader
+        title="Contacts"
+        subtitle="Everyone you sell to, with their deals, follow-ups and history in one place."
+      >
         <button className={buttonPrimary} onClick={() => setAdding(true)}>
           <Plus className="size-4" aria-hidden />
           Add contact
@@ -51,11 +58,25 @@ export function ContactsView() {
             return next;
           })
         }
-        bulk={ticked.size > 0 ? <RecordBulkBar kind="contacts" ids={[...ticked]} onClear={() => setTicked(new Set())} /> : null}
-        result={list.data} status={list.status} selectedId={selected?.id} onSelect={select} onRetry={() => list.refetch()} />
+        bulk={
+          ticked.size > 0 ? (
+            <RecordBulkBar kind="contacts" ids={[...ticked]} onClear={() => setTicked(new Set())} />
+          ) : null
+        }
+        result={list.data}
+        status={list.status}
+        selectedId={selected?.id}
+        onSelect={select}
+        onRetry={() => list.refetch()}
+      />
 
       {/* The details slide in over the list, which keeps its place and its search. */}
-      <Drawer open={Boolean(selected)} onClose={() => setSelectedId(undefined)} title={selected?.name ?? "Contact"} subtitle={selected?.company?.name ?? "No company"}>
+      <Drawer
+        open={Boolean(selected)}
+        onClose={() => setSelectedId(undefined)}
+        title={selected?.name ?? "Contact"}
+        subtitle={selected?.company?.name ?? "No company"}
+      >
         {selected && <ContactDetail key={selected.id} contact={selected} />}
       </Drawer>
 

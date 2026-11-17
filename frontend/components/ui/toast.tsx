@@ -35,7 +35,11 @@ export function Toaster() {
     () => none,
   );
   return (
-    <div role="status" aria-live="polite" className="pointer-events-none fixed right-4 bottom-4 z-[60] flex flex-col items-end gap-2">
+    <div
+      role="status"
+      aria-live="polite"
+      className="pointer-events-none fixed right-4 bottom-4 z-[60] flex flex-col items-end gap-2"
+    >
       {shown.map((t) => (
         <p
           key={t.id}
@@ -43,7 +47,17 @@ export function Toaster() {
         >
           <CircleCheck className="mt-px size-4 shrink-0 text-emerald-400" aria-hidden />
           {t.message}
-          {t.action && <button onClick={() => { t.action?.run(); change(toasts.filter((item) => item.id !== t.id)); }} className="pointer-events-auto ml-2 shrink-0 font-semibold underline underline-offset-2 hover:opacity-80">{t.action.label}</button>}
+          {t.action && (
+            <button
+              onClick={() => {
+                t.action?.run();
+                change(toasts.filter((item) => item.id !== t.id));
+              }}
+              className="pointer-events-auto ml-2 shrink-0 font-semibold underline underline-offset-2 hover:opacity-80"
+            >
+              {t.action.label}
+            </button>
+          )}
         </p>
       ))}
     </div>

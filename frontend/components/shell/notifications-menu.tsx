@@ -26,7 +26,10 @@ function useNotifications() {
   const refresh = useRefresh();
   const count = useQuery({ queryKey: [...KEYS.notifications, "count"], queryFn: unreadCount, refetchInterval: 60_000 });
   const list = useQuery({ queryKey: [...KEYS.notifications, "list"], queryFn: listNotifications, staleTime: 30_000 });
-  const read = useMutation({ mutationFn: (ids?: string[]) => markRead(ids), onSuccess: () => refresh([KEYS.notifications]) });
+  const read = useMutation({
+    mutationFn: (ids?: string[]) => markRead(ids),
+    onSuccess: () => refresh([KEYS.notifications]),
+  });
   return { unread: count.data?.count ?? 0, list, read };
 }
 
@@ -41,7 +44,9 @@ export function NotificationsMenu() {
       trigger={
         <span className="relative grid size-8 place-items-center text-ink-2">
           <Bell className="size-[18px]" />
-          {unread > 0 && <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-danger ring-2 ring-surface" />}
+          {unread > 0 && (
+            <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-danger ring-2 ring-surface" />
+          )}
         </span>
       }
     >
@@ -67,7 +72,10 @@ export function NotificationsMenu() {
             const markAsRead = () => !n.read && read.mutate([n.id]);
             const body = (
               <>
-                <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", n.read ? "bg-transparent" : "bg-brand")} aria-hidden />
+                <span
+                  className={cn("mt-1.5 size-2 shrink-0 rounded-full", n.read ? "bg-transparent" : "bg-brand")}
+                  aria-hidden
+                />
                 {ALERT_ICONS[n.type] && (
                   <span className="mt-0.5 shrink-0 text-ink-2" aria-hidden>
                     {(() => {

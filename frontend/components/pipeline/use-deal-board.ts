@@ -25,7 +25,9 @@ export function useDealBoard(onMoved: (message: string) => void) {
     onMutate: async (move) => {
       await client.cancelQueries({ queryKey: boardKey });
       const previous = client.getQueryData<Deal[]>(boardKey);
-      client.setQueryData<Deal[]>(boardKey, (deals) => deals?.map((deal) => deal.id === move.deal.id ? { ...deal, stageCode: move.stageCode } : deal));
+      client.setQueryData<Deal[]>(boardKey, (deals) =>
+        deals?.map((deal) => (deal.id === move.deal.id ? { ...deal, stageCode: move.stageCode } : deal)),
+      );
       return { previous };
     },
     onSuccess: (deal, v) => {

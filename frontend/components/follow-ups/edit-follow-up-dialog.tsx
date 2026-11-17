@@ -45,11 +45,27 @@ export function EditFollowUpDialog({ item, onClose }: { item: Item | null; onClo
       onSubmit={(f) => {
         if (!item) return;
         setError(null);
-        save.mutate([item.id, { title: f.title, type: f.type as FollowUpType, dueAt: toInstant(f.date, f.time), assigneeId: f.owner || undefined, version: item.version }]);
+        save.mutate([
+          item.id,
+          {
+            title: f.title,
+            type: f.type as FollowUpType,
+            dueAt: toInstant(f.date, f.time),
+            assigneeId: f.owner || undefined,
+            version: item.version,
+          },
+        ]);
       }}
     >
       <Field label="What needs doing" className="sm:col-span-2">
-        <input name="title" required maxLength={160} defaultValue={item?.title} autoComplete="off" className={fieldControl} />
+        <input
+          name="title"
+          required
+          maxLength={160}
+          defaultValue={item?.title}
+          autoComplete="off"
+          className={fieldControl}
+        />
       </Field>
       <Field label="Type">
         <select name="type" defaultValue={item?.type} className={fieldControl}>

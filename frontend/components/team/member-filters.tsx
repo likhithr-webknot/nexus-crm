@@ -4,12 +4,25 @@ import { cn } from "@/lib/format";
 import { Search } from "lucide-react";
 import { ROLES } from "./team-constants";
 
-export function MemberFilters({ query, role, onQuery, onRole }: { query: string; role: Role | ""; onQuery: (query: string) => void; onRole: (role: Role | "") => void }) {
+export function MemberFilters({
+  query,
+  role,
+  onQuery,
+  onRole,
+}: {
+  query: string;
+  role: Role | "";
+  onQuery: (query: string) => void;
+  onRole: (role: Role | "") => void;
+}) {
   return (
     <div className="flex flex-wrap items-center gap-2 p-4">
       <label className="relative min-w-[200px] flex-1 sm:max-w-xs">
         <span className="sr-only">Search team</span>
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-3" aria-hidden />
+        <Search
+          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-3"
+          aria-hidden
+        />
         <input
           type="search"
           value={query}

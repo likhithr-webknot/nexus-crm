@@ -14,7 +14,15 @@ import { Trash2 } from "lucide-react";
 import { useState } from "react";
 
 /** Tag or delete the ticked contacts or deals. Both are all-or-nothing on the server. */
-export function RecordBulkBar({ kind, ids, onClear }: { kind: Exclude<TagKind, "leads">; ids: string[]; onClear: () => void }) {
+export function RecordBulkBar({
+  kind,
+  ids,
+  onClear,
+}: {
+  kind: Exclude<TagKind, "leads">;
+  ids: string[];
+  onClear: () => void;
+}) {
   const refresh = useRefresh();
   const [confirming, setConfirming] = useState(false);
   const noun = kind === "contacts" ? "contact" : "deal";
@@ -29,12 +37,20 @@ export function RecordBulkBar({ kind, ids, onClear }: { kind: Exclude<TagKind, "
   });
 
   return (
-    <div role="toolbar" aria-label={`Actions for selected ${noun}s`} className="flex flex-wrap items-center gap-2 border-t border-line bg-brand-soft/50 px-4 py-2.5">
+    <div
+      role="toolbar"
+      aria-label={`Actions for selected ${noun}s`}
+      className="flex flex-wrap items-center gap-2 border-t border-line bg-brand-soft/50 px-4 py-2.5"
+    >
       <p className="tnum mr-1 text-[12.5px] font-medium text-ink" aria-live="polite">
         {ids.length} selected
       </p>
       <TagPicker kind={kind} ids={ids} onDone={onClear} />
-      <button type="button" onClick={() => setConfirming(true)} className={cn(control, "inline-flex items-center gap-2 px-3 font-medium text-down")}>
+      <button
+        type="button"
+        onClick={() => setConfirming(true)}
+        className={cn(control, "inline-flex items-center gap-2 px-3 font-medium text-down")}
+      >
         <Trash2 className="size-4" aria-hidden />
         Delete
       </button>

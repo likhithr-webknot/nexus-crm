@@ -7,7 +7,11 @@ export function RateStatus() {
   const { rateState, refreshRates } = useCurrency();
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-canvas px-3.5 py-3 text-[12.5px] text-ink-2" role="status" aria-live="polite">
+    <div
+      className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-canvas px-3.5 py-3 text-[12.5px] text-ink-2"
+      role="status"
+      aria-live="polite"
+    >
       {rateState.status === "loading" && "Loading daily exchange rates…"}
       {rateState.status === "ready" && (
         <span className={rateState.stale ? "tone-text tone-amber" : undefined}>

@@ -30,12 +30,18 @@ export function ContactDetail({ contact: c, full = false }: { contact: Contact; 
   const [deleting, setDeleting] = useState<Contact | null>(null);
   const [editingCompany, setEditingCompany] = useState<Ref | null>(null);
   const [deletingCompany, setDeletingCompany] = useState<Ref | null>(null);
-  const deals = useQuery({ queryKey: [...KEYS.deals, "contact", c.id], queryFn: () => listDeals({ contactId: c.id, size: 10 }) });
+  const deals = useQuery({
+    queryKey: [...KEYS.deals, "contact", c.id],
+    queryFn: () => listDeals({ contactId: c.id, size: 10 }),
+  });
   const followUps = useQuery({
     queryKey: [...KEYS.followUps, "contact", c.id],
     queryFn: () => listFollowUps({ contactId: c.id, status: "OPEN", size: 10 }),
   });
-  const history = useQuery({ queryKey: [...KEYS.activities, "contact", c.id], queryFn: () => listActivities({ contactId: c.id, size: 8 }) });
+  const history = useQuery({
+    queryKey: [...KEYS.activities, "contact", c.id],
+    queryFn: () => listActivities({ contactId: c.id, size: 8 }),
+  });
   const facts = [
     ["Email", c.email ?? "—"],
     ["Phone", c.phone ?? "—"],
@@ -56,13 +62,29 @@ export function ContactDetail({ contact: c, full = false }: { contact: Contact; 
           </div>
           <EditDeleteActions name={c.name} onEdit={() => setEditing(true)} onDelete={() => setDeleting(c)} />
         </div>
-        {(c.tags ?? []).length > 0 && <div className="mt-3"><TagList tags={c.tags ?? []} max={6} /></div>}
-        {!full && <Link href={`/contacts/${c.id}`} className="mt-3 inline-block text-[12px] font-medium text-brand hover:underline">Open full record →</Link>}
+        {(c.tags ?? []).length > 0 && (
+          <div className="mt-3">
+            <TagList tags={c.tags ?? []} max={6} />
+          </div>
+        )}
+        {!full && (
+          <Link
+            href={`/contacts/${c.id}`}
+            className="mt-3 inline-block text-[12px] font-medium text-brand hover:underline"
+          >
+            Open full record →
+          </Link>
+        )}
         {c.company && (
           <p className="mt-3 flex items-center gap-1 text-[12.5px] text-ink-3">
             <Building2 className="size-3.5" aria-hidden />
-            <Link href={`/companies/${c.company.id}`} className="hover:text-brand hover:underline">{c.company.name}</Link>
-            <button onClick={() => setEditingCompany(c.company)} className="ml-1 font-medium text-brand hover:underline">
+            <Link href={`/companies/${c.company.id}`} className="hover:text-brand hover:underline">
+              {c.company.name}
+            </Link>
+            <button
+              onClick={() => setEditingCompany(c.company)}
+              className="ml-1 font-medium text-brand hover:underline"
+            >
               Edit
             </button>
             <button onClick={() => setDeletingCompany(c.company)} className="font-medium text-down hover:underline">
@@ -108,7 +130,9 @@ export function ContactDetail({ contact: c, full = false }: { contact: Contact; 
       <Section title="Deals" empty="No deals yet." loading={deals.isPending} count={deals.data?.items.length ?? 0}>
         {deals.data?.items.map((d) => (
           <li key={d.id} className="flex items-center justify-between gap-3">
-            <Link href={`/deals/${d.id}`} className="min-w-0 truncate text-ink hover:text-brand hover:underline">{d.name}</Link>
+            <Link href={`/deals/${d.id}`} className="min-w-0 truncate text-ink hover:text-brand hover:underline">
+              {d.name}
+            </Link>
             <span className="flex shrink-0 items-center gap-2">
               <span className="tnum text-ink-2">{format(moneyValue(d.amount), d.amount.currency)}</span>
               <StageBadge stage={d.stageCode} />
@@ -117,7 +141,12 @@ export function ContactDetail({ contact: c, full = false }: { contact: Contact; 
         ))}
       </Section>
 
-      <Section title="Open follow-ups" empty="Nothing scheduled." loading={followUps.isPending} count={followUps.data?.items.length ?? 0}>
+      <Section
+        title="Open follow-ups"
+        empty="Nothing scheduled."
+        loading={followUps.isPending}
+        count={followUps.data?.items.length ?? 0}
+      >
         {followUps.data?.items.map((f) => (
           <li key={f.id} className="flex items-baseline justify-between gap-3">
             <span className="min-w-0 truncate text-ink">
@@ -130,7 +159,12 @@ export function ContactDetail({ contact: c, full = false }: { contact: Contact; 
         ))}
       </Section>
 
-      <Section title="Recent activity" empty="No activity logged yet." loading={history.isPending} count={history.data?.items.length ?? 0}>
+      <Section
+        title="Recent activity"
+        empty="No activity logged yet."
+        loading={history.isPending}
+        count={history.data?.items.length ?? 0}
+      >
         {history.data?.items.map((a) => (
           <li key={a.id}>
             <p className="flex items-baseline justify-between gap-3">

@@ -26,7 +26,11 @@ export function TeamView() {
 
   const q = query.trim().toLowerCase();
   const all = users.data ?? [];
-  const shown = all.filter((u) => (!role || u.role === role) && (!q || u.displayName.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)));
+  const shown = all.filter(
+    (u) =>
+      (!role || u.role === role) &&
+      (!q || u.displayName.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)),
+  );
   const count = (status: UserStatus) => all.filter((u) => u.status === status).length;
 
   return (

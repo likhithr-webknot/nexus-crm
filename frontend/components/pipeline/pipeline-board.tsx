@@ -72,7 +72,10 @@ export function PipelineBoard() {
 
   return (
     <Page>
-      <PageHeader title="Sales Pipeline" subtitle={`Track every deal from first contact to close. Totals in ${reportingCurrency}.`}>
+      <PageHeader
+        title="Sales Pipeline"
+        subtitle={`Track every deal from first contact to close. Totals in ${reportingCurrency}.`}
+      >
         <Link href="/settings?section=stages" className={buttonSecondary}>
           <Settings2 className="size-4" aria-hidden />
           Stage settings
@@ -86,7 +89,12 @@ export function PipelineBoard() {
       <Card className="flex flex-wrap items-center gap-x-8 gap-y-4 px-5 py-4">
         <PipelineFigures deals={visible} stages={board.stageByCode} />
         <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
-          <select aria-label="Owner" value={owner} onChange={(e) => setOwner(e.target.value)} className={cn(control, "px-2.5")}>
+          <select
+            aria-label="Owner"
+            value={owner}
+            onChange={(e) => setOwner(e.target.value)}
+            className={cn(control, "px-2.5")}
+          >
             <option value="">All owners</option>
             {(people.data ?? []).map((u) => (
               <option key={u.id} value={u.id}>
@@ -94,7 +102,12 @@ export function PipelineBoard() {
               </option>
             ))}
           </select>
-          <select aria-label="Sort cards" value={sort} onChange={(e) => setSort(e.target.value as SortOrder)} className={cn(control, "px-2.5")}>
+          <select
+            aria-label="Sort cards"
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortOrder)}
+            className={cn(control, "px-2.5")}
+          >
             <option value="value">Highest value first</option>
             <option value="recent">Newest first</option>
           </select>
@@ -102,44 +115,67 @@ export function PipelineBoard() {
       </Card>
 
       <p className="text-[12.5px] text-ink-3">
-        Drag a card to another stage, or focus it and press <kbd className="font-mono">←</kbd> <kbd className="font-mono">→</kbd>.
+        Drag a card to another stage, or focus it and press <kbd className="font-mono">←</kbd>{" "}
+        <kbd className="font-mono">→</kbd>.
       </p>
       <p className="sr-only" aria-live="polite">
         {announcement}
       </p>
 
-      <DndContext sensors={sensors} autoScroll onDragStart={(event) => setDragging(String(event.active.id))} onDragOver={(event) => setDropStage(event.over ? String(event.over.id) : null)} onDragCancel={() => { setDragging(null); setDropStage(null); }} onDragEnd={(event) => {
-        const dragged = board.deals.find((deal) => deal.id === String(event.active.id));
-        const target = event.over ? String(event.over.id) : null;
-        if (dragged && target && board.stageByCode.has(target)) requestMove(dragged, target);
-        setDragging(null);
-        setDropStage(null);
-      }}>
-      {/* Negative margins let the board scroll to the edge of the screen. */}
-      <div className="-mx-4 overflow-x-auto px-4 pb-3 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-        <div className="flex min-w-max gap-3">
-          {board.stages.map((stage, index) => (
-            <StageColumn
-              key={stage.code}
-              stage={stage}
-              deals={visible.filter((d) => d.stageCode === stage.code)}
-              sort={sort}
-              draggingId={dragging}
-              isDropTarget={dropStage === stage.code}
-              onCardOpen={setEditing}
-              onCardArrow={(deal, direction) => {
-                const target = board.stages[index + direction];
-                if (!target) return;
-                refocus.current = deal.id;
-                requestMove(deal, target.code);
-              }}
-            />
-          ))}
+      <DndContext
+        sensors={sensors}
+        autoScroll
+        onDragStart={(event) => setDragging(String(event.active.id))}
+        onDragOver={(event) => setDropStage(event.over ? String(event.over.id) : null)}
+        onDragCancel={() => {
+          setDragging(null);
+          setDropStage(null);
+        }}
+        onDragEnd={(event) => {
+          const dragged = board.deals.find((deal) => deal.id === String(event.active.id));
+          const target = event.over ? String(event.over.id) : null;
+          if (dragged && target && board.stageByCode.has(target)) requestMove(dragged, target);
+          setDragging(null);
+          setDropStage(null);
+        }}
+      >
+        {/* Negative margins let the board scroll to the edge of the screen. */}
+        <div className="-mx-4 overflow-x-auto px-4 pb-3 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+          <div className="flex min-w-max gap-3">
+            {board.stages.map((stage, index) => (
+              <StageColumn
+                key={stage.code}
+                stage={stage}
+                deals={visible.filter((d) => d.stageCode === stage.code)}
+                sort={sort}
+                draggingId={dragging}
+                isDropTarget={dropStage === stage.code}
+                onCardOpen={setEditing}
+                onCardArrow={(deal, direction) => {
+                  const target = board.stages[index + direction];
+                  if (!target) return;
+                  refocus.current = deal.id;
+                  requestMove(deal, target.code);
+                }}
+              />
+            ))}
+          </div>
         </div>
-      </div>
-      <DragOverlay dropAnimation={{ duration: 160, easing: "cubic-bezier(0.22,1,0.36,1)" }}>
-        {dragging && (() => { const deal = board.deals.find((item) => item.id === dragging); return deal ? <div className="w-[248px] rotate-[.3deg] scale-[1.02] rounded-lg border border-brand/30 bg-surface p-3 shadow-xl"><p className="truncate text-[11px] text-ink-3">{deal.name}</p><p className="mt-2 text-[13px] font-semibold">{deal.company.name}</p><p className="tnum mt-3 text-[14px] font-semibold">{deal.amount.amount} {deal.amount.currency}</p></div> : null; })()}
-      </DragOverlay>
+        <DragOverlay dropAnimation={{ duration: 160, easing: "cubic-bezier(0.22,1,0.36,1)" }}>
+          {dragging &&
+            (() => {
+              const deal = board.deals.find((item) => item.id === dragging);
+              return deal ? (
+                <div className="w-[248px] rotate-[.3deg] scale-[1.02] rounded-lg border border-brand/30 bg-surface p-3 shadow-xl">
+                  <p className="truncate text-[11px] text-ink-3">{deal.name}</p>
+                  <p className="mt-2 text-[13px] font-semibold">{deal.company.name}</p>
+                  <p className="tnum mt-3 text-[14px] font-semibold">
+                    {deal.amount.amount} {deal.amount.currency}
+                  </p>
+                </div>
+              ) : null;
+            })()}
+        </DragOverlay>
       </DndContext>
 
       <AddDealDialog open={adding} onClose={() => setAdding(false)} onAdded={board.refresh} />

@@ -7,7 +7,6 @@ import { KEYS } from "@/lib/query-keys";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
-
 /** Who changed what, newest first. */
 export function AuditSection() {
   const [page, setPage] = useState(1);

@@ -8,7 +8,10 @@ const WIDTHS = { md: "max-w-[560px]", lg: "max-w-[760px]", xl: "max-w-[min(1180p
 
 /** True when the event happened in something layered above the drawer: a dialog, a menu, a toast. */
 function inLayerAbove(target: EventTarget | null) {
-  return target instanceof Element && Boolean(target.closest('dialog, [role="dialog"], [role="menu"], [role="listbox"], [role="status"]'));
+  return (
+    target instanceof Element &&
+    Boolean(target.closest('dialog, [role="dialog"], [role="menu"], [role="listbox"], [role="status"]'))
+  );
 }
 
 /**
@@ -45,7 +48,12 @@ export function Drawer({
         <div
           aria-hidden
           onClick={onClose}
-          className={cn("fixed inset-0 z-40 bg-scrim", open ? "animate-[fade-in_var(--duration-dialog)_ease-out]" : "animate-[fade-out_var(--duration-menu)_var(--ease-exit)]")}
+          className={cn(
+            "fixed inset-0 z-40 bg-scrim",
+            open
+              ? "animate-[fade-in_var(--duration-dialog)_ease-out]"
+              : "animate-[fade-out_var(--duration-menu)_var(--ease-exit)]",
+          )}
         />
         <Dialog.Content
           aria-describedby={undefined}
@@ -64,12 +72,19 @@ export function Drawer({
               {subtitle && <div className="mt-0.5 truncate text-[12.5px] text-ink-3">{subtitle}</div>}
             </div>
             {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
-            <Dialog.Close aria-label="Close" className="-mr-1.5 grid size-8 shrink-0 place-items-center rounded-md text-ink-3 hover:bg-surface-muted hover:text-ink">
+            <Dialog.Close
+              aria-label="Close"
+              className="-mr-1.5 grid size-8 shrink-0 place-items-center rounded-md text-ink-3 hover:bg-surface-muted hover:text-ink"
+            >
               <X className="size-4" aria-hidden />
             </Dialog.Close>
           </header>
           <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">{children}</div>
-          {footer && <footer className="flex shrink-0 justify-end gap-2 border-t border-line bg-surface px-5 py-3.5">{footer}</footer>}
+          {footer && (
+            <footer className="flex shrink-0 justify-end gap-2 border-t border-line bg-surface px-5 py-3.5">
+              {footer}
+            </footer>
+          )}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

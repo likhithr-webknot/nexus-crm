@@ -4,9 +4,19 @@ import { cn } from "@/lib/format";
 export function FollowUpTiles({ summary }: { summary: FollowUpSummary | undefined }) {
   const overdue = summary?.overdue ?? 0;
   const tiles = [
-    { label: "Today", note: `${summary?.todayRemaining ?? 0} remaining`, value: summary?.today ?? 0, bar: "tone-solid tone-sky" },
+    {
+      label: "Today",
+      note: `${summary?.todayRemaining ?? 0} remaining`,
+      value: summary?.today ?? 0,
+      bar: "tone-solid tone-sky",
+    },
     { label: "Upcoming", note: "Next 7 days", value: summary?.upcoming ?? 0, bar: "tone-solid tone-violet" },
-    { label: "Overdue", note: overdue ? "Needs attention" : "All caught up", value: overdue, bar: "tone-solid tone-red" },
+    {
+      label: "Overdue",
+      note: overdue ? "Needs attention" : "All caught up",
+      value: overdue,
+      bar: "tone-solid tone-red",
+    },
     { label: "Completed", note: "This month", value: summary?.completedThisMonth ?? 0, bar: "tone-solid tone-green" },
   ];
 

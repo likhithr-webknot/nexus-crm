@@ -35,7 +35,15 @@ function Sparkline({ data, positive }: { data: number[]; positive: boolean }) {
       className="h-7 w-12 shrink-0 @[176px]:w-[72px]"
     >
       <path d={`${line}L${w},${h}L0,${h}Z`} fill={color} opacity={0.08} />
-      <path d={line} fill="none" stroke={color} strokeWidth={1.75} vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d={line}
+        fill="none"
+        stroke={color}
+        strokeWidth={1.75}
+        vectorEffect="non-scaling-stroke"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -48,7 +56,8 @@ export function KpiCard({ kpi, className }: { kpi: Kpi; className?: string }) {
   const counted = useCountUp(kpi.value);
   const decimals = Number.isInteger(kpi.value) ? 0 : 1;
   const value = money
-    ? ((kpi.id === "revenue" ? formatCompactReporting(counted, "INR") : formatReporting(Math.round(counted), "INR")) ?? "—")
+    ? ((kpi.id === "revenue" ? formatCompactReporting(counted, "INR") : formatReporting(Math.round(counted), "INR")) ??
+      "—")
     : kpi.id === "conversion"
       ? `${counted.toFixed(decimals)}%`
       : Math.round(counted).toLocaleString("en-US");
@@ -63,7 +72,12 @@ export function KpiCard({ kpi, className }: { kpi: Kpi; className?: string }) {
     <div className={cn("@container rounded-xl border border-line bg-surface px-4 py-3.5", className)}>
       <p className="truncate text-[12.5px] font-medium text-ink-2">{info.label}</p>
       <div className="mt-2 flex items-end justify-between gap-2">
-        <p className="tnum text-[24px] leading-none font-semibold tracking-[-0.02em] text-ink" aria-label={`${info.label}: ${value}`}>{value}</p>
+        <p
+          className="tnum text-[24px] leading-none font-semibold tracking-[-0.02em] text-ink"
+          aria-label={`${info.label}: ${value}`}
+        >
+          {value}
+        </p>
         <Sparkline data={trend} positive={good} />
       </div>
       <p className="mt-2.5 flex items-center gap-1 overflow-hidden text-[12px] whitespace-nowrap text-ink-3">

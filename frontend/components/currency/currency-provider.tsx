@@ -72,7 +72,13 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   // The API gives each rate as "1 unit = N INR". The conversion works with "units per INR", so invert them.
   const rateState = useMemo<RateState>(() => {
     if (ratesQuery.isError) {
-      return { status: "error", rates: null, updatedAt: null, stale: false, error: "The server could not provide exchange rates." };
+      return {
+        status: "error",
+        rates: null,
+        updatedAt: null,
+        stale: false,
+        error: "The server could not provide exchange rates.",
+      };
     }
     if (!ratesQuery.data) return { status: "loading", rates: null, updatedAt: null, stale: false, error: null };
     const base = currenciesQuery.data?.find((c) => c.base)?.code ?? DEFAULT_REPORTING_CURRENCY;
@@ -81,7 +87,11 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
       const perBase = 1 / Number(rate.rateToBase);
       if (Number.isFinite(perBase) && perBase > 0) rates[rate.currency] = perBase;
     }
-    const newest = ratesQuery.data.map((r) => r.rateDate).sort().at(-1) ?? "";
+    const newest =
+      ratesQuery.data
+        .map((r) => r.rateDate)
+        .sort()
+        .at(-1) ?? "";
     return { status: "ready", rates, updatedAt: newest, stale: ratesQuery.data.some((r) => r.stale), error: null };
   }, [ratesQuery.data, ratesQuery.isError, currenciesQuery.data]);
   const currencies = useMemo(() => (currenciesQuery.data ?? []).filter((c) => c.enabled), [currenciesQuery.data]);

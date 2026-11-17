@@ -32,7 +32,9 @@ export function Logo({ tone = "light", wordmark = true }: { tone?: "light" | "da
       <Mark label={wordmark ? undefined : "Nexus CRM"} />
       {wordmark && (
         <span className="flex items-center gap-2">
-          <span className={cn("text-[17px] font-semibold tracking-[-0.03em]", tone === "dark" ? "text-white" : "text-ink")}>
+          <span
+            className={cn("text-[17px] font-semibold tracking-[-0.03em]", tone === "dark" ? "text-white" : "text-ink")}
+          >
             Nexus
           </span>
           <span

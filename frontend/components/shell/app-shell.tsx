@@ -108,7 +108,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             aria-label="Navigation"
             onKeyDown={(event) => event.key === "Escape" && setMobileOpen(false)}
           >
-            <button aria-label="Close navigation" className="absolute inset-0 animate-[fade-in_var(--duration-menu)_ease-out] bg-scrim" onClick={() => setMobileOpen(false)} />
+            <button
+              aria-label="Close navigation"
+              className="absolute inset-0 animate-[fade-in_var(--duration-menu)_ease-out] bg-scrim"
+              onClick={() => setMobileOpen(false)}
+            />
             <div className="relative h-full w-[272px] max-w-[85vw] animate-[drawer-left-in_var(--duration-sidebar)_var(--ease-enter)] shadow-2xl">
               <Sidebar collapsed={false} onClose={() => setMobileOpen(false)} />
             </div>
@@ -118,7 +122,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="flex min-w-0 flex-1 flex-col">
           <Topbar onOpenNav={() => setMobileOpen(true)} />
           {rateState.status === "error" && (
-            <div role="alert" className="tone-amber border-b border-[var(--tone-line)] bg-[var(--tone-bg)] px-4 py-2 text-[12.5px] text-[var(--tone-ink)] sm:px-6">
+            <div
+              role="alert"
+              className="tone-amber border-b border-[var(--tone-line)] bg-[var(--tone-bg)] px-4 py-2 text-[12.5px] text-[var(--tone-ink)] sm:px-6"
+            >
               Exchange rates could not be loaded; converted totals are hidden.{" "}
               <Link href="/settings?section=currency" className="font-semibold underline">
                 Check currency settings

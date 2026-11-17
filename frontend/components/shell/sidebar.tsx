@@ -11,7 +11,18 @@ import { KEYS } from "@/lib/query-keys";
 import { goToKeys, openPalette, openShortcuts, useModKey } from "@/lib/shortcuts";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronRight, ChevronsUpDown, Keyboard, LogOut, PanelLeftClose, PanelLeftOpen, Search, Settings, Users, X } from "lucide-react";
+import {
+  ChevronRight,
+  ChevronsUpDown,
+  Keyboard,
+  LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Search,
+  Settings,
+  Users,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -66,7 +77,9 @@ export function Sidebar({
 
   const [closedGroups, setClosedGroups] = useState<string[]>(readClosedGroups);
   const toggleGroup = (group: string) => {
-    const next = closedGroups.includes(group) ? closedGroups.filter((item) => item !== group) : [...closedGroups, group];
+    const next = closedGroups.includes(group)
+      ? closedGroups.filter((item) => item !== group)
+      : [...closedGroups, group];
     setClosedGroups(next);
     try {
       localStorage.setItem(CLOSED_GROUPS_KEY, JSON.stringify(next));
@@ -78,7 +91,11 @@ export function Sidebar({
       <div className="flex h-14 shrink-0 items-center px-3">
         <WorkspaceMenu collapsed={collapsed} />
         {onClose && (
-          <button onClick={onClose} aria-label="Close navigation" className="ml-1 grid size-8 shrink-0 place-items-center rounded-md hover:bg-side-hover hover:text-side-ink-strong">
+          <button
+            onClick={onClose}
+            aria-label="Close navigation"
+            className="ml-1 grid size-8 shrink-0 place-items-center rounded-md hover:bg-side-hover hover:text-side-ink-strong"
+          >
             <X className="size-4" aria-hidden />
           </button>
         )}
@@ -88,13 +105,23 @@ export function Sidebar({
         <Tooltip label="Search" keys={[mod, "K"]} side="right" disabled={!collapsed}>
           <button
             onClick={openPalette}
-            className={cn(row, rowIdle, !collapsed && "bg-side-active/70 shadow-[inset_0_0_0_1px_var(--side-line)] hover:bg-side-active")}
+            className={cn(
+              row,
+              rowIdle,
+              !collapsed && "bg-side-active/70 shadow-[inset_0_0_0_1px_var(--side-line)] hover:bg-side-active",
+            )}
           >
             <span className={iconBox}>
               <Search className="size-4" aria-hidden />
             </span>
             <span className={cn(labelClass(collapsed), "font-normal")}>Search</span>
-            <span className={cn("mr-2 flex shrink-0 gap-0.5 transition-opacity duration-100", collapsed ? "opacity-0" : "opacity-100 delay-75")} aria-hidden>
+            <span
+              className={cn(
+                "mr-2 flex shrink-0 gap-0.5 transition-opacity duration-100",
+                collapsed ? "opacity-0" : "opacity-100 delay-75",
+              )}
+              aria-hidden
+            >
               <kbd className="kbd">{mod}</kbd>
               <kbd className="kbd">K</kbd>
             </span>
@@ -119,15 +146,23 @@ export function Sidebar({
                   tabIndex={collapsed ? -1 : 0}
                   className={cn(
                     "flex h-7 w-full items-center gap-1 rounded-md pr-2 pl-3 text-[11px] font-medium tracking-[0.04em] text-side-ink uppercase -outline-offset-2 transition-opacity hover:text-side-ink-strong",
-                    collapsed ? "pointer-events-none opacity-0 duration-100" : "opacity-80 delay-75 duration-150 hover:opacity-100",
+                    collapsed
+                      ? "pointer-events-none opacity-0 duration-100"
+                      : "opacity-80 delay-75 duration-150 hover:opacity-100",
                   )}
                 >
                   <span className="whitespace-nowrap">{group}</span>
-                  <ChevronRight className={cn("size-3 transition-transform duration-[var(--duration-menu)]", open && "rotate-90")} aria-hidden />
+                  <ChevronRight
+                    className={cn("size-3 transition-transform duration-[var(--duration-menu)]", open && "rotate-90")}
+                    aria-hidden
+                  />
                 </button>
                 {/* Collapsed: a hairline stands in for the heading, so groups stay readable. */}
                 <span
-                  className={cn("pointer-events-none absolute inset-x-2 top-1/2 h-px bg-side-line transition-opacity duration-150", collapsed && index > 0 ? "opacity-100" : "opacity-0")}
+                  className={cn(
+                    "pointer-events-none absolute inset-x-2 top-1/2 h-px bg-side-line transition-opacity duration-150",
+                    collapsed && index > 0 ? "opacity-100" : "opacity-0",
+                  )}
                   aria-hidden
                 />
               </div>
@@ -135,7 +170,10 @@ export function Sidebar({
               <div
                 id={listId}
                 inert={!open}
-                className={cn("grid transition-[grid-template-rows] duration-[var(--duration-sidebar)] ease-[var(--ease-move)]", open ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}
+                className={cn(
+                  "grid transition-[grid-template-rows] duration-[var(--duration-sidebar)] ease-[var(--ease-move)]",
+                  open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+                )}
               >
                 <ul className="min-h-0 space-y-px overflow-hidden">
                   {groupItems.map((item) => (
@@ -154,8 +192,18 @@ export function Sidebar({
         <UserRow collapsed={collapsed} />
         {onToggleCollapsed && (
           <Tooltip label={collapsed ? "Expand sidebar" : "Collapse sidebar"} keys={["["]} side="right">
-            <button onClick={onToggleCollapsed} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} className={cn(row, rowIdle, "mt-1")}>
-              <span className={iconBox}>{collapsed ? <PanelLeftOpen className="size-4" aria-hidden /> : <PanelLeftClose className="size-4" aria-hidden />}</span>
+            <button
+              onClick={onToggleCollapsed}
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              className={cn(row, rowIdle, "mt-1")}
+            >
+              <span className={iconBox}>
+                {collapsed ? (
+                  <PanelLeftOpen className="size-4" aria-hidden />
+                ) : (
+                  <PanelLeftClose className="size-4" aria-hidden />
+                )}
+              </span>
               <span className={cn(labelClass(collapsed), "font-normal")} aria-hidden>
                 Collapse
               </span>
@@ -167,27 +215,56 @@ export function Sidebar({
   );
 }
 
-function NavLink({ item, active, collapsed, count }: { item: NavItem; active: boolean; collapsed: boolean; count?: number }) {
+function NavLink({
+  item,
+  active,
+  collapsed,
+  count,
+}: {
+  item: NavItem;
+  active: boolean;
+  collapsed: boolean;
+  count?: number;
+}) {
   const Icon = item.icon;
   return (
     <Tooltip label={item.label} keys={goToKeys(item.href)} side="right" disabled={!collapsed}>
       <Link
         href={item.href}
         aria-current={active ? "page" : undefined}
-        className={cn(row, active ? "bg-side-active text-side-ink-strong shadow-[inset_0_0_0_1px_var(--side-line)]" : rowIdle)}
+        className={cn(
+          row,
+          active ? "bg-side-active text-side-ink-strong shadow-[inset_0_0_0_1px_var(--side-line)]" : rowIdle,
+        )}
       >
-        {active && <span className="absolute inset-y-2 left-0 w-[2px] origin-center animate-[indicator-in_var(--duration-menu)_var(--ease-enter)] rounded-full bg-side-accent" aria-hidden />}
+        {active && (
+          <span
+            className="absolute inset-y-2 left-0 w-[2px] origin-center animate-[indicator-in_var(--duration-menu)_var(--ease-enter)] rounded-full bg-side-accent"
+            aria-hidden
+          />
+        )}
         <span className={iconBox}>
           <Icon className={cn("size-4", active && "text-side-accent")} aria-hidden />
         </span>
         <span className={labelClass(collapsed)}>{item.label}</span>
         {count != null && count > 0 && (
           <>
-            <span className={cn("tnum mr-2 shrink-0 rounded px-1.5 text-[11px] leading-5 text-side-ink transition-opacity duration-100", collapsed ? "opacity-0" : "opacity-100 delay-75")}>
+            <span
+              className={cn(
+                "tnum mr-2 shrink-0 rounded px-1.5 text-[11px] leading-5 text-side-ink transition-opacity duration-100",
+                collapsed ? "opacity-0" : "opacity-100 delay-75",
+              )}
+            >
               {count}
               <span className="sr-only"> active</span>
             </span>
-            <span className={cn("absolute top-1.5 left-[26px] size-1.5 rounded-full bg-side-accent transition-opacity duration-150", collapsed ? "opacity-100" : "opacity-0")} aria-hidden />
+            <span
+              className={cn(
+                "absolute top-1.5 left-[26px] size-1.5 rounded-full bg-side-accent transition-opacity duration-150",
+                collapsed ? "opacity-100" : "opacity-0",
+              )}
+              aria-hidden
+            />
           </>
         )}
       </Link>
@@ -197,15 +274,29 @@ function NavLink({ item, active, collapsed, count }: { item: NavItem; active: bo
 
 /** The workspace name, with the places an admin goes to manage it. There is one workspace, so nothing to switch. */
 function WorkspaceMenu({ collapsed }: { collapsed: boolean }) {
-  const item = "flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] text-ink-2 outline-none data-[highlighted]:bg-canvas data-[highlighted]:text-ink";
+  const item =
+    "flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] text-ink-2 outline-none data-[highlighted]:bg-canvas data-[highlighted]:text-ink";
   return (
     <DropdownMenu.Root>
-      <DropdownMenu.Trigger aria-label="Workspace menu" className={cn(row, "h-10 hover:bg-side-hover data-[state=open]:bg-side-hover")}>
+      <DropdownMenu.Trigger
+        aria-label="Workspace menu"
+        className={cn(row, "h-10 hover:bg-side-hover data-[state=open]:bg-side-hover")}
+      >
         <span className="grid h-10 w-10 shrink-0 place-items-center">
           <Logo wordmark={false} />
         </span>
-        <span className={cn(labelClass(collapsed), "text-[14px] font-semibold tracking-[-0.01em] text-side-ink-strong")}>Nexus CRM</span>
-        <ChevronsUpDown className={cn("mr-2 size-3.5 shrink-0 transition-opacity duration-100", collapsed ? "opacity-0" : "opacity-60 delay-75")} aria-hidden />
+        <span
+          className={cn(labelClass(collapsed), "text-[14px] font-semibold tracking-[-0.01em] text-side-ink-strong")}
+        >
+          Nexus CRM
+        </span>
+        <ChevronsUpDown
+          className={cn(
+            "mr-2 size-3.5 shrink-0 transition-opacity duration-100",
+            collapsed ? "opacity-0" : "opacity-60 delay-75",
+          )}
+          aria-hidden
+        />
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content
@@ -213,7 +304,9 @@ function WorkspaceMenu({ collapsed }: { collapsed: boolean }) {
           sideOffset={6}
           className="z-50 w-56 origin-[var(--radix-dropdown-menu-content-transform-origin)] rounded-xl border border-line bg-surface p-1.5 text-ink shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)] data-[state=open]:animate-[menu-in_var(--duration-menu)_var(--ease-enter)]"
         >
-          <DropdownMenu.Label className="px-2 py-1.5 text-[11px] font-medium tracking-[0.04em] text-ink-3 uppercase">Workspace</DropdownMenu.Label>
+          <DropdownMenu.Label className="px-2 py-1.5 text-[11px] font-medium tracking-[0.04em] text-ink-3 uppercase">
+            Workspace
+          </DropdownMenu.Label>
           <DropdownMenu.Item asChild>
             <Link href="/settings" className={item}>
               <Settings className="size-4" aria-hidden /> Settings
@@ -254,7 +347,10 @@ function UserRow({ collapsed }: { collapsed: boolean }) {
           onClick={() => signOut()}
           disabled={pending || collapsed}
           aria-label="Sign out"
-          className={cn("grid size-8 shrink-0 place-items-center rounded-md transition-opacity duration-100 hover:bg-side-hover hover:text-side-ink-strong disabled:opacity-50", collapsed && "pointer-events-none !opacity-0")}
+          className={cn(
+            "grid size-8 shrink-0 place-items-center rounded-md transition-opacity duration-100 hover:bg-side-hover hover:text-side-ink-strong disabled:opacity-50",
+            collapsed && "pointer-events-none !opacity-0",
+          )}
         >
           <LogOut className="size-4" aria-hidden />
         </button>

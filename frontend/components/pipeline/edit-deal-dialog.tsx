@@ -14,7 +14,17 @@ import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 
 /** Changes a deal's details. Moving it between stages is done on the board. */
-export function EditDealDialog({ deal, onClose, onSaved, onDelete }: { deal: Deal | null; onClose: () => void; onSaved: () => void; onDelete: (deal: Deal) => void }) {
+export function EditDealDialog({
+  deal,
+  onClose,
+  onSaved,
+  onDelete,
+}: {
+  deal: Deal | null;
+  onClose: () => void;
+  onSaved: () => void;
+  onDelete: (deal: Deal) => void;
+}) {
   const { currencies } = useCurrency();
   const owners = useOwnerOptions(deal !== null);
   const contacts = useContactOptions(deal !== null);
@@ -63,13 +73,35 @@ export function EditDealDialog({ deal, onClose, onSaved, onDelete }: { deal: Dea
       }}
     >
       <Field label="Deal name" className="sm:col-span-2">
-        <input name="name" required maxLength={160} defaultValue={deal?.name} autoComplete="off" className={fieldControl} />
+        <input
+          name="name"
+          required
+          maxLength={160}
+          defaultValue={deal?.name}
+          autoComplete="off"
+          className={fieldControl}
+        />
       </Field>
       <Field label="Value">
-        <input name="value" type="number" required min={0} step="any" inputMode="decimal" defaultValue={deal ? moneyValue(deal.amount) : ""} onChange={(e) => e.currentTarget.setCustomValidity("")} className={fieldControl} />
+        <input
+          name="value"
+          type="number"
+          required
+          min={0}
+          step="any"
+          inputMode="decimal"
+          defaultValue={deal ? moneyValue(deal.amount) : ""}
+          onChange={(e) => e.currentTarget.setCustomValidity("")}
+          className={fieldControl}
+        />
       </Field>
       <Field label="Currency">
-        <select name="currency" defaultValue={deal?.amount.currency} disabled={Boolean(deal?.closedAt)} className={fieldControl}>
+        <select
+          name="currency"
+          defaultValue={deal?.amount.currency}
+          disabled={Boolean(deal?.closedAt)}
+          className={fieldControl}
+        >
           {currencies.map(({ code, name }) => (
             <option key={code} value={code}>
               {code} — {name}
@@ -101,7 +133,11 @@ export function EditDealDialog({ deal, onClose, onSaved, onDelete }: { deal: Dea
         <input name="close" type="date" defaultValue={deal?.expectedCloseDate ?? ""} className={fieldControl} />
       </Field>
       <div className="flex items-end">
-        <button type="button" className={buttonSecondary + " text-down"} onClick={() => deal && (close(), onDelete(deal))}>
+        <button
+          type="button"
+          className={buttonSecondary + " text-down"}
+          onClick={() => deal && (close(), onDelete(deal))}
+        >
           Delete deal
         </button>
       </div>

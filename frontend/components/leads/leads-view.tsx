@@ -35,7 +35,8 @@ export function LeadsView() {
   const [deleting, setDeleting] = useState<Lead | null>(null);
   const refresh = useRefresh();
 
-  const { view, filters, page, setPage, apiFilters, update, changeView, clearAll, active, apply, saveable } = useLeadFilters();
+  const { view, filters, page, setPage, apiFilters, update, changeView, clearAll, active, apply, saveable } =
+    useLeadFilters();
   const list = useLeadList(apiFilters, page, PAGE_SIZE);
   const summary = useLeadSummary();
   const people = useAssignableUsers();
@@ -69,7 +70,8 @@ export function LeadsView() {
         title="Leads"
         subtitle={
           <>
-            Manage and nurture your <span className="tnum font-semibold text-ink">{summary.data?.active ?? "…"} active leads</span>.
+            Manage and nurture your{" "}
+            <span className="tnum font-semibold text-ink">{summary.data?.active ?? "…"} active leads</span>.
           </>
         }
       >
@@ -101,7 +103,13 @@ export function LeadsView() {
           onApplyView={apply}
         />
 
-        {count > 0 && <LeadBulkBar ids={[...selection.selected.keys()]} onClear={selection.clear} onDelete={() => setDialog("delete")} />}
+        {count > 0 && (
+          <LeadBulkBar
+            ids={[...selection.selected.keys()]}
+            onClear={selection.clear}
+            onDelete={() => setDialog("delete")}
+          />
+        )}
 
         {list.isError && !list.data ? (
           <div className="border-t border-line">
@@ -111,7 +119,11 @@ export function LeadsView() {
           <LoadingNote what="leads" />
         ) : rows.length === 0 ? (
           <div className="border-t border-line">
-            <EmptyState icon={SearchX} title="No leads match these filters" body="Try a different search, or clear the filters to see every lead.">
+            <EmptyState
+              icon={SearchX}
+              title="No leads match these filters"
+              body="Try a different search, or clear the filters to see every lead."
+            >
               <button onClick={clearAll} className={buttonSecondary}>
                 Clear all filters
               </button>

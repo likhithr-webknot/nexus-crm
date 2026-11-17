@@ -23,7 +23,9 @@ export function useChangeTags(kind: TagKind, onDone?: () => void) {
   return useMutation({
     mutationFn: (v: { ids: string[]; add?: string[]; remove?: string[] }) => tagRecords(kind, v),
     onSuccess: (r, v) => {
-      toast(`${v.add?.length ? "Tag added to" : "Tag removed from"} ${r.count === 1 ? "1 record" : `${r.count} records`}.`);
+      toast(
+        `${v.add?.length ? "Tag added to" : "Tag removed from"} ${r.count === 1 ? "1 record" : `${r.count} records`}.`,
+      );
       void refresh(AFTER.tag);
       onDone?.();
     },

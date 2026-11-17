@@ -83,7 +83,9 @@ function MailboxCard() {
             </button>
           </p>
         ) : !status.data.configured ? (
-          <p className="text-ink-2">Mail setup is incomplete. An admin must configure the redirect URI and encryption key on the server.</p>
+          <p className="text-ink-2">
+            Mail setup is incomplete. An admin must configure the redirect URI and encryption key on the server.
+          </p>
         ) : status.data.connected ? (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p>
@@ -104,7 +106,8 @@ function MailboxCard() {
           </p>
         )}
         <p className="mt-4 text-[12px] text-ink-3">
-          If Google says access is blocked while the app is in Testing, an owner of the Google Cloud OAuth app must add your address to its test-user list.
+          If Google says access is blocked while the app is in Testing, an owner of the Google Cloud OAuth app must add
+          your address to its test-user list.
         </p>
       </div>
     </Card>
@@ -142,7 +145,10 @@ function SignatureCard() {
       return;
     }
     void run(async () => {
-      await api("/mail/banner", { method: "POST", body: JSON.stringify({ imageBase64: await readBase64(file), kind, companyName }) });
+      await api("/mail/banner", {
+        method: "POST",
+        body: JSON.stringify({ imageBase64: await readBase64(file), kind, companyName }),
+      });
       setChosenKind(null);
       setCompany(null);
       toast(kind === "logo" ? "Signature generated from your logo." : "Banner saved.");
@@ -165,17 +171,33 @@ function SignatureCard() {
           <p>Hi Priya,</p>
           <p className="mt-2">Thanks for your time today. I&apos;ve attached the proposal we discussed.</p>
           {banner.isPending ? (
-            <div className="mt-6 h-[130px] w-full max-w-[520px] animate-pulse rounded-lg bg-[#f1f3f6] motion-reduce:animate-none" role="status" aria-label="Loading signature" />
+            <div
+              className="mt-6 h-[130px] w-full max-w-[520px] animate-pulse rounded-lg bg-[#f1f3f6] motion-reduce:animate-none"
+              role="status"
+              aria-label="Loading signature"
+            />
           ) : banner.data?.previewDataUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- a data URL from our own server
-            <img src={banner.data.previewDataUrl} alt="Your email signature" className="mt-6 w-full max-w-[520px] rounded-lg" />
+            <img
+              src={banner.data.previewDataUrl}
+              alt="Your email signature"
+              className="mt-6 w-full max-w-[520px] rounded-lg"
+            />
           ) : (
             <p className="mt-6 max-w-[520px] rounded-lg border border-dashed border-[#d7dce3] px-4 py-6 text-center text-[12.5px] text-[#68707d]">
-              {banner.isError ? "The signature could not be loaded." : admin ? "No signature yet. Add one below." : "No signature has been set up. Ask an admin to add one."}
+              {banner.isError
+                ? "The signature could not be loaded."
+                : admin
+                  ? "No signature yet. Add one below."
+                  : "No signature has been set up. Ask an admin to add one."}
             </p>
           )}
         </div>
-        {banner.data?.kind === "logo" && <p className="mt-2 text-[12px] text-ink-3">Your name and designation come from your profile. Change them under Settings → Profile.</p>}
+        {banner.data?.kind === "logo" && (
+          <p className="mt-2 text-[12px] text-ink-3">
+            Your name and designation come from your profile. Change them under Settings → Profile.
+          </p>
+        )}
       </div>
 
       {admin && (
@@ -204,7 +226,13 @@ function SignatureCard() {
 
           {kind === "logo" && (
             <Field label="Company name" optional hint="Shown under the sender's name.">
-              <input value={companyName} onChange={(event) => setCompany(event.target.value)} maxLength={80} placeholder="Webknot Technologies" className={cn(fieldControl, "max-w-sm")} />
+              <input
+                value={companyName}
+                onChange={(event) => setCompany(event.target.value)}
+                maxLength={80}
+                placeholder="Webknot Technologies"
+                className={cn(fieldControl, "max-w-sm")}
+              />
             </Field>
           )}
 
@@ -256,12 +284,20 @@ function InboxCard() {
   const turnOff = useMutation({
     mutationFn: () => turnOffInbox(deleteImported),
     onSuccess: () => {
-      toast(deleteImported ? "Inbox sync is off and the copied emails were deleted." : "Inbox sync is off. Emails already copied stay on their records.");
+      toast(
+        deleteImported
+          ? "Inbox sync is off and the copied emails were deleted."
+          : "Inbox sync is off. Emails already copied stay on their records.",
+      );
       setDeleteImported(false);
       void refresh([KEYS.inbox, KEYS.emails, ["mail-status"]]);
     },
   });
-  const error = connect.isError ? errorMessage(connect.error, "The connection could not start.") : turnOff.isError ? errorMessage(turnOff.error) : null;
+  const error = connect.isError
+    ? errorMessage(connect.error, "The connection could not start.")
+    : turnOff.isError
+      ? errorMessage(turnOff.error)
+      : null;
   const data = status.data;
 
   return (
@@ -278,7 +314,9 @@ function InboxCard() {
             </button>
           </p>
         ) : !data.configured ? (
-          <p className="text-ink-2">Google setup is incomplete. An admin must configure the Google client and encryption key on the server.</p>
+          <p className="text-ink-2">
+            Google setup is incomplete. An admin must configure the Google client and encryption key on the server.
+          </p>
         ) : data.connected ? (
           <>
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -286,7 +324,11 @@ function InboxCard() {
                 <span className="text-ink-3">Reading</span> <span className="font-medium">{data.email}</span>
                 <span className="tnum ml-2 text-[12px] text-ink-3">
                   {data.imported} {data.imported === 1 ? "email" : "emails"} copied
-                  {data.backfilling ? " · reading the last 30 days…" : data.lastSyncedAt ? ` · last checked ${new Date(data.lastSyncedAt).toLocaleString()}` : ""}
+                  {data.backfilling
+                    ? " · reading the last 30 days…"
+                    : data.lastSyncedAt
+                      ? ` · last checked ${new Date(data.lastSyncedAt).toLocaleString()}`
+                      : ""}
                 </span>
               </p>
               <button onClick={() => turnOff.mutate()} disabled={turnOff.isPending} className={buttonSecondary}>
@@ -295,7 +337,12 @@ function InboxCard() {
               </button>
             </div>
             <label className="flex items-center gap-2 text-[12.5px] text-ink-2">
-              <input type="checkbox" checked={deleteImported} onChange={(e) => setDeleteImported(e.target.checked)} className="accent-brand" />
+              <input
+                type="checkbox"
+                checked={deleteImported}
+                onChange={(e) => setDeleteImported(e.target.checked)}
+                className="accent-brand"
+              />
               When turning off, also delete the emails already copied from my mailbox
             </label>
             {data.lastError && (
@@ -306,7 +353,11 @@ function InboxCard() {
           </>
         ) : (
           <div className="space-y-2">
-            {data.needsReconnect && <p className="text-[12.5px] text-down">Google no longer accepts the saved permission. Connect again to resume.</p>}
+            {data.needsReconnect && (
+              <p className="text-[12.5px] text-down">
+                Google no longer accepts the saved permission. Connect again to resume.
+              </p>
+            )}
             <button onClick={() => connect.mutate()} disabled={connect.isPending} className={buttonPrimary}>
               <Inbox className="size-4" aria-hidden />
               {connect.isPending ? "Connecting…" : data.needsReconnect ? "Reconnect inbox sync" : "Turn on inbox sync"}
@@ -320,11 +371,20 @@ function InboxCard() {
         )}
         <ul className="list-disc space-y-1 pl-5 text-[12.5px] text-ink-3">
           <li>Read-only: the CRM can never send, change or delete anything in your mailbox with this permission.</li>
-          <li>Only emails to or from someone who is already a contact or lead are kept. Everything else is ignored and not stored. Spam, trash and drafts are skipped.</li>
-          <li>What is kept: the subject, who it was from and to, the date, and Gmail&apos;s short preview. Not the full message or attachments.</li>
+          <li>
+            Only emails to or from someone who is already a contact or lead are kept. Everything else is ignored and not
+            stored. Spam, trash and drafts are skipped.
+          </li>
+          <li>
+            What is kept: the subject, who it was from and to, the date, and Gmail&apos;s short preview. Not the full
+            message or attachments.
+          </li>
           <li>Anyone who can open that contact or lead can see these emails, including those from your mailbox.</li>
           <li>Starts with the last 30 days, then checks every few minutes.</li>
-          <li>Google treats reading mail as a sensitive permission. While the Google app is in Testing, an owner of the Google Cloud project must add your address as a test user.</li>
+          <li>
+            Google treats reading mail as a sensitive permission. While the Google app is in Testing, an owner of the
+            Google Cloud project must add your address as a test user.
+          </li>
         </ul>
       </div>
     </Card>

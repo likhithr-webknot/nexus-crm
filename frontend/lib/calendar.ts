@@ -27,4 +27,5 @@ export function monthGrid({ year, month }: Month): Cell[] {
   });
 }
 
-export const addDays = (iso: string, by: number) => new Date(Date.parse(iso) + by * 86_400_000).toISOString().slice(0, 10);
+export const addDays = (iso: string, by: number) =>
+  new Date(Date.parse(iso) + by * 86_400_000).toISOString().slice(0, 10);

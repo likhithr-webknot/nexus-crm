@@ -31,7 +31,16 @@ type Key = readonly string[];
 
 /** What goes stale after each kind of change. A screen names the change, not the keys. */
 export const AFTER = {
-  lead: [KEYS.leads, KEYS.leadSummary, KEYS.deals, KEYS.pipeline, KEYS.contacts, KEYS.dashboard, KEYS.overview, KEYS.activities],
+  lead: [
+    KEYS.leads,
+    KEYS.leadSummary,
+    KEYS.deals,
+    KEYS.pipeline,
+    KEYS.contacts,
+    KEYS.dashboard,
+    KEYS.overview,
+    KEYS.activities,
+  ],
   deal: [KEYS.pipeline, KEYS.deals, KEYS.dashboard, KEYS.overview, KEYS.activities],
   contact: [KEYS.contacts],
   tag: [KEYS.tags, KEYS.leads, KEYS.contacts, KEYS.deals, KEYS.pipeline],
@@ -40,5 +49,14 @@ export const AFTER = {
   team: [KEYS.teams, KEYS.users, KEYS.assignable],
   currency: [KEYS.currencies, KEYS.rates],
   target: [KEYS.targets, KEYS.dashboard],
-  restore: [KEYS.trash, KEYS.leads, KEYS.leadSummary, KEYS.contacts, KEYS.companies, KEYS.deals, KEYS.pipeline, KEYS.dashboard],
+  restore: [
+    KEYS.trash,
+    KEYS.leads,
+    KEYS.leadSummary,
+    KEYS.contacts,
+    KEYS.companies,
+    KEYS.deals,
+    KEYS.pipeline,
+    KEYS.dashboard,
+  ],
 } as const satisfies Record<string, readonly Key[]>;

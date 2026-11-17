@@ -13,11 +13,18 @@ export function useFollowUps(grid: Cell[], today: string) {
   // The calendar loads every day it shows, including the greyed days around the month.
   const from = toInstant(grid[0].iso);
   const to = toInstant(addDays(grid[grid.length - 1].iso, 1));
-  const calendar = useQuery({ queryKey: [...KEYS.followUps, "calendar", from, to], queryFn: () => listFollowUps({ from, to, size: 500 }) });
-  const overdue = useQuery({ queryKey: [...KEYS.followUps, "overdue", today], queryFn: () => listFollowUps({ status: "OPEN", to: toInstant(today), size: 200 }) });
+  const calendar = useQuery({
+    queryKey: [...KEYS.followUps, "calendar", from, to],
+    queryFn: () => listFollowUps({ from, to, size: 500 }),
+  });
+  const overdue = useQuery({
+    queryKey: [...KEYS.followUps, "overdue", today],
+    queryFn: () => listFollowUps({ status: "OPEN", to: toInstant(today), size: 200 }),
+  });
   const summary = useQuery({
     queryKey: [...KEYS.followUps, "summary", today],
-    queryFn: () => followUpSummary(toInstant(today), toInstant(addDays(today, 1)), toInstant(`${today.slice(0, 7)}-01`)),
+    queryFn: () =>
+      followUpSummary(toInstant(today), toInstant(addDays(today, 1)), toInstant(`${today.slice(0, 7)}-01`)),
   });
 
   return {

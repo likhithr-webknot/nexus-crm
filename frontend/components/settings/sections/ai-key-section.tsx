@@ -2,11 +2,24 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Badge, Card, CardHeader, Field, buttonPrimary, buttonSecondary, fieldControl } from "@/components/ui/primitives";
+import {
+  Badge,
+  Card,
+  CardHeader,
+  Field,
+  buttonPrimary,
+  buttonSecondary,
+  fieldControl,
+} from "@/components/ui/primitives";
 import { toast } from "@/components/ui/toast";
 import { api, errorMessage } from "@/lib/api";
 
-type KeyStatus = { configured: boolean; keyName: string; source: "ADMIN" | "SERVER" | "NONE"; updatedAt: string | null };
+type KeyStatus = {
+  configured: boolean;
+  keyName: string;
+  source: "ADMIN" | "SERVER" | "NONE";
+  updatedAt: string | null;
+};
 
 type Provider = {
   /** Where the key is read and saved. */
@@ -44,7 +57,10 @@ export function AiKeySection() {
       {PROVIDERS.map((provider) => (
         <KeyCard key={provider.path} provider={provider} />
       ))}
-      <p className="text-[12px] text-ink-3">Keys are encrypted on the server and never shown again. Removing a key saved here falls back to the server&apos;s own key, if it has one.</p>
+      <p className="text-[12px] text-ink-3">
+        Keys are encrypted on the server and never shown again. Removing a key saved here falls back to the
+        server&apos;s own key, if it has one.
+      </p>
     </div>
   );
 }
@@ -64,7 +80,10 @@ function KeyCard({ provider }: { provider: Provider }) {
       await action();
       setKey("");
       setName("");
-      await Promise.all([status.refetch(), ...provider.affects.map((queryKey) => client.invalidateQueries({ queryKey: [queryKey] }))]);
+      await Promise.all([
+        status.refetch(),
+        ...provider.affects.map((queryKey) => client.invalidateQueries({ queryKey: [queryKey] })),
+      ]);
       toast(done);
     } catch (cause) {
       setError(errorMessage(cause, fallback));
@@ -73,8 +92,17 @@ function KeyCard({ provider }: { provider: Provider }) {
     }
   };
   const save = () =>
-    run(() => api(provider.path, { method: "PUT", body: JSON.stringify({ key: key.trim(), name: name.trim() }) }), `${provider.product} key saved.`, "The key could not be saved.");
-  const remove = () => run(() => api(provider.path, { method: "DELETE" }), `${provider.product} key removed.`, "The key could not be removed.");
+    run(
+      () => api(provider.path, { method: "PUT", body: JSON.stringify({ key: key.trim(), name: name.trim() }) }),
+      `${provider.product} key saved.`,
+      "The key could not be saved.",
+    );
+  const remove = () =>
+    run(
+      () => api(provider.path, { method: "DELETE" }),
+      `${provider.product} key removed.`,
+      "The key could not be removed.",
+    );
 
   const source = status.data?.source;
   return (
@@ -84,7 +112,9 @@ function KeyCard({ provider }: { provider: Provider }) {
         subtitle={provider.subtitle}
         action={
           status.data && (
-            <Badge tone={status.data.configured ? "green" : "amber"}>{status.data.configured ? "Active" : "Not set"}</Badge>
+            <Badge tone={status.data.configured ? "green" : "amber"}>
+              {status.data.configured ? "Active" : "Not set"}
+            </Badge>
           )
         }
       />
@@ -117,10 +147,25 @@ function KeyCard({ provider }: { provider: Provider }) {
           className="grid max-w-2xl gap-4 sm:grid-cols-2"
         >
           <Field label="Key name" hint="A label for your team, such as the account it bills to.">
-            <input value={name} onChange={(event) => setName(event.target.value)} maxLength={80} required placeholder={`Primary ${provider.product} key`} className={fieldControl} />
+            <input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              maxLength={80}
+              required
+              placeholder={`Primary ${provider.product} key`}
+              className={fieldControl}
+            />
           </Field>
           <Field label={`${provider.product} API key`}>
-            <input type="password" value={key} onChange={(event) => setKey(event.target.value)} autoComplete="new-password" required placeholder={provider.placeholder} className={fieldControl} />
+            <input
+              type="password"
+              value={key}
+              onChange={(event) => setKey(event.target.value)}
+              autoComplete="new-password"
+              required
+              placeholder={provider.placeholder}
+              className={fieldControl}
+            />
           </Field>
           <div className="flex flex-wrap gap-2 sm:col-span-2">
             <button type="submit" disabled={busy || !name.trim() || !key.trim()} className={buttonPrimary}>

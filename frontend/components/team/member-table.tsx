@@ -7,7 +7,17 @@ import { cn, formatDate } from "@/lib/format";
 import type { User } from "@/lib/users";
 import { ROLE_TONE, STATUS } from "./team-constants";
 
-export function MemberTable({ members, meId, isAdmin, onManage }: { members: User[]; meId: string; isAdmin: boolean; onManage: (user: User) => void }) {
+export function MemberTable({
+  members,
+  meId,
+  isAdmin,
+  onManage,
+}: {
+  members: User[];
+  meId: string;
+  isAdmin: boolean;
+  onManage: (user: User) => void;
+}) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[720px] text-left text-[13px]">
@@ -27,7 +37,12 @@ export function MemberTable({ members, meId, isAdmin, onManage }: { members: Use
                 <div className="flex items-center gap-3">
                   <UserAvatar user={u} />
                   <div className="min-w-0">
-                    <p className={cn("flex items-center gap-2 font-medium", u.status === "DISABLED" ? "text-ink-3" : "text-ink")}>
+                    <p
+                      className={cn(
+                        "flex items-center gap-2 font-medium",
+                        u.status === "DISABLED" ? "text-ink-3" : "text-ink",
+                      )}
+                    >
                       {u.displayName}
                       {u.id === meId && <Badge>You</Badge>}
                     </p>

@@ -7,7 +7,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
       <CurrencyProvider>
-        <Suspense fallback={<div className="grid h-full place-items-center bg-canvas text-[13px] text-ink-2">Loading workspace…</div>}>
+        <Suspense
+          fallback={
+            <div className="grid h-full place-items-center bg-canvas text-[13px] text-ink-2">Loading workspace…</div>
+          }
+        >
           <AppShell>{children}</AppShell>
         </Suspense>
       </CurrencyProvider>

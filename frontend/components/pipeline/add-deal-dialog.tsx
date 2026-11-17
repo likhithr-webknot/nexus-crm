@@ -22,7 +22,11 @@ export function AddDealDialog({ open, onClose, onAdded }: { open: boolean; onClo
   const owners = useOwnerOptions(open);
   const contacts = useContactOptions(open);
   const stages = useStages();
-  const companies = useQuery({ queryKey: [...KEYS.companies, "all"], queryFn: () => listCompanies({ size: 100 }), enabled: open });
+  const companies = useQuery({
+    queryKey: [...KEYS.companies, "all"],
+    queryFn: () => listCompanies({ size: 100 }),
+    enabled: open,
+  });
   const [error, setError] = useState<string | null>(null);
 
   const add = useMutation({
@@ -54,9 +58,25 @@ export function AddDealDialog({ open, onClose, onAdded }: { open: boolean; onClo
   };
 
   return (
-    <FormDialog open={open} onClose={onClose} title="Add deal" description="A deal is one sale you are working on with a company." submitLabel="Add deal" pending={add.isPending} error={error} onSubmit={submit}>
+    <FormDialog
+      open={open}
+      onClose={onClose}
+      title="Add deal"
+      description="A deal is one sale you are working on with a company."
+      submitLabel="Add deal"
+      pending={add.isPending}
+      error={error}
+      onSubmit={submit}
+    >
       <Field label="Company">
-        <input name="company" list="deal-companies" required maxLength={160} autoComplete="off" className={fieldControl} />
+        <input
+          name="company"
+          list="deal-companies"
+          required
+          maxLength={160}
+          autoComplete="off"
+          className={fieldControl}
+        />
         <datalist id="deal-companies">
           {companies.data?.items.map((c) => (
             <option key={c.id} value={c.name} />
@@ -64,7 +84,13 @@ export function AddDealDialog({ open, onClose, onAdded }: { open: boolean; onClo
         </datalist>
       </Field>
       <Field label="Deal name" optional>
-        <input name="name" maxLength={160} autoComplete="off" placeholder="Defaults to the company name" className={fieldControl} />
+        <input
+          name="name"
+          maxLength={160}
+          autoComplete="off"
+          placeholder="Defaults to the company name"
+          className={fieldControl}
+        />
       </Field>
       <Field label="Contact" optional>
         <select name="contact" defaultValue="" className={fieldControl}>
@@ -78,7 +104,16 @@ export function AddDealDialog({ open, onClose, onAdded }: { open: boolean; onClo
         </select>
       </Field>
       <Field label="Value">
-        <input name="value" type="number" required min={0} step="any" inputMode="decimal" onChange={(e) => e.currentTarget.setCustomValidity("")} className={fieldControl} />
+        <input
+          name="value"
+          type="number"
+          required
+          min={0}
+          step="any"
+          inputMode="decimal"
+          onChange={(e) => e.currentTarget.setCustomValidity("")}
+          className={fieldControl}
+        />
       </Field>
       <Field label="Currency">
         <select name="currency" defaultValue={reportingCurrency} className={fieldControl}>

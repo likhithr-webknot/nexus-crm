@@ -31,12 +31,21 @@ export type NewContact = {
   ownerId?: string;
 };
 
-export type Company = { id: string; name: string; domain: string | null; industry: string | null; websiteUrl: string | null; logoUrl: string | null; owner: Ref };
+export type Company = {
+  id: string;
+  name: string;
+  domain: string | null;
+  industry: string | null;
+  websiteUrl: string | null;
+  logoUrl: string | null;
+  owner: Ref;
+};
 
 export const listContacts = (params: { q?: string; ownerId?: string; tag?: string; page?: number; size?: number }) =>
   api<PageResponse<Contact>>(`/contacts${qs(params)}`);
 
-export const createContact = (body: NewContact) => api<Contact>("/contacts", { method: "POST", body: JSON.stringify(body) });
+export const createContact = (body: NewContact) =>
+  api<Contact>("/contacts", { method: "POST", body: JSON.stringify(body) });
 export const getContact = (id: string) => api<Contact>(`/contacts/${id}`);
 
 export const listCompanies = (params: { q?: string; page?: number; size?: number }) =>
@@ -52,8 +61,10 @@ export const updateContact = (id: string, body: ContactChanges) =>
 
 export const deleteContact = (id: string) => api(`/contacts/${id}`, { method: "DELETE" });
 
-export const updateCompany = (id: string, body: { name?: string; domain?: string; industry?: string; version?: number }) =>
-  api<Company>(`/companies/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+export const updateCompany = (
+  id: string,
+  body: { name?: string; domain?: string; industry?: string; version?: number },
+) => api<Company>(`/companies/${id}`, { method: "PATCH", body: JSON.stringify(body) });
 
 /** A company that still has contacts or deals cannot be deleted. */
 export const deleteCompany = (id: string) => api(`/companies/${id}`, { method: "DELETE" });

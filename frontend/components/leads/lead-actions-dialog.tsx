@@ -16,7 +16,17 @@ import { useState } from "react";
 const MOVABLE: LeadStatus[] = ["NEW", "CONTACTED", "QUALIFIED"];
 
 /** Everything you can do with one lead: change its status, give it to someone, or turn it into a deal. */
-export function LeadActionsDialog({ lead, onClose, onEdit, onDelete }: { lead: Lead | null; onClose: () => void; onEdit: (lead: Lead) => void; onDelete: (lead: Lead) => void }) {
+export function LeadActionsDialog({
+  lead,
+  onClose,
+  onEdit,
+  onDelete,
+}: {
+  lead: Lead | null;
+  onClose: () => void;
+  onEdit: (lead: Lead) => void;
+  onDelete: (lead: Lead) => void;
+}) {
   const session = useSession();
   const refresh = useRefresh();
   const people = useAssignableUsers(lead !== null);
@@ -55,7 +65,13 @@ export function LeadActionsDialog({ lead, onClose, onEdit, onDelete }: { lead: L
           <Field label="Move to">
             <div className="mt-1.5 flex flex-wrap gap-2">
               {MOVABLE.filter((s) => s !== lead.status).map((s) => (
-                <button key={s} type="button" className={buttonSecondary} disabled={run.isPending} onClick={() => run.mutate(() => changeLeadStatus(lead.id, s))}>
+                <button
+                  key={s}
+                  type="button"
+                  className={buttonSecondary}
+                  disabled={run.isPending}
+                  onClick={() => run.mutate(() => changeLeadStatus(lead.id, s))}
+                >
                   <StageBadge stage={s} />
                 </button>
               ))}
@@ -68,7 +84,12 @@ export function LeadActionsDialog({ lead, onClose, onEdit, onDelete }: { lead: L
         {disqualifying && (
           <Field label="Why is this lead not a fit?">
             <div className="mt-1.5 flex gap-2">
-              <input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} className={fieldControl + " mt-0"} />
+              <input
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                maxLength={500}
+                className={fieldControl + " mt-0"}
+              />
               <button
                 type="button"
                 className={buttonPrimary}
@@ -123,11 +144,25 @@ export function LeadActionsDialog({ lead, onClose, onEdit, onDelete }: { lead: L
 
         <div className="flex flex-wrap gap-2 border-t border-line pt-4">
           {lead.status !== "CONVERTED" && (
-            <button type="button" className={buttonSecondary} onClick={() => { close(); onEdit(lead); }}>
+            <button
+              type="button"
+              className={buttonSecondary}
+              onClick={() => {
+                close();
+                onEdit(lead);
+              }}
+            >
               Edit details
             </button>
           )}
-          <button type="button" className={buttonSecondary + " text-down"} onClick={() => { close(); onDelete(lead); }}>
+          <button
+            type="button"
+            className={buttonSecondary + " text-down"}
+            onClick={() => {
+              close();
+              onDelete(lead);
+            }}
+          >
             Delete lead
           </button>
         </div>

@@ -43,12 +43,17 @@ export const createKeys = (kind: string) => {
 export const SHELL_EVENTS = { palette: "nexus:palette", shortcuts: "nexus:shortcuts", create: "nexus:create" } as const;
 export const openPalette = () => window.dispatchEvent(new Event(SHELL_EVENTS.palette));
 export const openShortcuts = () => window.dispatchEvent(new Event(SHELL_EVENTS.shortcuts));
-export const openCreate = (kind: string) => window.dispatchEvent(new CustomEvent(SHELL_EVENTS.create, { detail: kind }));
+export const openCreate = (kind: string) =>
+  window.dispatchEvent(new CustomEvent(SHELL_EVENTS.create, { detail: kind }));
 
 const noop = () => () => {};
 const isMac = () => /Mac|iPhone|iPad/.test(navigator.platform);
 
 /** "⌘" on Apple devices, "Ctrl" elsewhere. "Ctrl" on the server, so the first paint never mismatches. */
 export function useModKey() {
-  return useSyncExternalStore(noop, () => (isMac() ? "⌘" : "Ctrl"), () => "Ctrl");
+  return useSyncExternalStore(
+    noop,
+    () => (isMac() ? "⌘" : "Ctrl"),
+    () => "Ctrl",
+  );
 }

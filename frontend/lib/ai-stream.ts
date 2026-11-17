@@ -9,7 +9,10 @@ export type AiStreamEvent =
 
 export async function streamAssistant(text: string, onEvent: (event: AiStreamEvent) => void, signal: AbortSignal) {
   const response = await apiStream("/ai/assist/stream", {
-    method: "POST", body: JSON.stringify({ text }), headers: { Accept: "text/event-stream" }, signal,
+    method: "POST",
+    body: JSON.stringify({ text }),
+    headers: { Accept: "text/event-stream" },
+    signal,
   });
   if (!response.body) throw new Error("The assistant stream is unavailable.");
   const reader = response.body.getReader();
@@ -41,7 +44,12 @@ export async function streamAssistant(text: string, onEvent: (event: AiStreamEve
         else if (line.startsWith("data:")) data.push(line.slice(5).trimStart());
       }
     }
-    if (pending) { data.push(pending); dispatch(); }
+    if (pending) {
+      data.push(pending);
+      dispatch();
+    }
     if (!finished && !signal.aborted) throw new Error("The assistant stopped before finishing. Try again.");
-  } finally { reader.releaseLock(); }
+  } finally {
+    reader.releaseLock();
+  }
 }

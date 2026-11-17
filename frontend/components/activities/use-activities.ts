@@ -7,7 +7,10 @@ export type FeedItem = Activity & { local: string };
 
 /** The timeline, newest first, loaded 50 at a time, and how many of each type there are. */
 export function useActivities(type: ActivityType | "", actor: string) {
-  const counts = useQuery({ queryKey: [...KEYS.activities, "counts", actor], queryFn: () => activityCounts(actor || undefined) });
+  const counts = useQuery({
+    queryKey: [...KEYS.activities, "counts", actor],
+    queryFn: () => activityCounts(actor || undefined),
+  });
   const feed = useInfiniteQuery({
     queryKey: [...KEYS.activities, "feed", type, actor],
     queryFn: ({ pageParam }) => listActivities({ type, actorId: actor || undefined, page: pageParam, size: 50 }),
@@ -15,10 +18,14 @@ export function useActivities(type: ActivityType | "", actor: string) {
     getNextPageParam: (last) => (last.page * last.size < last.total ? last.page + 1 : undefined),
   });
 
-  const items: FeedItem[] = (feed.data?.pages.flatMap((p) => p.items) ?? []).map((a) => ({ ...a, local: localIso(a.occurredAt) }));
+  const items: FeedItem[] = (feed.data?.pages.flatMap((p) => p.items) ?? []).map((a) => ({
+    ...a,
+    local: localIso(a.occurredAt),
+  }));
   // Activities arrive newest first, so each day's entries are already together.
   const days = [...new Set(items.map((a) => a.local.slice(0, 10)))];
-  const countFor = (t: ActivityType | "") => (t ? (counts.data?.[t] ?? 0) : Object.values(counts.data ?? {}).reduce((sum, n) => sum + (n ?? 0), 0));
+  const countFor = (t: ActivityType | "") =>
+    t ? (counts.data?.[t] ?? 0) : Object.values(counts.data ?? {}).reduce((sum, n) => sum + (n ?? 0), 0);
 
   return { feed, items, days, countFor };
 }

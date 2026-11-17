@@ -4,7 +4,6 @@ import { control } from "@/components/ui/primitives";
 import { cn } from "@/lib/format";
 import { useId } from "react";
 
-
 export function Field({
   label,
   error,
@@ -12,7 +11,12 @@ export function Field({
 }: {
   label: string;
   error?: string;
-  children: (props: { id: string; className: string; "aria-invalid": boolean; "aria-describedby"?: string }) => React.ReactNode;
+  children: (props: {
+    id: string;
+    className: string;
+    "aria-invalid": boolean;
+    "aria-describedby"?: string;
+  }) => React.ReactNode;
 }) {
   const id = useId();
   return (

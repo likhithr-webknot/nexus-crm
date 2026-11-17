@@ -4,12 +4,23 @@ import { useCurrency } from "@/components/currency/currency-provider";
 import { RevenueChart, type RevenuePoint } from "@/components/dashboard/revenue-chart";
 import { Card, CardHeader } from "@/components/ui/primitives";
 
-export function RevenueGrowthCard({ points, hasTargets, totalRevenue }: { points: RevenuePoint[]; hasTargets: boolean; totalRevenue: number }) {
+export function RevenueGrowthCard({
+  points,
+  hasTargets,
+  totalRevenue,
+}: {
+  points: RevenuePoint[];
+  hasTargets: boolean;
+  totalRevenue: number;
+}) {
   const { reportingCurrency, formatReporting } = useCurrency();
 
   return (
     <Card className="lg:col-span-2">
-      <CardHeader title="Revenue growth" subtitle={`Last 6 months${hasTargets ? ", against target" : ""} · ${reportingCurrency}`} />
+      <CardHeader
+        title="Revenue growth"
+        subtitle={`Last 6 months${hasTargets ? ", against target" : ""} · ${reportingCurrency}`}
+      />
       <div className="flex flex-wrap items-end justify-between gap-4 px-5">
         <div>
           <p className="text-[12px] font-medium text-ink-3">Revenue achieved</p>
@@ -29,7 +40,11 @@ export function RevenueGrowthCard({ points, hasTargets, totalRevenue }: { points
         </div>
       </div>
       <div className="px-3 pt-2 pb-3">
-        {points.length > 0 ? <RevenueChart data={points} /> : <p className="px-2 py-8 text-[13px] text-ink-3">Loading…</p>}
+        {points.length > 0 ? (
+          <RevenueChart data={points} />
+        ) : (
+          <p className="px-2 py-8 text-[13px] text-ink-3">Loading…</p>
+        )}
       </div>
     </Card>
   );

@@ -1,24 +1,24 @@
 import type { Role } from "@/lib/auth";
 import {
-Activity,
-BarChart3,
-Building2,
-CalendarDays,
-Contact,
-FileText,
-Filter,
-Handshake,
-LayoutGrid,
-ListTodo,
-Mail,
-Megaphone,
-Package,
-Settings,
-Trash2,
-UserPlus,
-Users,
-Workflow,
-type LucideIcon,
+  Activity,
+  BarChart3,
+  Building2,
+  CalendarDays,
+  Contact,
+  FileText,
+  Filter,
+  Handshake,
+  LayoutGrid,
+  ListTodo,
+  Mail,
+  Megaphone,
+  Package,
+  Settings,
+  Trash2,
+  UserPlus,
+  Users,
+  Workflow,
+  type LucideIcon,
 } from "lucide-react";
 
 export type NavItem = {
@@ -56,7 +56,5 @@ export const NAV_ITEMS: NavItem[] = [
 export const navItemsFor = (role: Role) => NAV_ITEMS.filter((item) => !item.roles || item.roles.includes(role));
 
 export function findNavItem(pathname: string): NavItem | undefined {
-  return NAV_ITEMS.find((item) =>
-    item.href === "/" ? pathname === "/" : pathname.startsWith(item.href),
-  );
+  return NAV_ITEMS.find((item) => (item.href === "/" ? pathname === "/" : pathname.startsWith(item.href)));
 }

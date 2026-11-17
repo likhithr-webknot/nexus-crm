@@ -204,7 +204,13 @@ export function FormDialog({
             </div>
           )}
         </DialogBody>
-        <DialogActions onCancel={onClose} submitLabel={submitLabel} pending={pending} danger={danger} disabled={disabled} />
+        <DialogActions
+          onCancel={onClose}
+          submitLabel={submitLabel}
+          pending={pending}
+          danger={danger}
+          disabled={disabled}
+        />
       </form>
     </Dialog>
   );

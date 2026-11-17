@@ -47,7 +47,11 @@ export function LeadBulkBar({ ids, onClear, onDelete }: { ids: string[]; onClear
   const error = assign.isError ? errorMessage(assign.error) : move.isError ? errorMessage(move.error) : null;
 
   return (
-    <div role="toolbar" aria-label="Actions for selected leads" className="flex flex-wrap items-center gap-2 border-t border-line bg-brand-soft/50 px-4 py-2.5">
+    <div
+      role="toolbar"
+      aria-label="Actions for selected leads"
+      className="flex flex-wrap items-center gap-2 border-t border-line bg-brand-soft/50 px-4 py-2.5"
+    >
       <p className="tnum mr-1 text-[12.5px] font-medium text-ink" aria-live="polite">
         {ids.length} selected
       </p>
@@ -69,7 +73,11 @@ export function LeadBulkBar({ ids, onClear, onDelete }: { ids: string[]; onClear
           <div className="space-y-2">
             <label className="block text-[12px] font-medium text-ink-2">
               Give {ids.length === 1 ? "this lead" : `these ${ids.length} leads`} to
-              <select value={owner} onChange={(e) => setOwner(e.target.value)} className={cn(control, "mt-1.5 w-full px-2.5 font-normal")}>
+              <select
+                value={owner}
+                onChange={(e) => setOwner(e.target.value)}
+                className={cn(control, "mt-1.5 w-full px-2.5 font-normal")}
+              >
                 <option value="">Choose a person…</option>
                 <option value={UNASSIGNED}>Nobody (unassigned)</option>
                 {(people.data ?? []).map((u) => (
@@ -79,7 +87,12 @@ export function LeadBulkBar({ ids, onClear, onDelete }: { ids: string[]; onClear
                 ))}
               </select>
             </label>
-            <button type="button" disabled={!owner || assign.isPending} onClick={() => assign.mutate()} className="h-8 w-full rounded-md bg-brand px-2 text-[12.5px] font-medium text-white disabled:opacity-50">
+            <button
+              type="button"
+              disabled={!owner || assign.isPending}
+              onClick={() => assign.mutate()}
+              className="h-8 w-full rounded-md bg-brand px-2 text-[12.5px] font-medium text-white disabled:opacity-50"
+            >
               {assign.isPending ? "Assigning…" : "Assign"}
             </button>
           </div>
@@ -90,12 +103,18 @@ export function LeadBulkBar({ ids, onClear, onDelete }: { ids: string[]; onClear
         label="Change status of selected leads"
         align="start"
         className="w-64 p-3"
-        trigger={<span className={cn(control, "inline-flex items-center gap-2 px-3 font-medium text-ink-2")}>Status</span>}
+        trigger={
+          <span className={cn(control, "inline-flex items-center gap-2 px-3 font-medium text-ink-2")}>Status</span>
+        }
       >
         <div className="space-y-2">
           <label className="block text-[12px] font-medium text-ink-2">
             Move to
-            <select value={status} onChange={(e) => setStatus(e.target.value as LeadStatus)} className={cn(control, "mt-1.5 w-full px-2.5 font-normal")}>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as LeadStatus)}
+              className={cn(control, "mt-1.5 w-full px-2.5 font-normal")}
+            >
               {STATUSES.map((s) => (
                 <option key={s} value={s}>
                   {stageLabel(s)}
@@ -106,16 +125,30 @@ export function LeadBulkBar({ ids, onClear, onDelete }: { ids: string[]; onClear
           {status === "DISQUALIFIED" && (
             <label className="block text-[12px] font-medium text-ink-2">
               Reason
-              <input value={reason} maxLength={500} onChange={(e) => setReason(e.target.value)} className={cn(control, "mt-1.5 w-full px-2.5 font-normal")} />
+              <input
+                value={reason}
+                maxLength={500}
+                onChange={(e) => setReason(e.target.value)}
+                className={cn(control, "mt-1.5 w-full px-2.5 font-normal")}
+              />
             </label>
           )}
-          <button type="button" disabled={move.isPending || (status === "DISQUALIFIED" && !reason.trim())} onClick={() => move.mutate()} className="h-8 w-full rounded-md bg-brand px-2 text-[12.5px] font-medium text-white disabled:opacity-50">
+          <button
+            type="button"
+            disabled={move.isPending || (status === "DISQUALIFIED" && !reason.trim())}
+            onClick={() => move.mutate()}
+            className="h-8 w-full rounded-md bg-brand px-2 text-[12.5px] font-medium text-white disabled:opacity-50"
+          >
             {move.isPending ? "Updating…" : "Update status"}
           </button>
         </div>
       </Popover>
 
-      <button type="button" onClick={onDelete} className={cn(control, "inline-flex items-center gap-2 px-3 font-medium text-down")}>
+      <button
+        type="button"
+        onClick={onDelete}
+        className={cn(control, "inline-flex items-center gap-2 px-3 font-medium text-down")}
+      >
         <Trash2 className="size-4" aria-hidden />
         Delete
       </button>

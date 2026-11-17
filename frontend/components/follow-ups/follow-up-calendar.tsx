@@ -53,14 +53,33 @@ export function FollowUpCalendar({
       {/* The 1px gaps show the grid colour underneath, which draws the cell borders. */}
       <div className="grid grid-cols-7 gap-px bg-line">
         {grid.map((cell) => (
-          <DayCell key={cell.iso} cell={cell} items={items.filter((f) => dayOf(f) === cell.iso)} isToday={cell.iso === today} isSelected={cell.iso === selected} onSelect={onSelect} />
+          <DayCell
+            key={cell.iso}
+            cell={cell}
+            items={items.filter((f) => dayOf(f) === cell.iso)}
+            isToday={cell.iso === today}
+            isSelected={cell.iso === selected}
+            onSelect={onSelect}
+          />
         ))}
       </div>
     </Card>
   );
 }
 
-function DayCell({ cell, items, isToday, isSelected, onSelect }: { cell: Cell; items: Item[]; isToday: boolean; isSelected: boolean; onSelect: (iso: string) => void }) {
+function DayCell({
+  cell,
+  items,
+  isToday,
+  isSelected,
+  onSelect,
+}: {
+  cell: Cell;
+  items: Item[];
+  isToday: boolean;
+  isSelected: boolean;
+  onSelect: (iso: string) => void;
+}) {
   return (
     <button
       onClick={() => onSelect(cell.iso)}
@@ -71,20 +90,31 @@ function DayCell({ cell, items, isToday, isSelected, onSelect }: { cell: Cell; i
         isSelected ? "bg-brand-soft/70" : cell.inMonth ? "bg-surface hover:bg-canvas/70" : "bg-canvas/60",
       )}
     >
-      <span className={cn("tnum grid size-6 place-items-center rounded-full text-[12px] font-medium", isToday ? "bg-brand text-white" : cell.inMonth ? "text-ink" : "text-ink-3")}>
+      <span
+        className={cn(
+          "tnum grid size-6 place-items-center rounded-full text-[12px] font-medium",
+          isToday ? "bg-brand text-white" : cell.inMonth ? "text-ink" : "text-ink-3",
+        )}
+      >
         {cell.number}
       </span>
       {/* Phones get dots; wider screens get readable chips. */}
       <span className="flex gap-1 sm:hidden" aria-hidden>
         {items.slice(0, 4).map((f) => (
-          <span key={f.id} className={cn("size-1.5 rounded-full", f.done ? "bg-line-strong" : TYPE_STYLES[f.type].bar)} />
+          <span
+            key={f.id}
+            className={cn("size-1.5 rounded-full", f.done ? "bg-line-strong" : TYPE_STYLES[f.type].bar)}
+          />
         ))}
       </span>
       <span className="hidden w-full flex-col gap-1 sm:flex" aria-hidden>
         {items.slice(0, 2).map((f) => (
           <span
             key={f.id}
-            className={cn("truncate rounded border-l-2 px-1.5 py-0.5 text-[11.5px]", f.done ? "border-line-strong bg-surface-muted text-ink-3 line-through" : TYPE_STYLES[f.type].chip)}
+            className={cn(
+              "truncate rounded border-l-2 px-1.5 py-0.5 text-[11.5px]",
+              f.done ? "border-line-strong bg-surface-muted text-ink-3 line-through" : TYPE_STYLES[f.type].chip,
+            )}
           >
             <span className="tnum font-semibold">{formatTime(f.local)}</span> {(f.about?.name ?? f.title).split(" ")[0]}
           </span>

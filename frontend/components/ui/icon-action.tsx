@@ -2,7 +2,19 @@ import { cn } from "@/lib/format";
 import { Pencil, Trash2, type LucideIcon } from "lucide-react";
 
 /** A small icon-only button for a row: its meaning is in the label, which screen readers and tooltips use. */
-export function IconAction({ icon: Icon, label, onClick, danger, disabled }: { icon: LucideIcon; label: string; onClick: () => void; danger?: boolean; disabled?: boolean }) {
+export function IconAction({
+  icon: Icon,
+  label,
+  onClick,
+  danger,
+  disabled,
+}: {
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+  disabled?: boolean;
+}) {
   return (
     <button
       type="button"
@@ -21,7 +33,15 @@ export function IconAction({ icon: Icon, label, onClick, danger, disabled }: { i
 }
 
 /** The usual pair: edit and delete. */
-export function EditDeleteActions({ name, onEdit, onDelete }: { name: string; onEdit: () => void; onDelete: () => void }) {
+export function EditDeleteActions({
+  name,
+  onEdit,
+  onDelete,
+}: {
+  name: string;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
   return (
     <span className="flex shrink-0 items-center">
       <IconAction icon={Pencil} label={`Edit ${name}`} onClick={onEdit} />

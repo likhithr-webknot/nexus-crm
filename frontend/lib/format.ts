@@ -1,4 +1,9 @@
-const shortDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+const shortDate = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+});
 
 export const formatDate = (iso: string) => shortDate.format(new Date(iso));
 
@@ -54,5 +59,7 @@ export const toInstant = (date: string, time = "00:00") => new Date(`${date}T${t
 export function splitName(fullName: string) {
   const name = fullName.trim();
   const space = name.lastIndexOf(" ");
-  return space < 0 ? { firstName: name, lastName: "" } : { firstName: name.slice(0, space).trim(), lastName: name.slice(space + 1) };
+  return space < 0
+    ? { firstName: name, lastName: "" }
+    : { firstName: name.slice(0, space).trim(), lastName: name.slice(space + 1) };
 }

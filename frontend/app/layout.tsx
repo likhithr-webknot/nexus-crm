@@ -22,7 +22,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" suppressHydrationWarning className={`${inter.variable} ${mono.variable} h-full antialiased`}>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: "try{document.documentElement.dataset.theme=localStorage.getItem('nexus.theme')||'light'}catch{}" }} />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: "try{document.documentElement.dataset.theme=localStorage.getItem('nexus.theme')||'light'}catch{}",
+          }}
+        />
       </head>
       <body className="h-full font-sans text-[14px]">{children}</body>
     </html>

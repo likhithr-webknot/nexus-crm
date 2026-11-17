@@ -31,19 +31,38 @@ export function ShortcutsHelp() {
         { keys: ["Esc"], what: "Close a dialog, drawer or menu" },
       ],
     },
-    { title: "Go to", rows: Object.entries(GO_TO).map(([key, { label }]) => ({ keys: ["G", key.toUpperCase()], what: label })) },
-    { title: "Create", rows: Object.entries(CREATE).map(([key, { label }]) => ({ keys: ["N", key.toUpperCase()], what: `New ${label.toLowerCase()}` })) },
+    {
+      title: "Go to",
+      rows: Object.entries(GO_TO).map(([key, { label }]) => ({ keys: ["G", key.toUpperCase()], what: label })),
+    },
+    {
+      title: "Create",
+      rows: Object.entries(CREATE).map(([key, { label }]) => ({
+        keys: ["N", key.toUpperCase()],
+        what: `New ${label.toLowerCase()}`,
+      })),
+    },
     { title: "Pipeline", rows: [{ keys: ["←", "→"], what: "Move the focused deal to the previous or next stage" }] },
   ];
 
   return (
     <>
       <Tooltip label="Keyboard shortcuts" keys={["?"]}>
-        <button aria-label="Keyboard shortcuts" onClick={() => setOpen(true)} className={`${topbarIconButton} hidden sm:grid`}>
+        <button
+          aria-label="Keyboard shortcuts"
+          onClick={() => setOpen(true)}
+          className={`${topbarIconButton} hidden sm:grid`}
+        >
           <CircleHelp className="size-[17px]" aria-hidden />
         </button>
       </Tooltip>
-      <Dialog open={open} onClose={() => setOpen(false)} title="Keyboard shortcuts" description="Two-key shortcuts are pressed one after the other, not together." size="lg">
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Keyboard shortcuts"
+        description="Two-key shortcuts are pressed one after the other, not together."
+        size="lg"
+      >
         <DialogBody>
           <div className="grid gap-x-10 gap-y-6 sm:grid-cols-2">
             {groups.map(({ title, rows }) => (

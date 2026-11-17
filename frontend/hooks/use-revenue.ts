@@ -11,7 +11,12 @@ export function useRevenuePoints(months = 6) {
   const query = useQuery({ queryKey: [...KEYS.dashboard, "revenue", months], queryFn: () => revenueByMonth(months) });
   const points: RevenuePoint[] = (query.data ?? []).map((m) => {
     const first = new Date(`${m.month}-01T00:00:00Z`);
-    return { month: monthFull.format(first), label: monthShort.format(first), revenue: m.revenue, target: m.target == null ? null : Number(m.target) };
+    return {
+      month: monthFull.format(first),
+      label: monthShort.format(first),
+      revenue: m.revenue,
+      target: m.target == null ? null : Number(m.target),
+    };
   });
   const withTarget = points.filter((p) => p.target != null);
   return {

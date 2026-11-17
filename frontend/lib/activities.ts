@@ -32,7 +32,8 @@ export type ActivityFilters = {
 
 export const listActivities = (filters: ActivityFilters) => api<PageResponse<Activity>>(`/activities${qs(filters)}`);
 
-export const activityCounts = (actorId?: string) => api<Partial<Record<ActivityType, number>>>(`/activities/counts${qs({ actorId })}`);
+export const activityCounts = (actorId?: string) =>
+  api<Partial<Record<ActivityType, number>>>(`/activities/counts${qs({ actorId })}`);
 
 export const logActivity = (body: {
   type: ActivityType;

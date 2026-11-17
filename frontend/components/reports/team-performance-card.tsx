@@ -34,19 +34,25 @@ export function TeamPerformanceCard({ team, loaded }: { team: Overview["team"]; 
                 </td>
                 <td className="px-3 py-3 text-right text-ink-2">{m.leads}</td>
                 <td className="px-3 py-3 text-right text-ink-2">{m.dealsWon}</td>
-                <td className="px-3 py-3 text-right font-medium text-ink">{formatReporting(m.revenue, "INR") ?? "—"}</td>
+                <td className="px-3 py-3 text-right font-medium text-ink">
+                  {formatReporting(m.revenue, "INR") ?? "—"}
+                </td>
                 <td className="px-3 py-3 text-right text-ink-2">{m.conversion}%</td>
                 <td className="py-3 pr-5 pl-6">
                   <div className="flex items-center gap-3">
                     <Meter value={(m.revenue / topRevenue) * 100} />
-                    <span className="w-9 text-right font-medium text-ink">{Math.round((m.revenue / topRevenue) * 100)}%</span>
+                    <span className="w-9 text-right font-medium text-ink">
+                      {Math.round((m.revenue / topRevenue) * 100)}%
+                    </span>
                   </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-        {loaded && team.length === 0 && <p className="px-5 py-6 text-[13px] text-ink-3">No leads or won deals in this range.</p>}
+        {loaded && team.length === 0 && (
+          <p className="px-5 py-6 text-[13px] text-ink-3">No leads or won deals in this range.</p>
+        )}
       </div>
     </Card>
   );

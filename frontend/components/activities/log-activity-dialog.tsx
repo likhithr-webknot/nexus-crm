@@ -15,7 +15,17 @@ import { TYPES } from "./activity-types";
 // System entries are written by the app, never by hand.
 const MANUAL_TYPES = (Object.keys(TYPES) as ActivityType[]).filter((t) => t !== "SYSTEM");
 
-export function LogActivityDialog({ open, onClose, onLogged, defaultType = "CALL" }: { open: boolean; onClose: () => void; onLogged: () => void; defaultType?: ActivityType }) {
+export function LogActivityDialog({
+  open,
+  onClose,
+  onLogged,
+  defaultType = "CALL",
+}: {
+  open: boolean;
+  onClose: () => void;
+  onLogged: () => void;
+  defaultType?: ActivityType;
+}) {
   const contacts = useContactOptions(open);
   const refresh = useRefresh();
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +78,14 @@ export function LogActivityDialog({ open, onClose, onLogged, defaultType = "CALL
         </select>
       </Field>
       <Field label="Summary" className="sm:col-span-2">
-        <input name="title" required maxLength={160} autoComplete="off" placeholder="Pricing call" className={fieldControl} />
+        <input
+          name="title"
+          required
+          maxLength={160}
+          autoComplete="off"
+          placeholder="Pricing call"
+          className={fieldControl}
+        />
       </Field>
       <Field label="Notes" className="sm:col-span-2">
         <textarea name="detail" required maxLength={5000} rows={4} className={`${fieldControl} h-auto py-2`} />

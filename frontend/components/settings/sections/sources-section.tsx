@@ -3,11 +3,13 @@
 import { Card, CardHeader } from "@/components/ui/primitives";
 import { SOURCES, SOURCE_COLORS, SOURCE_LABELS } from "@/lib/stages";
 
-
 export function SourcesSection() {
   return (
     <Card>
-      <CardHeader title="Lead sources" subtitle="Where a lead can come from. Reports show each source's share of new leads." />
+      <CardHeader
+        title="Lead sources"
+        subtitle="Where a lead can come from. Reports show each source's share of new leads."
+      />
       <ul className="divide-y divide-line border-t border-line">
         {SOURCES.map((source) => (
           <li key={source} className="flex items-center gap-3 px-5 py-3 text-[13px]">

@@ -3,7 +3,18 @@ import type { Lead } from "@/lib/leads";
 import { moneyValue } from "@/lib/money";
 import { sourceLabel, stageLabel } from "@/lib/stages";
 
-const HEADER = ["Lead name", "Company", "Email", "Phone", "Source", "Assigned to", "Stage", "Estimated value", "Currency", "Created"];
+const HEADER = [
+  "Lead name",
+  "Company",
+  "Email",
+  "Phone",
+  "Source",
+  "Assigned to",
+  "Stage",
+  "Estimated value",
+  "Currency",
+  "Created",
+];
 
 /** Saves the leads as a CSV file. */
 export function exportLeads(leads: Lead[]) {

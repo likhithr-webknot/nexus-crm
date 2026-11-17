@@ -40,8 +40,8 @@ export default function LoginPage({ searchParams }: PageProps<"/login">) {
             </div>
 
             <p className="mt-6 border-t border-line pt-5 text-[13px] leading-relaxed text-ink-2">
-              <span className="font-medium text-ink">No invitation yet?</span> Nexus is invite-only. Ask your admin
-              to add you from Team Management, then come back here.
+              <span className="font-medium text-ink">No invitation yet?</span> Nexus is invite-only. Ask your admin to
+              add you from Team Management, then come back here.
             </p>
           </div>
         </div>

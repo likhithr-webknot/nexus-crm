@@ -22,7 +22,15 @@ export function TagPicker({ kind, ids, onDone }: { kind: TagKind; ids: string[];
     change.mutate({ ids, [action]: [chosen] }, { onSuccess: close });
   };
   const makeTag = () =>
-    create.mutate({ name }, { onSuccess: (tag) => { setChosen(tag.id); setName(""); } });
+    create.mutate(
+      { name },
+      {
+        onSuccess: (tag) => {
+          setChosen(tag.id);
+          setName("");
+        },
+      },
+    );
 
   const error = change.isError ? errorMessage(change.error) : create.isError ? errorMessage(create.error) : null;
 
@@ -55,7 +63,10 @@ export function TagPicker({ kind, ids, onDone }: { kind: TagKind; ids: string[];
                     role="option"
                     aria-selected={chosen === t.id}
                     onClick={() => setChosen(t.id)}
-                    className={cn("flex w-full items-center rounded-md px-2 py-1.5 text-left hover:bg-canvas", chosen === t.id && "bg-brand-soft")}
+                    className={cn(
+                      "flex w-full items-center rounded-md px-2 py-1.5 text-left hover:bg-canvas",
+                      chosen === t.id && "bg-brand-soft",
+                    )}
                   >
                     <TagChip tag={t} />
                   </button>
@@ -100,11 +111,19 @@ export function TagPicker({ kind, ids, onDone }: { kind: TagKind; ids: string[];
                 className={cn(control, "w-full px-2.5")}
               />
             </label>
-            <button type="submit" disabled={!name.trim() || create.isPending} className="h-9 rounded-md border border-line px-2.5 text-[12.5px] font-medium text-ink-2 hover:bg-canvas disabled:opacity-50">
+            <button
+              type="submit"
+              disabled={!name.trim() || create.isPending}
+              className="h-9 rounded-md border border-line px-2.5 text-[12.5px] font-medium text-ink-2 hover:bg-canvas disabled:opacity-50"
+            >
               Create
             </button>
           </form>
-          {error && <p role="alert" className="text-[12px] text-down">{error}</p>}
+          {error && (
+            <p role="alert" className="text-[12px] text-down">
+              {error}
+            </p>
+          )}
         </div>
       )}
     </Popover>

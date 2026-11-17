@@ -27,7 +27,9 @@ export function RevenueBySourceCard({ sources, loaded }: { sources: Overview["re
           </li>
         ))}
       </ul>
-      {loaded && sources.length === 0 && <p className="px-5 pb-5 text-[13px] text-ink-3">No deals were won in this range.</p>}
+      {loaded && sources.length === 0 && (
+        <p className="px-5 pb-5 text-[13px] text-ink-3">No deals were won in this range.</p>
+      )}
     </Card>
   );
 }

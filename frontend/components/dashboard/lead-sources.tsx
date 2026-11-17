@@ -18,17 +18,17 @@ export function LeadSourcesDonut({ sources, total }: { sources: SourceSlice[]; t
         <svg viewBox="0 0 140 140" className="size-full -rotate-90" aria-hidden>
           <circle cx={70} cy={70} r={R} fill="none" stroke="var(--color-canvas)" strokeWidth={16} />
           {segments.map((s) => (
-              <circle
-                key={s.source}
-                cx={70}
-                cy={70}
-                r={R}
-                fill="none"
-                stroke={SOURCE_COLORS[s.source] ?? "#94a3b8"}
-                strokeWidth={16}
-                strokeDasharray={`${Math.max(s.len - GAP, 0)} ${C}`}
-                strokeDashoffset={-s.start}
-              />
+            <circle
+              key={s.source}
+              cx={70}
+              cy={70}
+              r={R}
+              fill="none"
+              stroke={SOURCE_COLORS[s.source] ?? "#94a3b8"}
+              strokeWidth={16}
+              strokeDasharray={`${Math.max(s.len - GAP, 0)} ${C}`}
+              strokeDashoffset={-s.start}
+            />
           ))}
         </svg>
         <div className="absolute inset-0 grid place-content-center text-center">
@@ -40,7 +40,11 @@ export function LeadSourcesDonut({ sources, total }: { sources: SourceSlice[]; t
       <ul className="w-full space-y-2.5">
         {sources.map((s) => (
           <li key={s.source} className="flex items-center gap-2.5 text-[13px]">
-            <span className="size-2.5 shrink-0 rounded-sm" style={{ background: SOURCE_COLORS[s.source] ?? "#94a3b8" }} aria-hidden />
+            <span
+              className="size-2.5 shrink-0 rounded-sm"
+              style={{ background: SOURCE_COLORS[s.source] ?? "#94a3b8" }}
+              aria-hidden
+            />
             <span className="text-ink-2">{sourceLabel(s.source)}</span>
             <span className="tnum ml-auto font-semibold text-ink">{s.share}%</span>
           </li>

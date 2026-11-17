@@ -32,7 +32,9 @@ export function ActivityFilters({
             onClick={() => onType(t)}
             className={cn(
               "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[12.5px] font-medium transition-colors",
-              type === t ? "border-brand bg-brand-soft text-brand-ink" : "border-line text-ink-2 hover:border-line-strong hover:text-ink",
+              type === t
+                ? "border-brand bg-brand-soft text-brand-ink"
+                : "border-line text-ink-2 hover:border-line-strong hover:text-ink",
             )}
           >
             {t ? TYPES[t].plural : "All"}
@@ -40,7 +42,12 @@ export function ActivityFilters({
           </button>
         ))}
       </div>
-      <select aria-label="Team member" value={actor} onChange={(e) => onActor(e.target.value)} className={cn(control, "px-2.5 sm:ml-auto")}>
+      <select
+        aria-label="Team member"
+        value={actor}
+        onChange={(e) => onActor(e.target.value)}
+        className={cn(control, "px-2.5 sm:ml-auto")}
+      >
         <option value="">Everyone</option>
         {people.map((u) => (
           <option key={u.id} value={u.id}>

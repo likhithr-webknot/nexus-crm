@@ -11,7 +11,15 @@ import { AFTER } from "@/lib/query-keys";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 
-export function EditContactDialog({ contact, open, onClose }: { contact: Contact; open: boolean; onClose: () => void }) {
+export function EditContactDialog({
+  contact,
+  open,
+  onClose,
+}: {
+  contact: Contact;
+  open: boolean;
+  onClose: () => void;
+}) {
   const refresh = useRefresh();
   const [error, setError] = useState<string | null>(null);
   const close = () => {
@@ -40,23 +48,64 @@ export function EditContactDialog({ contact, open, onClose }: { contact: Contact
       error={error}
       onSubmit={(f) => {
         setError(null);
-        save.mutate({ ...splitName(f.name), jobTitle: f.title, companyName: f.company || undefined, email: f.email, phone: f.phone, version: contact.version });
+        save.mutate({
+          ...splitName(f.name),
+          jobTitle: f.title,
+          companyName: f.company || undefined,
+          email: f.email,
+          phone: f.phone,
+          version: contact.version,
+        });
       }}
     >
       <Field label="Full name">
-        <input name="name" required maxLength={240} defaultValue={contact.name} autoComplete="off" className={fieldControl} />
+        <input
+          name="name"
+          required
+          maxLength={240}
+          defaultValue={contact.name}
+          autoComplete="off"
+          className={fieldControl}
+        />
       </Field>
       <Field label="Job title" optional>
-        <input name="title" maxLength={120} defaultValue={contact.jobTitle ?? ""} autoComplete="off" className={fieldControl} />
+        <input
+          name="title"
+          maxLength={120}
+          defaultValue={contact.jobTitle ?? ""}
+          autoComplete="off"
+          className={fieldControl}
+        />
       </Field>
       <Field label="Company" optional>
-        <input name="company" maxLength={160} defaultValue={contact.company?.name ?? ""} autoComplete="off" className={fieldControl} />
+        <input
+          name="company"
+          maxLength={160}
+          defaultValue={contact.company?.name ?? ""}
+          autoComplete="off"
+          className={fieldControl}
+        />
       </Field>
       <Field label="Email">
-        <input name="email" type="email" required maxLength={254} defaultValue={contact.email ?? ""} autoComplete="off" className={fieldControl} />
+        <input
+          name="email"
+          type="email"
+          required
+          maxLength={254}
+          defaultValue={contact.email ?? ""}
+          autoComplete="off"
+          className={fieldControl}
+        />
       </Field>
       <Field label="Phone" optional>
-        <input name="phone" type="tel" maxLength={40} defaultValue={contact.phone ?? ""} autoComplete="off" className={fieldControl} />
+        <input
+          name="phone"
+          type="tel"
+          maxLength={40}
+          defaultValue={contact.phone ?? ""}
+          autoComplete="off"
+          className={fieldControl}
+        />
       </Field>
     </FormDialog>
   );

@@ -43,7 +43,14 @@ export function ActivitiesView() {
       </PageHeader>
 
       <Card>
-        <ActivityFilters type={type} actor={actor} people={people.data ?? []} countFor={countFor} onType={setType} onActor={setActor} />
+        <ActivityFilters
+          type={type}
+          actor={actor}
+          people={people.data ?? []}
+          countFor={countFor}
+          onType={setType}
+          onActor={setActor}
+        />
 
         {feed.isError && !feed.data ? (
           <div className="border-t border-line">
@@ -53,7 +60,11 @@ export function ActivitiesView() {
           <LoadingNote what="activity" />
         ) : items.length === 0 ? (
           <div className="border-t border-line">
-            <EmptyState icon={Inbox} title="No activity matches" body="Nothing has been logged for this combination of filters.">
+            <EmptyState
+              icon={Inbox}
+              title="No activity matches"
+              body="Nothing has been logged for this combination of filters."
+            >
               <button onClick={clear} className={buttonSecondary}>
                 Clear filters
               </button>

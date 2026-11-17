@@ -44,11 +44,26 @@ export function StageColumn({
         <div className="flex items-center gap-2">
           <span className={cn("size-2 rounded-full", STAGE_DOT[stage.code])} aria-hidden />
           <h2 className="text-[13px] font-semibold text-ink">{stage.name}</h2>
-          <span className="tnum rounded-full bg-surface px-1.5 text-[11.5px] font-medium text-ink-2 ring-1 ring-line">{cards.length}</span>
-          <span className="tnum ml-auto text-[12.5px] font-semibold text-ink">{total == null ? "—" : formatCompactCurrency(total, reportingCurrency)}</span>
-          <button onClick={() => window.dispatchEvent(new CustomEvent("nexus:create", { detail: "deal" }))} aria-label={`Add deal to ${stage.name}`} title={`Add deal · choose ${stage.name} in the form`} className="grid size-6 place-items-center rounded-md text-ink-3 hover:bg-surface hover:text-brand"><Plus className="size-3.5" /></button>
+          <span className="tnum rounded-full bg-surface px-1.5 text-[11.5px] font-medium text-ink-2 ring-1 ring-line">
+            {cards.length}
+          </span>
+          <span className="tnum ml-auto text-[12.5px] font-semibold text-ink">
+            {total == null ? "—" : formatCompactCurrency(total, reportingCurrency)}
+          </span>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("nexus:create", { detail: "deal" }))}
+            aria-label={`Add deal to ${stage.name}`}
+            title={`Add deal · choose ${stage.name} in the form`}
+            className="grid size-6 place-items-center rounded-md text-ink-3 hover:bg-surface hover:text-brand"
+          >
+            <Plus className="size-3.5" />
+          </button>
         </div>
-        <p className="tnum mt-1 text-[11.5px] text-ink-3">{stage.winProbability}% probability · {total == null ? "—" : formatCompactCurrency(total * stage.winProbability / 100, reportingCurrency)} weighted</p>
+        <p className="tnum mt-1 text-[11.5px] text-ink-3">
+          {stage.winProbability}% probability ·{" "}
+          {total == null ? "—" : formatCompactCurrency((total * stage.winProbability) / 100, reportingCurrency)}{" "}
+          weighted
+        </p>
       </header>
 
       <ul className="flex min-h-24 flex-1 flex-col gap-2 p-2 pt-1">

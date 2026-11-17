@@ -6,7 +6,13 @@ import { useState } from "react";
 
 export const PAGE_SIZE = 10;
 
-export const EMPTY_FILTERS = { query: "", source: "" as LeadSource | "", status: "" as LeadStatus | "", owner: "", tag: "" };
+export const EMPTY_FILTERS = {
+  query: "",
+  source: "" as LeadSource | "",
+  status: "" as LeadStatus | "",
+  owner: "",
+  tag: "",
+};
 
 export type LeadFilterState = typeof EMPTY_FILTERS;
 
@@ -17,7 +23,14 @@ export function useLeadFilters() {
   const [page, setPage] = useState(1);
   const search = useDebounced(filters.query);
 
-  const apiFilters: LeadFilters = { q: search.trim(), source: filters.source, status: filters.status, ownerId: filters.owner, tag: filters.tag, view };
+  const apiFilters: LeadFilters = {
+    q: search.trim(),
+    source: filters.source,
+    status: filters.status,
+    ownerId: filters.owner,
+    tag: filters.tag,
+    view,
+  };
 
   // Any change to what is listed goes back to the first page.
   const update = (patch: Partial<LeadFilterState>) => {

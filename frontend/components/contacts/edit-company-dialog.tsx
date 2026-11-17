@@ -15,7 +15,11 @@ import { useState } from "react";
 export function EditCompanyDialog({ company, onClose }: { company: Ref | null; onClose: () => void }) {
   const refresh = useRefresh();
   const [error, setError] = useState<string | null>(null);
-  const details = useQuery({ queryKey: [...KEYS.companies, company?.id], queryFn: () => getCompany(company!.id), enabled: company !== null });
+  const details = useQuery({
+    queryKey: [...KEYS.companies, company?.id],
+    queryFn: () => getCompany(company!.id),
+    enabled: company !== null,
+  });
   const close = () => {
     setError(null);
     onClose();
@@ -48,13 +52,33 @@ export function EditCompanyDialog({ company, onClose }: { company: Ref | null; o
       }}
     >
       <Field label="Company name" className="sm:col-span-2">
-        <input name="name" required maxLength={160} defaultValue={details.data?.name ?? company?.name ?? ""} autoComplete="off" className={fieldControl} />
+        <input
+          name="name"
+          required
+          maxLength={160}
+          defaultValue={details.data?.name ?? company?.name ?? ""}
+          autoComplete="off"
+          className={fieldControl}
+        />
       </Field>
       <Field label="Website domain" optional>
-        <input name="domain" maxLength={160} defaultValue={details.data?.domain ?? ""} placeholder="acme.com" autoComplete="off" className={fieldControl} />
+        <input
+          name="domain"
+          maxLength={160}
+          defaultValue={details.data?.domain ?? ""}
+          placeholder="acme.com"
+          autoComplete="off"
+          className={fieldControl}
+        />
       </Field>
       <Field label="Industry" optional>
-        <input name="industry" maxLength={120} defaultValue={details.data?.industry ?? ""} autoComplete="off" className={fieldControl} />
+        <input
+          name="industry"
+          maxLength={120}
+          defaultValue={details.data?.industry ?? ""}
+          autoComplete="off"
+          className={fieldControl}
+        />
       </Field>
     </FormDialog>
   );

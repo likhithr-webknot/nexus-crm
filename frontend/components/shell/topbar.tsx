@@ -72,8 +72,16 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
         <NotificationsMenu />
         <ShortcutsHelp />
         <Tooltip label={theme === "light" ? "Dark theme" : "Light theme"}>
-          <button onClick={() => setTheme(theme === "light" ? "dark" : "light")} aria-label={`Switch to ${theme === "light" ? "dark" : "light"} theme`} className={topbarIconButton}>
-            {theme === "light" ? <Moon className="size-[17px]" aria-hidden /> : <Sun className="size-[17px]" aria-hidden />}
+          <button
+            onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+            aria-label={`Switch to ${theme === "light" ? "dark" : "light"} theme`}
+            className={topbarIconButton}
+          >
+            {theme === "light" ? (
+              <Moon className="size-[17px]" aria-hidden />
+            ) : (
+              <Sun className="size-[17px]" aria-hidden />
+            )}
           </button>
         </Tooltip>
         <span className="mx-1.5 hidden h-5 w-px bg-line sm:block" aria-hidden />

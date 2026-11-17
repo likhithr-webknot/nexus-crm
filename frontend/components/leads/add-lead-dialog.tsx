@@ -54,7 +54,16 @@ export function AddLeadDialog({ open, onClose }: { open: boolean; onClose: () =>
   };
 
   return (
-    <FormDialog open={open} onClose={close} title="Add lead" description="New leads start in the New stage." submitLabel="Add lead" pending={add.isPending} error={error} onSubmit={submit}>
+    <FormDialog
+      open={open}
+      onClose={close}
+      title="Add lead"
+      description="New leads start in the New stage."
+      submitLabel="Add lead"
+      pending={add.isPending}
+      error={error}
+      onSubmit={submit}
+    >
       <Field label="Full name">
         <input name="name" required maxLength={240} autoComplete="off" className={fieldControl} />
       </Field>
@@ -87,7 +96,15 @@ export function AddLeadDialog({ open, onClose }: { open: boolean; onClose: () =>
         </select>
       </Field>
       <Field label="Estimated value" optional>
-        <input name="value" type="number" min={0} step="any" inputMode="decimal" onChange={(e) => e.currentTarget.setCustomValidity("")} className={fieldControl} />
+        <input
+          name="value"
+          type="number"
+          min={0}
+          step="any"
+          inputMode="decimal"
+          onChange={(e) => e.currentTarget.setCustomValidity("")}
+          className={fieldControl}
+        />
       </Field>
       <Field label="Currency">
         <select name="currency" defaultValue={reportingCurrency} className={fieldControl}>

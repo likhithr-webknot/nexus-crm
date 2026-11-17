@@ -3,7 +3,19 @@
 import { useSession } from "@/components/auth/session";
 import { Page, PageHeader } from "@/components/ui/primitives";
 import { cn } from "@/lib/format";
-import { CalendarDays, Coins, GitBranch, History, Mail, Megaphone, ShieldCheck, Sparkles, Target, User, type LucideIcon } from "lucide-react";
+import {
+  CalendarDays,
+  Coins,
+  GitBranch,
+  History,
+  Mail,
+  Megaphone,
+  ShieldCheck,
+  Sparkles,
+  Target,
+  User,
+  type LucideIcon,
+} from "lucide-react";
 import { useState } from "react";
 import { AuditSection } from "./sections/audit-section";
 import { CurrencySection } from "./sections/currency-section";

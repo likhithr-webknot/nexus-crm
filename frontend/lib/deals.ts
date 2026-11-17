@@ -48,8 +48,17 @@ export const listStages = () => api<PipelineStage[]>("/pipeline/stages");
 /** Every open deal and the ones closed in the last 90 days. */
 export const pipelineBoard = (ownerId?: string) => api<Deal[]>(`/pipeline/board${qs({ ownerId })}`);
 
-export const listDeals = (params: { q?: string; stage?: string; ownerId?: string; contactId?: string; companyId?: string; open?: boolean; tag?: string; page?: number; size?: number }) =>
-  api<PageResponse<Deal>>(`/deals${qs(params)}`);
+export const listDeals = (params: {
+  q?: string;
+  stage?: string;
+  ownerId?: string;
+  contactId?: string;
+  companyId?: string;
+  open?: boolean;
+  tag?: string;
+  page?: number;
+  size?: number;
+}) => api<PageResponse<Deal>>(`/deals${qs(params)}`);
 
 /** Deals fetched page by page, newest first, up to `limit`. `complete` is false when there were more. */
 export async function listAllDeals(limit = 2000) {
@@ -57,7 +66,8 @@ export async function listAllDeals(limit = 2000) {
   for (let page = 1; ; page++) {
     const result = await listDeals({ page, size: 100 });
     items.push(...result.items);
-    if (items.length >= result.total || result.items.length === 0) return { items, total: result.total, complete: true };
+    if (items.length >= result.total || result.items.length === 0)
+      return { items, total: result.total, complete: true };
     if (items.length >= limit) return { items, total: result.total, complete: false };
   }
 }

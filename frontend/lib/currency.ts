@@ -9,9 +9,7 @@ const codes = new Set(
 );
 for (const code of FALLBACK_CURRENCIES) codes.add(code);
 
-export const CURRENCIES = [...codes]
-  .sort()
-  .map((code) => ({ code, name: DISPLAY_NAMES.of(code) ?? code }));
+export const CURRENCIES = [...codes].sort().map((code) => ({ code, name: DISPLAY_NAMES.of(code) ?? code }));
 
 export const DEFAULT_REPORTING_CURRENCY = "INR";
 
@@ -27,10 +25,12 @@ export function isCurrencyCode(value: string): value is CurrencyCode {
 }
 
 export function currencyMinorUnits(currency: CurrencyCode): number {
-  return new Intl.NumberFormat(LOCALE_BY_CURRENCY[currency] ?? "en", {
-    style: "currency",
-    currency,
-  }).resolvedOptions().maximumFractionDigits ?? 2;
+  return (
+    new Intl.NumberFormat(LOCALE_BY_CURRENCY[currency] ?? "en", {
+      style: "currency",
+      currency,
+    }).resolvedOptions().maximumFractionDigits ?? 2
+  );
 }
 
 export function decimalPlaces(value: string) {

@@ -41,10 +41,23 @@ export function EditActivityDialog({ activity, onClose }: { activity: Activity |
       onSubmit={(f) => activity && (setError(null), save.mutate([activity.id, { subject: f.title, body: f.detail }]))}
     >
       <Field label="Summary" className="sm:col-span-2">
-        <input name="title" required maxLength={160} defaultValue={activity?.subject} autoComplete="off" className={fieldControl} />
+        <input
+          name="title"
+          required
+          maxLength={160}
+          defaultValue={activity?.subject}
+          autoComplete="off"
+          className={fieldControl}
+        />
       </Field>
       <Field label="Notes" className="sm:col-span-2">
-        <textarea name="detail" maxLength={5000} rows={4} defaultValue={activity?.body ?? ""} className={`${fieldControl} h-auto py-2`} />
+        <textarea
+          name="detail"
+          maxLength={5000}
+          rows={4}
+          defaultValue={activity?.body ?? ""}
+          className={`${fieldControl} h-auto py-2`}
+        />
       </Field>
     </FormDialog>
   );

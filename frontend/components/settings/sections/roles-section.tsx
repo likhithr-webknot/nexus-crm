@@ -3,10 +3,14 @@
 import { Card, CardHeader } from "@/components/ui/primitives";
 import { Check, X } from "lucide-react";
 
-
 // From the backend design, "Authorization: who sees what".
 const PERMISSIONS: [capability: string, rep: string, manager: string, admin: string][] = [
-  ["Read and edit leads, contacts, deals, follow-ups", "Own records and the unassigned queue", "Own team's records", "All"],
+  [
+    "Read and edit leads, contacts, deals, follow-ups",
+    "Own records and the unassigned queue",
+    "Own team's records",
+    "All",
+  ],
   ["Reassign leads and deals", "No", "Within own team", "All"],
   ["Import CSV, restore deleted records", "No", "Yes", "Yes"],
   ["Dashboard and reports", "Own numbers", "Team numbers", "Company numbers"],
@@ -17,7 +21,10 @@ const PERMISSIONS: [capability: string, rep: string, manager: string, admin: str
 export function RolesSection() {
   return (
     <Card className="overflow-hidden">
-      <CardHeader title="Roles & permissions" subtitle="Three fixed roles. A member's role is changed from Team Management." />
+      <CardHeader
+        title="Roles & permissions"
+        subtitle="Three fixed roles. A member's role is changed from Team Management."
+      />
       <div className="overflow-x-auto">
         <table className="w-full min-w-[680px] text-left text-[13px]">
           <thead>

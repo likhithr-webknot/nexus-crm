@@ -10,10 +10,20 @@ import { modulesApi, type FlowEdge, type FlowNode, type ModuleRecord } from "@/l
 import { localId } from "@/lib/id";
 
 const types: FlowNode["type"][] = ["Trigger", "Condition", "Action", "Delay", "Branch"];
-const options: Record<FlowNode["type"], string[]> = { Trigger: ["Deal created", "Deal won", "Lead qualified"], Condition: ["Deal is won", "Lead is qualified"], Branch: ["Deal is won", "Lead is qualified"], Action: ["Notify owner", "Create follow-up"], Delay: ["Wait 1 hour", "Wait 1 day"] };
+const options: Record<FlowNode["type"], string[]> = {
+  Trigger: ["Deal created", "Deal won", "Lead qualified"],
+  Condition: ["Deal is won", "Lead is qualified"],
+  Branch: ["Deal is won", "Lead is qualified"],
+  Action: ["Notify owner", "Create follow-up"],
+  Delay: ["Wait 1 hour", "Wait 1 day"],
+};
 type Run = { id: string; status: string; eventKey: string; error: string | null; createdAt: string; updatedAt: string };
-function initialNodes(record: ModuleRecord): FlowNode[] { return (record.flowNodes ?? []).map((node, index) => ({ ...node, x: node.x ?? 80 + index * 250, y: node.y ?? 190 })); }
-function initialEdges(record: ModuleRecord): FlowEdge[] { return record.flowEdges ?? []; }
+function initialNodes(record: ModuleRecord): FlowNode[] {
+  return (record.flowNodes ?? []).map((node, index) => ({ ...node, x: node.x ?? 80 + index * 250, y: node.y ?? 190 }));
+}
+function initialEdges(record: ModuleRecord): FlowEdge[] {
+  return record.flowEdges ?? [];
+}
 
 export function AutomationFlow({ workflow, onSaved }: { workflow: ModuleRecord; onSaved: () => Promise<unknown> }) {
   const [nodes, setNodes] = useState<FlowNode[]>(() => initialNodes(workflow));
@@ -31,42 +41,443 @@ export function AutomationFlow({ workflow, onSaved }: { workflow: ModuleRecord; 
   const [aiMessage, setAiMessage] = useState("");
   const [tab, setTab] = useState<"builder" | "history">("builder");
   const selected = nodes.find((node) => node.id === selectedId);
-  const runs = useQuery({ queryKey: ["automation-runs", workflow.id], queryFn: () => api<Run[]>(`/automations/${workflow.id}/runs`), enabled: tab === "history" });
-  const update = (id: string, changes: Partial<FlowNode>) => setNodes((current) => current.map((node) => node.id === id ? { ...node, ...changes } : node));
-  const add = (type: FlowNode["type"]) => { const id = localId(); const x = selected ? (selected.x ?? 80) + 250 : 80 + nodes.length * 220; const y = selected?.y ?? 190; setNodes((current) => [...current, { id, type, label: options[type][0], x, y }]); if (selected) setEdges((current) => [...current, { id: localId(), source: selected.id, target: id, label: selected.type === "Condition" || selected.type === "Branch" ? "Yes" : undefined }]); setSelectedId(id); };
-  const connect = () => { if (!selected || !targetId || selected.id === targetId || edges.some((edge) => edge.source === selected.id && edge.target === targetId)) return; setEdges((current) => [...current, { id: localId(), source: selected.id, target: targetId, label: edgeLabel.trim() || undefined }]); setTargetId(""); setEdgeLabel(""); };
-  const remove = (id: string) => { setNodes((current) => current.filter((node) => node.id !== id)); setEdges((current) => current.filter((edge) => edge.source !== id && edge.target !== id)); setSelectedId(null); };
-  const issues = [nodes.filter((node) => node.type === "Trigger").length !== 1 ? "Use exactly one trigger." : null, !nodes.some((node) => node.type === "Action") ? "Add an action." : null, nodes.some((node) => !options[node.type].includes(node.label)) ? "Choose a supported step." : null, nodes.some((node) => node.type !== "Trigger" && !edges.some((edge) => edge.target === node.id)) ? "Connect every non-trigger step." : null].filter(Boolean) as string[];
-  const save = async (status: "Draft" | "Published") => { if (status === "Published" && issues.length) { toast(issues[0]); return; } setSaving(true); try { await modulesApi.update("automations", workflow.id, { flowNodes: nodes, flowEdges: edges, status }); await onSaved(); toast(status === "Published" ? "Workflow published. New matching events will run it." : "Workflow draft saved."); } catch (cause) { toast(errorMessage(cause, "Workflow could not be saved.")); } finally { setSaving(false); } };
-  const describe = async () => {
-    setAiBusy(true); setAiMessage("");
+  const runs = useQuery({
+    queryKey: ["automation-runs", workflow.id],
+    queryFn: () => api<Run[]>(`/automations/${workflow.id}/runs`),
+    enabled: tab === "history",
+  });
+  const update = (id: string, changes: Partial<FlowNode>) =>
+    setNodes((current) => current.map((node) => (node.id === id ? { ...node, ...changes } : node)));
+  const add = (type: FlowNode["type"]) => {
+    const id = localId();
+    const x = selected ? (selected.x ?? 80) + 250 : 80 + nodes.length * 220;
+    const y = selected?.y ?? 190;
+    setNodes((current) => [...current, { id, type, label: options[type][0], x, y }]);
+    if (selected)
+      setEdges((current) => [
+        ...current,
+        {
+          id: localId(),
+          source: selected.id,
+          target: id,
+          label: selected.type === "Condition" || selected.type === "Branch" ? "Yes" : undefined,
+        },
+      ]);
+    setSelectedId(id);
+  };
+  const connect = () => {
+    if (
+      !selected ||
+      !targetId ||
+      selected.id === targetId ||
+      edges.some((edge) => edge.source === selected.id && edge.target === targetId)
+    )
+      return;
+    setEdges((current) => [
+      ...current,
+      { id: localId(), source: selected.id, target: targetId, label: edgeLabel.trim() || undefined },
+    ]);
+    setTargetId("");
+    setEdgeLabel("");
+  };
+  const remove = (id: string) => {
+    setNodes((current) => current.filter((node) => node.id !== id));
+    setEdges((current) => current.filter((edge) => edge.source !== id && edge.target !== id));
+    setSelectedId(null);
+  };
+  const issues = [
+    nodes.filter((node) => node.type === "Trigger").length !== 1 ? "Use exactly one trigger." : null,
+    !nodes.some((node) => node.type === "Action") ? "Add an action." : null,
+    nodes.some((node) => !options[node.type].includes(node.label)) ? "Choose a supported step." : null,
+    nodes.some((node) => node.type !== "Trigger" && !edges.some((edge) => edge.target === node.id))
+      ? "Connect every non-trigger step."
+      : null,
+  ].filter(Boolean) as string[];
+  const save = async (status: "Draft" | "Published") => {
+    if (status === "Published" && issues.length) {
+      toast(issues[0]);
+      return;
+    }
+    setSaving(true);
     try {
-      const result = await api<{ supported: boolean; message: string; nodes: FlowNode[]; edges: FlowEdge[] }>("/ai/workflow", { method: "POST", body: JSON.stringify({ text: aiPrompt }) });
+      await modulesApi.update("automations", workflow.id, { flowNodes: nodes, flowEdges: edges, status });
+      await onSaved();
+      toast(status === "Published" ? "Workflow published. New matching events will run it." : "Workflow draft saved.");
+    } catch (cause) {
+      toast(errorMessage(cause, "Workflow could not be saved."));
+    } finally {
+      setSaving(false);
+    }
+  };
+  const describe = async () => {
+    setAiBusy(true);
+    setAiMessage("");
+    try {
+      const result = await api<{ supported: boolean; message: string; nodes: FlowNode[]; edges: FlowEdge[] }>(
+        "/ai/workflow",
+        { method: "POST", body: JSON.stringify({ text: aiPrompt }) },
+      );
       if (result.supported) {
-        setNodes(result.nodes); setEdges(result.edges); setTab("builder");
-        await modulesApi.update("automations", workflow.id, { flowNodes: result.nodes, flowEdges: result.edges, status: "Draft" });
+        setNodes(result.nodes);
+        setEdges(result.edges);
+        setTab("builder");
+        await modulesApi.update("automations", workflow.id, {
+          flowNodes: result.nodes,
+          flowEdges: result.edges,
+          status: "Draft",
+        });
         await onSaved();
         setAiMessage("Workflow built and saved as a draft. Review the steps, then publish it.");
       } else setAiMessage(result.message || "This workflow needs unsupported steps.");
-    } catch (cause) { setAiMessage(errorMessage(cause, "AI could not build this workflow.")); }
-    finally { setAiBusy(false); }
+    } catch (cause) {
+      setAiMessage(errorMessage(cause, "AI could not build this workflow."));
+    } finally {
+      setAiBusy(false);
+    }
   };
 
-  return <Card className="overflow-hidden">
-    <div className="border-b border-line bg-canvas/40 p-4"><label className="block text-[12px] font-medium text-ink-2">Describe the workflow you want<input value={aiPrompt} onChange={(event) => setAiPrompt(event.target.value)} maxLength={2000} placeholder="When a deal is won, notify its owner and create a follow-up" className={fieldControl} /></label><div className="mt-2 flex flex-wrap items-center gap-3"><button onClick={() => void describe()} disabled={aiBusy || !aiPrompt.trim()} className={buttonSecondary}><Sparkles className="size-4" />{aiBusy ? "Building…" : "Build with AI"}</button>{aiMessage && <span className="text-[12px] text-ink-2">{aiMessage}</span>}</div></div>
-    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-5"><div><h2 className="text-[15px] font-semibold">Workflow builder</h2><p className="mt-1 text-[12px] text-ink-3">Drag steps, connect them, or move a focused step with arrow keys.</p></div><div className="flex flex-wrap gap-2"><button onClick={() => setTab("builder")} aria-pressed={tab === "builder"} className={buttonSecondary + (tab === "builder" ? " border-brand text-brand" : "")}>Canvas</button><button onClick={() => setTab("history")} aria-pressed={tab === "history"} className={buttonSecondary + (tab === "history" ? " border-brand text-brand" : "")}>History</button><button className={buttonSecondary} aria-label="Zoom out" onClick={() => setZoom((value) => Math.max(.6, +(value - .1).toFixed(2)))}><ZoomOut className="size-4" /></button><span className="grid min-w-11 place-items-center text-[12px] text-ink-2">{Math.round(zoom * 100)}%</span><button className={buttonSecondary} aria-label="Zoom in" onClick={() => setZoom((value) => Math.min(1.5, +(value + .1).toFixed(2)))}><ZoomIn className="size-4" /></button></div></div>
-    {tab === "history" ? <div className="p-8"><h3 className="text-[14px] font-semibold">Execution history</h3>{runs.isPending ? <p className="mt-4 text-[12px] text-ink-3">Loading runs…</p> : runs.isError ? <p className="mt-4 text-[12px] text-down">Runs could not be loaded. <button onClick={() => runs.refetch()} className="underline">Retry</button></p> : runs.data?.length ? <ul className="mt-4 divide-y divide-line rounded-lg border border-line">{runs.data.map((run) => <li key={run.id} className="flex flex-wrap justify-between gap-2 px-4 py-3 text-[12px]"><span className="font-medium">{run.eventKey}</span><span>{run.status}</span><span className="w-full text-ink-3">{new Date(run.createdAt).toLocaleString()}{run.error ? ` · ${run.error}` : ""}</span></li>)}</ul> : <p className="mt-4 rounded-lg border border-line bg-canvas p-4 text-[12px] text-ink-3">No runs yet. Publish this workflow and create a matching CRM event.</p>}</div> : <>
-      <div className="flex flex-wrap items-center gap-2 border-b border-line bg-canvas/40 px-4 py-2"><span className="mr-1 text-[11px] font-medium text-ink-3">Add step</span>{types.map((type) => <button key={type} onClick={() => add(type)} className={buttonSecondary + " h-7 px-2 text-[11px]"}><Plus className="size-3" />{type}</button>)}<span className="ml-auto text-[11px] text-ink-3">Drag empty canvas to pan</span></div>
-      <div className="grid lg:grid-cols-[minmax(0,1fr)_280px]">
-        <div className="relative h-[540px] overflow-hidden bg-[radial-gradient(var(--line)_1px,transparent_1px)] [background-size:20px_20px]" onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); setPanning({ clientX: event.clientX, clientY: event.clientY, ...pan }); }} onPointerMove={(event) => { if (panning) setPan({ x: panning.x + event.clientX - panning.clientX, y: panning.y + event.clientY - panning.clientY }); }} onPointerUp={() => setPanning(null)}>
-          <div className="absolute left-0 top-0 h-[800px] w-[1600px] origin-top-left" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
-            <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden><defs><marker id="flow-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 Z" fill="var(--brand)" /></marker></defs>{edges.map((edge) => { const source = nodes.find((node) => node.id === edge.source); const target = nodes.find((node) => node.id === edge.target); if (!source || !target) return null; const x1 = (source.x ?? 0) + 190; const y1 = (source.y ?? 0) + 48; const x2 = target.x ?? 0; const y2 = (target.y ?? 0) + 48; const curve = Math.max(50, Math.abs(x2 - x1) / 2); return <g key={edge.id}><path d={`M${x1},${y1} C${x1 + curve},${y1} ${x2 - curve},${y2} ${x2},${y2}`} fill="none" stroke="var(--brand)" strokeWidth="2" markerEnd="url(#flow-arrow)" opacity=".75" />{edge.label && <text x={(x1 + x2) / 2} y={(y1 + y2) / 2 - 8} textAnchor="middle" fill="var(--ink-2)" fontSize="11">{edge.label}</text>}</g>; })}</svg>
-            {nodes.map((node) => <button key={node.id} type="button" style={{ left: node.x, top: node.y }} onClick={() => setSelectedId(node.id)} onPointerDown={(event) => { if (event.button !== 0) return; event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId); setSelectedId(node.id); setDrag({ id: node.id, clientX: event.clientX, clientY: event.clientY, x: node.x ?? 0, y: node.y ?? 0 }); }} onPointerMove={(event) => { if (drag?.id === node.id) update(node.id, { x: Math.max(0, drag.x + (event.clientX - drag.clientX) / zoom), y: Math.max(0, drag.y + (event.clientY - drag.clientY) / zoom) }); }} onPointerUp={() => setDrag(null)} onKeyDown={(event) => { const moves: Record<string, [number, number]> = { ArrowLeft: [-10, 0], ArrowRight: [10, 0], ArrowUp: [0, -10], ArrowDown: [0, 10] }; if (moves[event.key]) { event.preventDefault(); const [dx, dy] = moves[event.key]; update(node.id, { x: Math.max(0, (node.x ?? 0) + dx), y: Math.max(0, (node.y ?? 0) + dy) }); } }} aria-pressed={selectedId === node.id} aria-label={`${node.type}: ${node.label}. Use arrow keys to move.`} className={`absolute w-[190px] cursor-grab rounded-xl border bg-surface p-4 text-left shadow-sm active:cursor-grabbing ${selectedId === node.id ? "border-brand ring-2 ring-brand/20" : "border-line hover:border-brand/50"}`}><span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-brand">{node.type === "Branch" ? <GitBranch className="size-3" /> : null}{node.type}</span><span className="mt-2 block min-h-10 text-[13px] font-medium leading-5">{node.label}</span><span className="mt-1 block text-[10px] text-ink-3">{edges.filter((edge) => edge.source === node.id).length} outgoing</span></button>)}
-          </div>
+  return (
+    <Card className="overflow-hidden">
+      <div className="border-b border-line bg-canvas/40 p-4">
+        <label className="block text-[12px] font-medium text-ink-2">
+          Describe the workflow you want
+          <input
+            value={aiPrompt}
+            onChange={(event) => setAiPrompt(event.target.value)}
+            maxLength={2000}
+            placeholder="When a deal is won, notify its owner and create a follow-up"
+            className={fieldControl}
+          />
+        </label>
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          <button onClick={() => void describe()} disabled={aiBusy || !aiPrompt.trim()} className={buttonSecondary}>
+            <Sparkles className="size-4" />
+            {aiBusy ? "Building…" : "Build with AI"}
+          </button>
+          {aiMessage && <span className="text-[12px] text-ink-2">{aiMessage}</span>}
         </div>
-        <aside className="border-t border-line bg-surface p-5 lg:border-l lg:border-t-0"><h3 className="text-[13px] font-semibold">Step settings</h3>{selected ? <div className="mt-4 space-y-4"><label className="block text-[12px] text-ink-2">Type<select className={control + " mt-1 w-full px-2"} value={selected.type} onChange={(event) => { const type = event.target.value as FlowNode["type"]; update(selected.id, { type, label: options[type][0] }); }}>{types.map((type) => <option key={type}>{type}</option>)}</select></label><label className="block text-[12px] text-ink-2">Step<select className={fieldControl} value={selected.label} onChange={(event) => update(selected.id, { label: event.target.value })}>{options[selected.type].map((label) => <option key={label}>{label}</option>)}</select></label><div className="space-y-2 border-t border-line pt-4"><p className="text-[12px] font-medium">Connections</p>{edges.filter((edge) => edge.source === selected.id).map((edge) => <div key={edge.id} className="flex items-center gap-2 text-[11px] text-ink-2"><ArrowRight className="size-3" /><span className="min-w-0 flex-1 truncate">{edge.label ? `${edge.label} → ` : ""}{nodes.find((node) => node.id === edge.target)?.label}</span><button onClick={() => setEdges((current) => current.filter((item) => item.id !== edge.id))} aria-label="Remove connection" className="text-ink-3 hover:text-down"><Trash2 className="size-3.5" /></button></div>)}<select value={targetId} onChange={(event) => setTargetId(event.target.value)} aria-label="Connect to step" className={control + " w-full px-2"}><option value="">Connect to…</option>{nodes.filter((node) => node.id !== selected.id).map((node) => <option key={node.id} value={node.id}>{node.label}</option>)}</select>{(selected.type === "Condition" || selected.type === "Branch") && <select value={edgeLabel} onChange={(event) => setEdgeLabel(event.target.value)} aria-label="Path label" className={fieldControl}><option value="">Choose path</option><option value="Yes">Yes</option><option value="No">No</option></select>}<button onClick={connect} disabled={!targetId || ((selected.type === "Condition" || selected.type === "Branch") && !edgeLabel)} className={buttonSecondary + " w-full justify-center"}>Add connection</button></div><button onClick={() => remove(selected.id)} className={buttonSecondary + " text-down"}><Trash2 className="size-4" />Remove step</button></div> : <p className="mt-3 text-[12px] text-ink-3">Select a step on the canvas to edit it and connect paths.</p>}</aside>
       </div>
-      <div className="flex flex-wrap items-center gap-2 border-t border-line bg-canvas/40 p-4"><div className="min-w-0 flex-1">{issues.length ? <p role="status" className="tone-text tone-amber text-[12px]">{issues.join(" ")}</p> : <p className="text-[12px] text-up">Workflow structure is valid.</p>}<p className="mt-0.5 text-[11px] text-ink-3">Published workflows run when a matching CRM event occurs.</p></div><button onClick={() => void save("Draft")} disabled={saving} className={buttonSecondary}><Save className="size-4" />Save draft</button><button onClick={() => void save("Published")} disabled={saving || issues.length > 0} className={buttonPrimary}>Publish workflow</button></div>
-    </>}
-  </Card>;
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-5">
+        <div>
+          <h2 className="text-[15px] font-semibold">Workflow builder</h2>
+          <p className="mt-1 text-[12px] text-ink-3">
+            Drag steps, connect them, or move a focused step with arrow keys.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setTab("builder")}
+            aria-pressed={tab === "builder"}
+            className={buttonSecondary + (tab === "builder" ? " border-brand text-brand" : "")}
+          >
+            Canvas
+          </button>
+          <button
+            onClick={() => setTab("history")}
+            aria-pressed={tab === "history"}
+            className={buttonSecondary + (tab === "history" ? " border-brand text-brand" : "")}
+          >
+            History
+          </button>
+          <button
+            className={buttonSecondary}
+            aria-label="Zoom out"
+            onClick={() => setZoom((value) => Math.max(0.6, +(value - 0.1).toFixed(2)))}
+          >
+            <ZoomOut className="size-4" />
+          </button>
+          <span className="grid min-w-11 place-items-center text-[12px] text-ink-2">{Math.round(zoom * 100)}%</span>
+          <button
+            className={buttonSecondary}
+            aria-label="Zoom in"
+            onClick={() => setZoom((value) => Math.min(1.5, +(value + 0.1).toFixed(2)))}
+          >
+            <ZoomIn className="size-4" />
+          </button>
+        </div>
+      </div>
+      {tab === "history" ? (
+        <div className="p-8">
+          <h3 className="text-[14px] font-semibold">Execution history</h3>
+          {runs.isPending ? (
+            <p className="mt-4 text-[12px] text-ink-3">Loading runs…</p>
+          ) : runs.isError ? (
+            <p className="mt-4 text-[12px] text-down">
+              Runs could not be loaded.{" "}
+              <button onClick={() => runs.refetch()} className="underline">
+                Retry
+              </button>
+            </p>
+          ) : runs.data?.length ? (
+            <ul className="mt-4 divide-y divide-line rounded-lg border border-line">
+              {runs.data.map((run) => (
+                <li key={run.id} className="flex flex-wrap justify-between gap-2 px-4 py-3 text-[12px]">
+                  <span className="font-medium">{run.eventKey}</span>
+                  <span>{run.status}</span>
+                  <span className="w-full text-ink-3">
+                    {new Date(run.createdAt).toLocaleString()}
+                    {run.error ? ` · ${run.error}` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-4 rounded-lg border border-line bg-canvas p-4 text-[12px] text-ink-3">
+              No runs yet. Publish this workflow and create a matching CRM event.
+            </p>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center gap-2 border-b border-line bg-canvas/40 px-4 py-2">
+            <span className="mr-1 text-[11px] font-medium text-ink-3">Add step</span>
+            {types.map((type) => (
+              <button key={type} onClick={() => add(type)} className={buttonSecondary + " h-7 px-2 text-[11px]"}>
+                <Plus className="size-3" />
+                {type}
+              </button>
+            ))}
+            <span className="ml-auto text-[11px] text-ink-3">Drag empty canvas to pan</span>
+          </div>
+          <div className="grid lg:grid-cols-[minmax(0,1fr)_280px]">
+            <div
+              className="relative h-[540px] overflow-hidden bg-[radial-gradient(var(--line)_1px,transparent_1px)] [background-size:20px_20px]"
+              onPointerDown={(event) => {
+                event.currentTarget.setPointerCapture(event.pointerId);
+                setPanning({ clientX: event.clientX, clientY: event.clientY, ...pan });
+              }}
+              onPointerMove={(event) => {
+                if (panning)
+                  setPan({
+                    x: panning.x + event.clientX - panning.clientX,
+                    y: panning.y + event.clientY - panning.clientY,
+                  });
+              }}
+              onPointerUp={() => setPanning(null)}
+            >
+              <div
+                className="absolute left-0 top-0 h-[800px] w-[1600px] origin-top-left"
+                style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
+              >
+                <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden>
+                  <defs>
+                    <marker id="flow-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+                      <path d="M0 0 L9 4.5 L0 9 Z" fill="var(--brand)" />
+                    </marker>
+                  </defs>
+                  {edges.map((edge) => {
+                    const source = nodes.find((node) => node.id === edge.source);
+                    const target = nodes.find((node) => node.id === edge.target);
+                    if (!source || !target) return null;
+                    const x1 = (source.x ?? 0) + 190;
+                    const y1 = (source.y ?? 0) + 48;
+                    const x2 = target.x ?? 0;
+                    const y2 = (target.y ?? 0) + 48;
+                    const curve = Math.max(50, Math.abs(x2 - x1) / 2);
+                    return (
+                      <g key={edge.id}>
+                        <path
+                          d={`M${x1},${y1} C${x1 + curve},${y1} ${x2 - curve},${y2} ${x2},${y2}`}
+                          fill="none"
+                          stroke="var(--brand)"
+                          strokeWidth="2"
+                          markerEnd="url(#flow-arrow)"
+                          opacity=".75"
+                        />
+                        {edge.label && (
+                          <text
+                            x={(x1 + x2) / 2}
+                            y={(y1 + y2) / 2 - 8}
+                            textAnchor="middle"
+                            fill="var(--ink-2)"
+                            fontSize="11"
+                          >
+                            {edge.label}
+                          </text>
+                        )}
+                      </g>
+                    );
+                  })}
+                </svg>
+                {nodes.map((node) => (
+                  <button
+                    key={node.id}
+                    type="button"
+                    style={{ left: node.x, top: node.y }}
+                    onClick={() => setSelectedId(node.id)}
+                    onPointerDown={(event) => {
+                      if (event.button !== 0) return;
+                      event.stopPropagation();
+                      event.currentTarget.setPointerCapture(event.pointerId);
+                      setSelectedId(node.id);
+                      setDrag({
+                        id: node.id,
+                        clientX: event.clientX,
+                        clientY: event.clientY,
+                        x: node.x ?? 0,
+                        y: node.y ?? 0,
+                      });
+                    }}
+                    onPointerMove={(event) => {
+                      if (drag?.id === node.id)
+                        update(node.id, {
+                          x: Math.max(0, drag.x + (event.clientX - drag.clientX) / zoom),
+                          y: Math.max(0, drag.y + (event.clientY - drag.clientY) / zoom),
+                        });
+                    }}
+                    onPointerUp={() => setDrag(null)}
+                    onKeyDown={(event) => {
+                      const moves: Record<string, [number, number]> = {
+                        ArrowLeft: [-10, 0],
+                        ArrowRight: [10, 0],
+                        ArrowUp: [0, -10],
+                        ArrowDown: [0, 10],
+                      };
+                      if (moves[event.key]) {
+                        event.preventDefault();
+                        const [dx, dy] = moves[event.key];
+                        update(node.id, { x: Math.max(0, (node.x ?? 0) + dx), y: Math.max(0, (node.y ?? 0) + dy) });
+                      }
+                    }}
+                    aria-pressed={selectedId === node.id}
+                    aria-label={`${node.type}: ${node.label}. Use arrow keys to move.`}
+                    className={`absolute w-[190px] cursor-grab rounded-xl border bg-surface p-4 text-left shadow-sm active:cursor-grabbing ${selectedId === node.id ? "border-brand ring-2 ring-brand/20" : "border-line hover:border-brand/50"}`}
+                  >
+                    <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-brand">
+                      {node.type === "Branch" ? <GitBranch className="size-3" /> : null}
+                      {node.type}
+                    </span>
+                    <span className="mt-2 block min-h-10 text-[13px] font-medium leading-5">{node.label}</span>
+                    <span className="mt-1 block text-[10px] text-ink-3">
+                      {edges.filter((edge) => edge.source === node.id).length} outgoing
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <aside className="border-t border-line bg-surface p-5 lg:border-l lg:border-t-0">
+              <h3 className="text-[13px] font-semibold">Step settings</h3>
+              {selected ? (
+                <div className="mt-4 space-y-4">
+                  <label className="block text-[12px] text-ink-2">
+                    Type
+                    <select
+                      className={control + " mt-1 w-full px-2"}
+                      value={selected.type}
+                      onChange={(event) => {
+                        const type = event.target.value as FlowNode["type"];
+                        update(selected.id, { type, label: options[type][0] });
+                      }}
+                    >
+                      {types.map((type) => (
+                        <option key={type}>{type}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block text-[12px] text-ink-2">
+                    Step
+                    <select
+                      className={fieldControl}
+                      value={selected.label}
+                      onChange={(event) => update(selected.id, { label: event.target.value })}
+                    >
+                      {options[selected.type].map((label) => (
+                        <option key={label}>{label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="space-y-2 border-t border-line pt-4">
+                    <p className="text-[12px] font-medium">Connections</p>
+                    {edges
+                      .filter((edge) => edge.source === selected.id)
+                      .map((edge) => (
+                        <div key={edge.id} className="flex items-center gap-2 text-[11px] text-ink-2">
+                          <ArrowRight className="size-3" />
+                          <span className="min-w-0 flex-1 truncate">
+                            {edge.label ? `${edge.label} → ` : ""}
+                            {nodes.find((node) => node.id === edge.target)?.label}
+                          </span>
+                          <button
+                            onClick={() => setEdges((current) => current.filter((item) => item.id !== edge.id))}
+                            aria-label="Remove connection"
+                            className="text-ink-3 hover:text-down"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    <select
+                      value={targetId}
+                      onChange={(event) => setTargetId(event.target.value)}
+                      aria-label="Connect to step"
+                      className={control + " w-full px-2"}
+                    >
+                      <option value="">Connect to…</option>
+                      {nodes
+                        .filter((node) => node.id !== selected.id)
+                        .map((node) => (
+                          <option key={node.id} value={node.id}>
+                            {node.label}
+                          </option>
+                        ))}
+                    </select>
+                    {(selected.type === "Condition" || selected.type === "Branch") && (
+                      <select
+                        value={edgeLabel}
+                        onChange={(event) => setEdgeLabel(event.target.value)}
+                        aria-label="Path label"
+                        className={fieldControl}
+                      >
+                        <option value="">Choose path</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                      </select>
+                    )}
+                    <button
+                      onClick={connect}
+                      disabled={
+                        !targetId || ((selected.type === "Condition" || selected.type === "Branch") && !edgeLabel)
+                      }
+                      className={buttonSecondary + " w-full justify-center"}
+                    >
+                      Add connection
+                    </button>
+                  </div>
+                  <button onClick={() => remove(selected.id)} className={buttonSecondary + " text-down"}>
+                    <Trash2 className="size-4" />
+                    Remove step
+                  </button>
+                </div>
+              ) : (
+                <p className="mt-3 text-[12px] text-ink-3">Select a step on the canvas to edit it and connect paths.</p>
+              )}
+            </aside>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 border-t border-line bg-canvas/40 p-4">
+            <div className="min-w-0 flex-1">
+              {issues.length ? (
+                <p role="status" className="tone-text tone-amber text-[12px]">
+                  {issues.join(" ")}
+                </p>
+              ) : (
+                <p className="text-[12px] text-up">Workflow structure is valid.</p>
+              )}
+              <p className="mt-0.5 text-[11px] text-ink-3">Published workflows run when a matching CRM event occurs.</p>
+            </div>
+            <button onClick={() => void save("Draft")} disabled={saving} className={buttonSecondary}>
+              <Save className="size-4" />
+              Save draft
+            </button>
+            <button
+              onClick={() => void save("Published")}
+              disabled={saving || issues.length > 0}
+              className={buttonPrimary}
+            >
+              Publish workflow
+            </button>
+          </div>
+        </>
+      )}
+    </Card>
+  );
 }

@@ -2,7 +2,13 @@
 
 import { api } from "@/lib/api";
 
-export type Team = { id: string; name: string; managerId: string | null; managerName: string | null; memberCount: number };
+export type Team = {
+  id: string;
+  name: string;
+  managerId: string | null;
+  managerName: string | null;
+  memberCount: number;
+};
 
 export const listTeams = () => api<Team[]>("/teams");
 

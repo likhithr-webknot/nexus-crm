@@ -11,5 +11,12 @@ export function isValidEmail(email: string) {
 
 /** Splits "a@x.com, b@y.com; c@z.com" into lower-case addresses without repeats. */
 export function splitAddresses(text: string) {
-  return [...new Set(text.split(/[\s,;]+/).map((part) => part.trim().toLowerCase()).filter(Boolean))];
+  return [
+    ...new Set(
+      text
+        .split(/[\s,;]+/)
+        .map((part) => part.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  ];
 }

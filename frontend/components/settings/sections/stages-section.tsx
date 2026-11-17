@@ -6,12 +6,14 @@ import { cn } from "@/lib/format";
 import { KEYS } from "@/lib/query-keys";
 import { useQuery } from "@tanstack/react-query";
 
-
 export function StagesSection() {
   const stages = useQuery({ queryKey: KEYS.stages, queryFn: listStages, staleTime: Infinity });
   return (
     <Card>
-      <CardHeader title="Pipeline stages" subtitle="One pipeline with fixed stages in this version. The chance to win drives the weighted forecast." />
+      <CardHeader
+        title="Pipeline stages"
+        subtitle="One pipeline with fixed stages in this version. The chance to win drives the weighted forecast."
+      />
       {stages.isPending ? (
         <p className="border-t border-line px-5 py-6 text-[13px] text-ink-3">Loading…</p>
       ) : (

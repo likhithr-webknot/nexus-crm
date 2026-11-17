@@ -27,7 +27,11 @@ export function TrashView() {
       <Page>
         <PageHeader title="Recycle bin" subtitle="Deleted records can be restored here." />
         <Card>
-          <EmptyState icon={Lock} title="You don't have access" body="Only managers and admins can restore deleted records. Ask one of them if something was deleted by mistake." />
+          <EmptyState
+            icon={Lock}
+            title="You don't have access"
+            body="Only managers and admins can restore deleted records. Ask one of them if something was deleted by mistake."
+          />
         </Card>
       </Page>
     );
@@ -36,7 +40,12 @@ export function TrashView() {
   return (
     <Page>
       <PageHeader title="Recycle bin" subtitle="Restore deleted records before they are removed for good.">
-        <select aria-label="Type" value={type} onChange={(e) => setType(e.target.value as TrashType | "")} className={cn(control, "px-2.5")}>
+        <select
+          aria-label="Type"
+          value={type}
+          onChange={(e) => setType(e.target.value as TrashType | "")}
+          className={cn(control, "px-2.5")}
+        >
           <option value="">All types</option>
           {TYPES.map((t) => (
             <option key={t} value={t}>
@@ -52,7 +61,11 @@ export function TrashView() {
         ) : trash.isPending ? (
           <LoadingNote what="deleted records" />
         ) : items.length === 0 ? (
-          <EmptyState icon={Trash2} title="Nothing here" body="Records you delete show up here, so a mistake can be undone." />
+          <EmptyState
+            icon={Trash2}
+            title="Nothing here"
+            body="Records you delete show up here, so a mistake can be undone."
+          />
         ) : (
           <ul className="divide-y divide-line">
             {items.map((item) => (
@@ -67,7 +80,12 @@ export function TrashView() {
                     {item.ownerName ? ` · owned by ${item.ownerName}` : " · unassigned"}
                   </p>
                 </div>
-                <button className={buttonSecondary} disabled={restore.isPending} onClick={() => restore.mutate(item)} aria-label={`Restore ${item.name}`}>
+                <button
+                  className={buttonSecondary}
+                  disabled={restore.isPending}
+                  onClick={() => restore.mutate(item)}
+                  aria-label={`Restore ${item.name}`}
+                >
                   <Undo2 className="size-4" aria-hidden />
                   Restore
                 </button>
@@ -77,7 +95,9 @@ export function TrashView() {
         )}
       </Card>
       <p className="text-[12.5px] text-ink-3">
-        {total > items.length ? `Showing the ${items.length} most recently deleted of ${total} records. Pick a type above to narrow the list. ` : ""}
+        {total > items.length
+          ? `Showing the ${items.length} most recently deleted of ${total} records. Pick a type above to narrow the list. `
+          : ""}
         Deleted records are removed for good {days} days after they were deleted.
       </p>
     </Page>

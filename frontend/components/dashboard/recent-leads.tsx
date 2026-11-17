@@ -59,8 +59,12 @@ export function RecentLeadsTable({ leads }: { leads: Lead[] }) {
               <td className="px-3 py-3">
                 <StageBadge stage={lead.status} />
               </td>
-              <td className="tnum px-3 py-3 text-right font-medium">{lead.estimatedValue ? format(moneyValue(lead.estimatedValue), lead.estimatedValue.currency) : "—"}</td>
-              <td className="tnum py-3 pr-5 pl-3 text-right whitespace-nowrap text-ink-2">{formatDate(lead.createdAt)}</td>
+              <td className="tnum px-3 py-3 text-right font-medium">
+                {lead.estimatedValue ? format(moneyValue(lead.estimatedValue), lead.estimatedValue.currency) : "—"}
+              </td>
+              <td className="tnum py-3 pr-5 pl-3 text-right whitespace-nowrap text-ink-2">
+                {formatDate(lead.createdAt)}
+              </td>
             </tr>
           ))}
         </tbody>

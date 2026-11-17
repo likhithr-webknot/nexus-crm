@@ -2,7 +2,11 @@ import { useCurrency } from "@/components/currency/currency-provider";
 
 const BAR_COLORS = ["#4f46e5", "#6366f1", "#818cf8", "#a5b4fc", "#10b981"];
 
-export function PipelineOverview({ stages }: { stages: { stageCode: string; name: string; count: number; amount: number }[] }) {
+export function PipelineOverview({
+  stages,
+}: {
+  stages: { stageCode: string; name: string; count: number; amount: number }[];
+}) {
   const { formatCompactReporting } = useCurrency();
   const max = Math.max(1, ...stages.map((s) => s.count));
   return (

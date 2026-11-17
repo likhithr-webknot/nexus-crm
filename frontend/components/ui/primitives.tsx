@@ -113,14 +113,19 @@ export function Badge({ tone = "neutral", children }: { tone?: keyof typeof BADG
 export function Meter({ value, className }: { value: number; className?: string }) {
   return (
     <div className="h-1.5 w-full overflow-hidden rounded-full bg-canvas">
-      <div className={cn("h-full rounded-full bg-brand", className)} style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
+      <div
+        className={cn("h-full rounded-full bg-brand", className)}
+        style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
+      />
     </div>
   );
 }
 
 export function Card({ className, children, ...props }: React.ComponentProps<"section">) {
   return (
-    <section {...props} className={cn("rounded-xl border border-line bg-surface", className)}>{children}</section>
+    <section {...props} className={cn("rounded-xl border border-line bg-surface", className)}>
+      {children}
+    </section>
   );
 }
 

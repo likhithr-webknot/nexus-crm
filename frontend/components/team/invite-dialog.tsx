@@ -23,7 +23,9 @@ export function InviteDialog({ open, onClose }: { open: boolean; onClose: () => 
     mutationFn: inviteUser,
     onSuccess: (user) => {
       void refresh([KEYS.users]);
-      toast(`${user.displayName} can now sign in with ${user.email}. Nexus doesn't send an email, so share the link yourself.`);
+      toast(
+        `${user.displayName} can now sign in with ${user.email}. Nexus doesn't send an email, so share the link yourself.`,
+      );
       close();
     },
     onError: (e) => setError(failure(e)),

@@ -22,9 +22,20 @@ export type FollowUp = {
   version: number;
 };
 
-export type FollowUpSummary = { today: number; todayRemaining: number; upcoming: number; overdue: number; completedThisMonth: number };
+export type FollowUpSummary = {
+  today: number;
+  todayRemaining: number;
+  upcoming: number;
+  overdue: number;
+  completedThisMonth: number;
+};
 
-export const FOLLOW_UP_TYPE_LABELS: Record<FollowUpType, string> = { CALL: "Call", MEETING: "Meeting", EMAIL: "Email", TASK: "Task" };
+export const FOLLOW_UP_TYPE_LABELS: Record<FollowUpType, string> = {
+  CALL: "Call",
+  MEETING: "Meeting",
+  EMAIL: "Email",
+  TASK: "Task",
+};
 
 export const listFollowUps = (params: {
   from?: string;

@@ -8,7 +8,14 @@ import { useRefresh } from "@/hooks/use-refresh";
 import { errorMessage } from "@/lib/api";
 import { cn } from "@/lib/format";
 import { KEYS } from "@/lib/query-keys";
-import { createSavedView, deleteSavedView, listSavedViews, type SavedView, type ViewFilters, type ViewKind } from "@/lib/saved-views";
+import {
+  createSavedView,
+  deleteSavedView,
+  listSavedViews,
+  type SavedView,
+  type ViewFilters,
+  type ViewKind,
+} from "@/lib/saved-views";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Bookmark, Trash2, Users } from "lucide-react";
 import { useState } from "react";
@@ -64,7 +71,9 @@ export function SavedViewsMenu({
           ) : views.isError ? (
             <p className="text-[12.5px] text-down">Saved views could not be loaded.</p>
           ) : views.data.length === 0 ? (
-            <p className="text-[12.5px] text-ink-3">No saved views yet. Set up the filters you want, then save them below.</p>
+            <p className="text-[12.5px] text-ink-3">
+              No saved views yet. Set up the filters you want, then save them below.
+            </p>
           ) : (
             <ul className="max-h-48 space-y-0.5 overflow-y-auto">
               {views.data.map((v) => (
@@ -104,17 +113,36 @@ export function SavedViewsMenu({
           >
             <label className="block text-[12px] font-medium text-ink-2">
               Save current filters as
-              <input value={name} maxLength={60} onChange={(e) => setName(e.target.value)} placeholder="e.g. Qualified this month" className={cn(control, "mt-1.5 w-full px-2.5 font-normal")} />
+              <input
+                value={name}
+                maxLength={60}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Qualified this month"
+                className={cn(control, "mt-1.5 w-full px-2.5 font-normal")}
+              />
             </label>
             <label className="flex items-center gap-2 text-[12.5px] text-ink-2">
-              <input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} className="accent-brand" />
+              <input
+                type="checkbox"
+                checked={shared}
+                onChange={(e) => setShared(e.target.checked)}
+                className="accent-brand"
+              />
               Share with the team
             </label>
-            <button type="submit" disabled={!name.trim() || save.isPending} className="h-8 w-full rounded-md bg-brand px-2 text-[12.5px] font-medium text-white disabled:opacity-50">
+            <button
+              type="submit"
+              disabled={!name.trim() || save.isPending}
+              className="h-8 w-full rounded-md bg-brand px-2 text-[12.5px] font-medium text-white disabled:opacity-50"
+            >
               {save.isPending ? "Saving…" : "Save view"}
             </button>
           </form>
-          {error && <p role="alert" className="text-[12px] text-down">{error}</p>}
+          {error && (
+            <p role="alert" className="text-[12px] text-down">
+              {error}
+            </p>
+          )}
         </div>
       )}
     </Popover>

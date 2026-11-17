@@ -14,7 +14,11 @@ export function PipelineFigures({ deals, stages }: { deals: Deal[]; stages: Map<
 
   const figures = [
     { label: "Open pipeline", value: money(sumInReporting(open, convertToReporting)), note: `${open.length} deals` },
-    { label: "Weighted forecast", value: money(weightedForecast(open, stages, convertToReporting)), note: "Value × chance to win" },
+    {
+      label: "Weighted forecast",
+      value: money(weightedForecast(open, stages, convertToReporting)),
+      note: "Value × chance to win",
+    },
     { label: "Won", value: money(sumInReporting(won, convertToReporting)), note: `${won.length} deals, last 90 days` },
     { label: "Win rate", value: rate == null ? "–" : `${rate}%`, note: "Of closed deals" },
   ];

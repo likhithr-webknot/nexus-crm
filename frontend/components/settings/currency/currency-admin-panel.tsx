@@ -19,7 +19,9 @@ export function CurrencyAdminPanel() {
   return (
     <div className="border-t border-line pt-4">
       <p className="text-[13px] font-medium text-ink">Currencies people can use</p>
-      <p className="mt-0.5 text-[12.5px] text-ink-3">Leads and deals can use any enabled currency. INR is the base and cannot be turned off.</p>
+      <p className="mt-0.5 text-[12.5px] text-ink-3">
+        Leads and deals can use any enabled currency. INR is the base and cannot be turned off.
+      </p>
       <ul className="mt-3 flex flex-wrap gap-2">
         {currencies.map((c) => (
           <li key={c.code}>
@@ -30,14 +32,22 @@ export function CurrencyAdminPanel() {
               title={c.name}
               className={cn(
                 "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[12.5px] font-medium transition-colors disabled:cursor-default",
-                c.enabled ? "border-brand bg-brand-soft text-brand-ink" : "border-line text-ink-3 hover:border-line-strong",
+                c.enabled
+                  ? "border-brand bg-brand-soft text-brand-ink"
+                  : "border-line text-ink-3 hover:border-line-strong",
               )}
             >
               {c.enabled && <Check className="size-3.5" aria-hidden />}
               {c.code}
             </button>
             {!c.base && !c.enabled && (
-              <button aria-label={`Delete ${c.code}`} title="Delete this currency" disabled={remove.isPending} onClick={() => remove.mutate(c.code)} className="ml-1 text-[12px] text-ink-3 hover:text-down">
+              <button
+                aria-label={`Delete ${c.code}`}
+                title="Delete this currency"
+                disabled={remove.isPending}
+                onClick={() => remove.mutate(c.code)}
+                className="ml-1 text-[12px] text-ink-3 hover:text-down"
+              >
                 <X className="inline size-3.5" aria-hidden />
               </button>
             )}
@@ -52,7 +62,14 @@ export function CurrencyAdminPanel() {
           if (code.trim()) toggle.mutate({ code: code.trim().toUpperCase(), enabled: true });
         }}
       >
-        <input value={code} onChange={(e) => setCode(e.target.value)} maxLength={3} placeholder="Add, e.g. EUR" aria-label="Currency code to enable" className={cn(control, "w-36 px-3 uppercase")} />
+        <input
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          maxLength={3}
+          placeholder="Add, e.g. EUR"
+          aria-label="Currency code to enable"
+          className={cn(control, "w-36 px-3 uppercase")}
+        />
         <button type="submit" className={buttonSecondary} disabled={code.trim().length !== 3 || toggle.isPending}>
           Enable
         </button>
@@ -79,7 +96,14 @@ export function CurrencyAdminPanel() {
         </label>
         <label className="text-[12.5px] font-medium text-ink-2">
           1 unit in INR
-          <input name="rate" type="number" min="0.00000001" step="any" required className={cn(control, "mt-1.5 block w-32 px-3 font-normal")} />
+          <input
+            name="rate"
+            type="number"
+            min="0.00000001"
+            step="any"
+            required
+            className={cn(control, "mt-1.5 block w-32 px-3 font-normal")}
+          />
         </label>
         <button type="submit" className={buttonSecondary} disabled={setRate.isPending}>
           Save rate

@@ -17,12 +17,32 @@ import { listLeads } from "@/lib/leads";
 import { listDeals } from "@/lib/deals";
 import { useQuery } from "@tanstack/react-query";
 
-export function NewFollowUpDialog({ open, onClose, defaultDay, onAdded, defaultRelated }: { open: boolean; onClose: () => void; defaultDay: string; onAdded: (followUp: FollowUp) => void; defaultRelated?: { type: "lead" | "contact" | "deal"; id: string } }) {
+export function NewFollowUpDialog({
+  open,
+  onClose,
+  defaultDay,
+  onAdded,
+  defaultRelated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  defaultDay: string;
+  onAdded: (followUp: FollowUp) => void;
+  defaultRelated?: { type: "lead" | "contact" | "deal"; id: string };
+}) {
   const session = useSession();
   const owners = useOwnerOptions(open);
   const contacts = useContactOptions(open);
-  const leads = useQuery({ queryKey: ["follow-up-options", "leads"], queryFn: () => listLeads({ size: 100 }), enabled: open });
-  const deals = useQuery({ queryKey: ["follow-up-options", "deals"], queryFn: () => listDeals({ size: 100 }), enabled: open });
+  const leads = useQuery({
+    queryKey: ["follow-up-options", "leads"],
+    queryFn: () => listLeads({ size: 100 }),
+    enabled: open,
+  });
+  const deals = useQuery({
+    queryKey: ["follow-up-options", "deals"],
+    queryFn: () => listDeals({ size: 100 }),
+    enabled: open,
+  });
   const refresh = useRefresh();
   const [error, setError] = useState<string | null>(null);
 
@@ -48,11 +68,26 @@ export function NewFollowUpDialog({ open, onClose, defaultDay, onAdded, defaultR
       onSubmit={(f) => {
         setError(null);
         const [kind, id] = f.related?.split(":") ?? [];
-        add.mutate({ title: f.title, type: f.type as FollowUpType, leadId: kind === "lead" ? id : undefined, contactId: kind === "contact" ? id : undefined, dealId: kind === "deal" ? id : undefined, assigneeId: f.owner || undefined, dueAt: toInstant(f.date, f.time) });
+        add.mutate({
+          title: f.title,
+          type: f.type as FollowUpType,
+          leadId: kind === "lead" ? id : undefined,
+          contactId: kind === "contact" ? id : undefined,
+          dealId: kind === "deal" ? id : undefined,
+          assigneeId: f.owner || undefined,
+          dueAt: toInstant(f.date, f.time),
+        });
       }}
     >
       <Field label="What needs doing" className="sm:col-span-2">
-        <input name="title" required maxLength={160} autoComplete="off" placeholder="Send revised proposal" className={fieldControl} />
+        <input
+          name="title"
+          required
+          maxLength={160}
+          autoComplete="off"
+          placeholder="Send revised proposal"
+          className={fieldControl}
+        />
       </Field>
       <Field label="Type">
         <select name="type" className={fieldControl}>
@@ -64,11 +99,34 @@ export function NewFollowUpDialog({ open, onClose, defaultDay, onAdded, defaultR
         </select>
       </Field>
       <Field label="Related record" optional>
-        <select name="related" defaultValue={defaultRelated ? `${defaultRelated.type}:${defaultRelated.id}` : ""} className={fieldControl}>
+        <select
+          name="related"
+          defaultValue={defaultRelated ? `${defaultRelated.type}:${defaultRelated.id}` : ""}
+          className={fieldControl}
+        >
           <option value="">No linked record</option>
-          <optgroup label="Contacts">{contacts.data?.items.map((c) => <option key={c.id} value={`contact:${c.id}`}>{c.name}{c.company ? `, ${c.company.name}` : ""}</option>)}</optgroup>
-          <optgroup label="Leads">{leads.data?.items.map((lead) => <option key={lead.id} value={`lead:${lead.id}`}>{lead.name}</option>)}</optgroup>
-          <optgroup label="Deals">{deals.data?.items.map((deal) => <option key={deal.id} value={`deal:${deal.id}`}>{deal.name}</option>)}</optgroup>
+          <optgroup label="Contacts">
+            {contacts.data?.items.map((c) => (
+              <option key={c.id} value={`contact:${c.id}`}>
+                {c.name}
+                {c.company ? `, ${c.company.name}` : ""}
+              </option>
+            ))}
+          </optgroup>
+          <optgroup label="Leads">
+            {leads.data?.items.map((lead) => (
+              <option key={lead.id} value={`lead:${lead.id}`}>
+                {lead.name}
+              </option>
+            ))}
+          </optgroup>
+          <optgroup label="Deals">
+            {deals.data?.items.map((deal) => (
+              <option key={deal.id} value={`deal:${deal.id}`}>
+                {deal.name}
+              </option>
+            ))}
+          </optgroup>
         </select>
       </Field>
       <Field label="Date">

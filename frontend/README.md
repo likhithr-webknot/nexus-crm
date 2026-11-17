@@ -4,11 +4,11 @@ Next.js 16 (App Router) with React 19, Tailwind CSS 4 and lucide-react icons. Ch
 
 ## Scripts
 
-| Command | Purpose |
-| --- | --- |
-| `npm run dev` | Start the dev server on http://localhost:3000 |
-| `npm run build` | Production build (also type-checks) |
-| `npm run lint` | ESLint |
+| Command             | Purpose                                           |
+| ------------------- | ------------------------------------------------- |
+| `npm run dev`       | Start the dev server on http://localhost:3000     |
+| `npm run build`     | Production build (also type-checks)               |
+| `npm run lint`      | ESLint                                            |
 | `npm run typecheck` | Generate Next.js route types, then run TypeScript |
 
 Node 22 or later (pinned in `.nvmrc`). CI runs lint, type-check and build on every push to `main` and every pull request (`.github/workflows/ci.yml`).
@@ -26,13 +26,13 @@ lib/                  API clients (one file per backend area), pure helpers, que
 
 Inside a feature folder each file has one job:
 
-| File | Job |
-| --- | --- |
-| `<feature>-view.tsx` | Composes the screen. Holds only what is on screen right now (filters, open dialog). |
-| `use-<feature>.ts` | Reads and changes data with TanStack Query. No markup. |
-| `<piece>.tsx` | One part of the UI (table, filter bar, card) that gets everything through props. |
-| `<action>-dialog.tsx` | One dialog, built on `FormDialog`. |
-| `lib/<topic>.ts` | Pure logic with no React (forecast maths, CSV parsing, calendar maths). Easy to test. |
+| File                  | Job                                                                                   |
+| --------------------- | ------------------------------------------------------------------------------------- |
+| `<feature>-view.tsx`  | Composes the screen. Holds only what is on screen right now (filters, open dialog).   |
+| `use-<feature>.ts`    | Reads and changes data with TanStack Query. No markup.                                |
+| `<piece>.tsx`         | One part of the UI (table, filter bar, card) that gets everything through props.      |
+| `<action>-dialog.tsx` | One dialog, built on `FormDialog`.                                                    |
+| `lib/<topic>.ts`      | Pure logic with no React (forecast maths, CSV parsing, calendar maths). Easy to test. |
 
 Rules that keep it this way:
 

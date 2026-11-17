@@ -5,17 +5,38 @@ import { TYPES, dayHeading } from "./activity-types";
 import type { FeedItem } from "./use-activities";
 
 /** The timeline grouped by day. Each entry has an icon, what happened, who did it, and when. */
-export function ActivityFeed({ days, items, canChange, onEdit, onDelete }: { days: string[]; items: FeedItem[]; canChange: (activity: FeedItem) => boolean; onEdit: (activity: FeedItem) => void; onDelete: (activity: FeedItem) => void }) {
+export function ActivityFeed({
+  days,
+  items,
+  canChange,
+  onEdit,
+  onDelete,
+}: {
+  days: string[];
+  items: FeedItem[];
+  canChange: (activity: FeedItem) => boolean;
+  onEdit: (activity: FeedItem) => void;
+  onDelete: (activity: FeedItem) => void;
+}) {
   return (
     <>
       {days.map((day) => (
         <section key={day} aria-label={dayHeading(day)}>
-          <h2 className="border-y border-line bg-canvas/60 px-5 py-2 text-[12px] font-semibold tracking-wide text-ink-3 uppercase">{dayHeading(day)}</h2>
+          <h2 className="border-y border-line bg-canvas/60 px-5 py-2 text-[12px] font-semibold tracking-wide text-ink-3 uppercase">
+            {dayHeading(day)}
+          </h2>
           <ol className="px-5 py-2">
             {items
               .filter((a) => a.local.startsWith(day))
               .map((a, i, list) => (
-                <ActivityEntry key={a.id} activity={a} joinsNext={i < list.length - 1} canChange={canChange(a)} onEdit={onEdit} onDelete={onDelete} />
+                <ActivityEntry
+                  key={a.id}
+                  activity={a}
+                  joinsNext={i < list.length - 1}
+                  canChange={canChange(a)}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                />
               ))}
           </ol>
         </section>
@@ -24,7 +45,19 @@ export function ActivityFeed({ days, items, canChange, onEdit, onDelete }: { day
   );
 }
 
-function ActivityEntry({ activity: a, joinsNext, canChange, onEdit, onDelete }: { activity: FeedItem; joinsNext: boolean; canChange: boolean; onEdit: (activity: FeedItem) => void; onDelete: (activity: FeedItem) => void }) {
+function ActivityEntry({
+  activity: a,
+  joinsNext,
+  canChange,
+  onEdit,
+  onDelete,
+}: {
+  activity: FeedItem;
+  joinsNext: boolean;
+  canChange: boolean;
+  onEdit: (activity: FeedItem) => void;
+  onDelete: (activity: FeedItem) => void;
+}) {
   const { icon: Icon, tone } = TYPES[a.type];
   return (
     <li className="relative flex gap-3.5 py-3">

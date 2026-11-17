@@ -10,7 +10,6 @@ import { deleteTarget, listTargets, setTarget } from "@/lib/reports";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
-
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /** The company's revenue goal for each month of a year, in INR. */
@@ -81,7 +80,13 @@ export function TargetsSection() {
                   Save
                 </button>
                 {saved.has(month) && (
-                  <button type="button" onClick={() => clear.mutate(month)} disabled={clear.isPending} aria-label={`Clear the ${name} target`} className="text-[12px] font-medium text-down hover:underline">
+                  <button
+                    type="button"
+                    onClick={() => clear.mutate(month)}
+                    disabled={clear.isPending}
+                    aria-label={`Clear the ${name} target`}
+                    className="text-[12px] font-medium text-down hover:underline"
+                  >
                     Clear
                   </button>
                 )}

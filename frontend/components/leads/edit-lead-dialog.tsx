@@ -67,13 +67,34 @@ export function EditLeadDialog({ lead, onClose }: { lead: Lead | null; onClose: 
         <input name="name" required maxLength={240} defaultValue={name} autoComplete="off" className={fieldControl} />
       </Field>
       <Field label="Company" optional>
-        <input name="company" maxLength={160} defaultValue={lead?.companyName ?? ""} autoComplete="off" className={fieldControl} />
+        <input
+          name="company"
+          maxLength={160}
+          defaultValue={lead?.companyName ?? ""}
+          autoComplete="off"
+          className={fieldControl}
+        />
       </Field>
       <Field label="Email">
-        <input name="email" type="email" required maxLength={254} defaultValue={lead?.email ?? ""} autoComplete="off" className={fieldControl} />
+        <input
+          name="email"
+          type="email"
+          required
+          maxLength={254}
+          defaultValue={lead?.email ?? ""}
+          autoComplete="off"
+          className={fieldControl}
+        />
       </Field>
       <Field label="Phone" optional>
-        <input name="phone" type="tel" maxLength={40} defaultValue={lead?.phone ?? ""} autoComplete="off" className={fieldControl} />
+        <input
+          name="phone"
+          type="tel"
+          maxLength={40}
+          defaultValue={lead?.phone ?? ""}
+          autoComplete="off"
+          className={fieldControl}
+        />
       </Field>
       <Field label="Source">
         <select name="source" defaultValue={lead?.source ?? "MANUAL"} className={fieldControl}>
@@ -97,7 +118,11 @@ export function EditLeadDialog({ lead, onClose }: { lead: Lead | null; onClose: 
         />
       </Field>
       <Field label="Currency">
-        <select name="currency" defaultValue={lead?.estimatedValue?.currency ?? currencies[0]?.code} className={fieldControl}>
+        <select
+          name="currency"
+          defaultValue={lead?.estimatedValue?.currency ?? currencies[0]?.code}
+          className={fieldControl}
+        >
           {currencies.map(({ code, name }) => (
             <option key={code} value={code}>
               {code} — {name}

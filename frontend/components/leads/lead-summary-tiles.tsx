@@ -12,7 +12,15 @@ const VIEWS: { id: LeadView; label: string; count: Count; change?: Change; inver
   { id: "UNASSIGNED", label: "Unassigned", count: "unassigned", invert: true },
 ];
 
-export function LeadSummaryTiles({ summary, view, onChange }: { summary: LeadSummary | undefined; view: LeadView; onChange: (view: LeadView) => void }) {
+export function LeadSummaryTiles({
+  summary,
+  view,
+  onChange,
+}: {
+  summary: LeadSummary | undefined;
+  view: LeadView;
+  onChange: (view: LeadView) => void;
+}) {
   return (
     <div role="group" aria-label="Lead views" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {VIEWS.map((v) => {
@@ -31,7 +39,9 @@ export function LeadSummaryTiles({ summary, view, onChange }: { summary: LeadSum
           >
             <span className="block truncate text-[12.5px] font-medium text-ink-2">{v.label}</span>
             <span className="mt-2 flex items-baseline gap-2">
-              <span className="tnum text-[24px] leading-none font-semibold tracking-[-0.02em] text-ink">{summary ? summary[v.count] : "–"}</span>
+              <span className="tnum text-[24px] leading-none font-semibold tracking-[-0.02em] text-ink">
+                {summary ? summary[v.count] : "–"}
+              </span>
               {delta != null && (
                 <span className={cn("tnum text-[12px] font-semibold", good ? "text-up" : "text-down")}>
                   {delta > 0 ? "+" : ""}

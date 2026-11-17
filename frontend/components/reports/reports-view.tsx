@@ -35,7 +35,13 @@ export function ReportsView() {
     downloadCsv(
       "team-performance.csv",
       ["Sales executive", "Leads", "Deals won", `Revenue (${reportingCurrency})`, "Conversion %"],
-      sellers.map((m) => [m.name, m.leads, m.dealsWon, convertToReporting(m.revenue, "INR") ?? "Exchange rate unavailable", m.conversion]),
+      sellers.map((m) => [
+        m.name,
+        m.leads,
+        m.dealsWon,
+        convertToReporting(m.revenue, "INR") ?? "Exchange rate unavailable",
+        m.conversion,
+      ]),
     );
 
   if (report.isError) {
@@ -52,7 +58,12 @@ export function ReportsView() {
   return (
     <Page>
       <PageHeader title="Reports & Analytics" subtitle={`Sales results, ${formatDay(from)} to ${formatDay(to)}.`}>
-        <select aria-label="Date range" value={range} onChange={(e) => setRange(e.target.value as RangeId)} className={cn(control, "px-2.5")}>
+        <select
+          aria-label="Date range"
+          value={range}
+          onChange={(e) => setRange(e.target.value as RangeId)}
+          className={cn(control, "px-2.5")}
+        >
           {Object.entries(RANGES).map(([id, r]) => (
             <option key={id} value={id}>
               {r.label}
@@ -71,12 +82,20 @@ export function ReportsView() {
         ))}
         {!data &&
           Array.from({ length: 4 }, (_, i) => (
-            <div key={i} className="h-[104px] animate-pulse rounded-xl border border-line bg-surface motion-reduce:animate-none" aria-hidden />
+            <div
+              key={i}
+              className="h-[104px] animate-pulse rounded-xl border border-line bg-surface motion-reduce:animate-none"
+              aria-hidden
+            />
           ))}
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
-        <RevenueGrowthCard points={revenue.points} hasTargets={revenue.hasTargets} totalRevenue={revenue.totalRevenue} />
+        <RevenueGrowthCard
+          points={revenue.points}
+          hasTargets={revenue.hasTargets}
+          totalRevenue={revenue.totalRevenue}
+        />
         <SalesTargetCard month={revenue.points.at(-1)} />
       </div>
 

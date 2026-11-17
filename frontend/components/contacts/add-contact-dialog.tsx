@@ -13,7 +13,15 @@ import { AFTER } from "@/lib/query-keys";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 
-export function AddContactDialog({ open, onClose, onAdded }: { open: boolean; onClose: () => void; onAdded: (contact: Contact) => void }) {
+export function AddContactDialog({
+  open,
+  onClose,
+  onAdded,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onAdded: (contact: Contact) => void;
+}) {
   const session = useSession();
   const owners = useOwnerOptions(open);
   const refresh = useRefresh();

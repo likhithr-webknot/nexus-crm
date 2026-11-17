@@ -34,7 +34,10 @@ export function LeadFilterBar({
     <div className="flex flex-wrap items-center gap-2 p-4">
       <label className="relative min-w-[200px] flex-1 sm:max-w-xs">
         <span className="sr-only">Search leads</span>
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-3" aria-hidden />
+        <Search
+          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-3"
+          aria-hidden
+        />
         <input
           type="search"
           value={filters.query}
@@ -45,7 +48,12 @@ export function LeadFilterBar({
       </label>
 
       <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
-        <select aria-label="Source" value={filters.source} onChange={(e) => onChange({ source: e.target.value as LeadSource | "" })} className={cn(control, "px-2.5")}>
+        <select
+          aria-label="Source"
+          value={filters.source}
+          onChange={(e) => onChange({ source: e.target.value as LeadSource | "" })}
+          className={cn(control, "px-2.5")}
+        >
           <option value="">All sources</option>
           {SOURCES.map((s) => (
             <option key={s} value={s}>
@@ -53,7 +61,12 @@ export function LeadFilterBar({
             </option>
           ))}
         </select>
-        <select aria-label="Stage" value={filters.status} onChange={(e) => onChange({ status: e.target.value as LeadStatus | "" })} className={cn(control, "px-2.5")}>
+        <select
+          aria-label="Stage"
+          value={filters.status}
+          onChange={(e) => onChange({ status: e.target.value as LeadStatus | "" })}
+          className={cn(control, "px-2.5")}
+        >
           <option value="">All stages</option>
           {LEAD_STATUSES.map((s) => (
             <option key={s} value={s}>
@@ -62,7 +75,12 @@ export function LeadFilterBar({
           ))}
         </select>
         {tags.length > 0 && (
-          <select aria-label="Tag" value={filters.tag} onChange={(e) => onChange({ tag: e.target.value })} className={cn(control, "px-2.5")}>
+          <select
+            aria-label="Tag"
+            value={filters.tag}
+            onChange={(e) => onChange({ tag: e.target.value })}
+            className={cn(control, "px-2.5")}
+          >
             <option value="">All tags</option>
             {tags.map((t) => (
               <option key={t.id} value={t.id}>
@@ -85,7 +103,11 @@ export function LeadFilterBar({
         >
           <label className="block text-[12px] font-medium text-ink-2">
             Assigned to
-            <select value={filters.owner} onChange={(e) => onChange({ owner: e.target.value })} className={cn(control, "mt-1.5 w-full px-2.5 font-normal")}>
+            <select
+              value={filters.owner}
+              onChange={(e) => onChange({ owner: e.target.value })}
+              className={cn(control, "mt-1.5 w-full px-2.5 font-normal")}
+            >
               <option value="">Anyone</option>
               <option value={UNASSIGNED}>Unassigned</option>
               {people.map((u) => (
