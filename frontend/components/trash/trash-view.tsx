@@ -17,7 +17,9 @@ export function TrashView() {
   const [type, setType] = useState<TrashType | "">("");
   const trash = useTrash(type);
   const restore = useRestore();
-  const items = trash.data ?? [];
+  const items = trash.data?.items ?? [];
+  const total = trash.data?.total ?? 0;
+  const days = trash.data?.retentionDays ?? 30;
 
   // The server refuses reps as well. This only gives them a clear message instead of a failed load.
   if (role === "REP") {
@@ -33,7 +35,7 @@ export function TrashView() {
 
   return (
     <Page>
-      <PageHeader title="Recycle bin" subtitle="Restore archived CRM records while they are retained.">
+      <PageHeader title="Recycle bin" subtitle="Restore deleted records before they are removed for good.">
         <select aria-label="Type" value={type} onChange={(e) => setType(e.target.value as TrashType | "")} className={cn(control, "px-2.5")}>
           <option value="">All types</option>
           {TYPES.map((t) => (
@@ -74,7 +76,10 @@ export function TrashView() {
           </ul>
         )}
       </Card>
-      <p className="text-[12.5px] text-ink-3">The list shows the 100 most recently deleted records.</p>
+      <p className="text-[12.5px] text-ink-3">
+        {total > items.length ? `Showing the ${items.length} most recently deleted of ${total} records. Pick a type above to narrow the list. ` : ""}
+        Deleted records are removed for good {days} days after they were deleted.
+      </p>
     </Page>
   );
 }

@@ -49,7 +49,6 @@ import com.nexus.crm.leads.event.LeadConverted;
 import com.nexus.crm.leads.event.LeadStatusChanged;
 import com.nexus.crm.shared.CurrentUser;
 import com.nexus.crm.shared.Emails;
-import com.nexus.crm.shared.Role;
 import com.nexus.crm.shared.Search;
 import com.nexus.crm.shared.currency.CurrencyService;
 import com.nexus.crm.shared.currency.Money;
@@ -187,12 +186,9 @@ public class LeadService {
 		return lead;
 	}
 
-	/** Gives a lead to someone, or to nobody. Reps cannot reassign leads. */
+	/** Gives a lead to someone, or to nobody. The controller only lets managers and admins call this. */
 	@Transactional
 	public Lead assign(CurrentUser user, UUID id, UUID ownerId) {
-		if (user.role() == Role.REP) {
-			throw new ApiException(ErrorCode.FORBIDDEN, "Only managers and admins can assign leads.");
-		}
 		Lead lead = get(user, id);
 		UUID newOwner = (ownerId == null) ? null : this.users.requireCanAssignTo(user, ownerId);
 		AuditService.Changes changes = AuditService.changes().field("ownerId", lead.getOwnerId(), newOwner);

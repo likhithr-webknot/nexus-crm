@@ -16,7 +16,7 @@ export function QuoteBuilder({ quote, onSaved }: { quote: ModuleRecord; onSaved:
   const [lines, setLines] = useState<QuoteLine[]>(quote.lineItems ?? (quote.amount > 0 ? [{ id: `${quote.id}-initial`, productId: "", name: "Custom line", quantity: 1, unitPrice: quote.amount, discountPct: 0, taxPct: 0 }] : []));
   const [preview, setPreview] = useState(false);
   const [saving, setSaving] = useState(false);
-  const products = useQuery({ queryKey: ["workspace", "products"], queryFn: () => modulesApi.list("products") });
+  const products = useQuery({ queryKey: ["workspace", "products", "all"], queryFn: () => modulesApi.listAll("products") });
   const subtotal = lines.reduce((sum, line) => sum + lineNet(line), 0);
   const taxes = lines.reduce((sum, line) => sum + lineTax(line), 0);
   const total = subtotal + taxes;

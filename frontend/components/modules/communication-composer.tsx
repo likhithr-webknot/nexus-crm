@@ -7,12 +7,17 @@ import { Dialog, DialogBody, FormError } from "@/components/ui/dialog";
 import { buttonPrimary, buttonSecondary, fieldControl } from "@/components/ui/primitives";
 import { toast } from "@/components/ui/toast";
 import { api, errorMessage } from "@/lib/api";
+import { isValidEmail, MAX_COPIES, splitAddresses } from "@/lib/email";
 import { modulesApi, type ModuleRecord } from "@/lib/modules";
 
 type MailStatus = { configured: boolean; connected: boolean; email: string | null };
 
 export function CommunicationComposer({ record, onClose, onSaved }: { record?: ModuleRecord; onClose: () => void; onSaved: (item: ModuleRecord) => Promise<unknown> }) {
   const [recipient, setRecipient] = useState(record?.recipient ?? "");
+  const [cc, setCc] = useState((record?.cc ?? []).join(", "));
+  const [bcc, setBcc] = useState((record?.bcc ?? []).join(", "));
+  const [showCc, setShowCc] = useState(Boolean(record?.cc?.length));
+  const [showBcc, setShowBcc] = useState(Boolean(record?.bcc?.length));
   const [subject, setSubject] = useState(record?.name ?? "");
   const [account, setAccount] = useState(record?.account ?? "");
   const [body, setBody] = useState(record?.description ?? "");
@@ -42,11 +47,20 @@ export function CommunicationComposer({ record, onClose, onSaved }: { record?: M
   };
   const save = async (send: boolean) => {
     if (!subject.trim() || subject.trim().length < 2) { setError("Add a subject of at least two characters."); return; }
-    if (send && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient.trim())) { setError("Add a valid recipient email."); return; }
+    const to = recipient.trim().toLowerCase();
+    const copies = { Cc: splitAddresses(cc), Bcc: splitAddresses(bcc) };
+    if ((send || to) && !isValidEmail(to)) { setError("Enter one valid email address in To. Use Cc for more people."); return; }
+    for (const [label, list] of Object.entries(copies)) {
+      const bad = list.find((address) => !isValidEmail(address));
+      if (bad) { setError(`${label} has an address that is not valid: ${bad}`); return; }
+      if (list.length > MAX_COPIES) { setError(`${label} can have at most ${MAX_COPIES} addresses.`); return; }
+    }
+    const repeated = [...copies.Bcc, ...copies.Cc, to].find((address, index, all) => address && all.indexOf(address) !== index);
+    if (repeated) { setError(`${repeated} is listed more than once across To, Cc and Bcc.`); return; }
     setSaving(true);
     setError("");
     try {
-      const values = { name: subject.trim(), status: "Draft", account: account.trim(), description: body, amount: 0, recipient: recipient.trim(), bodyHtml: "" };
+      const values = { name: subject.trim(), status: "Draft", account: account.trim(), description: body, amount: 0, recipient: to, cc: copies.Cc, bcc: copies.Bcc, bodyHtml: "" };
     const draft = draftId ? await modulesApi.update("communications", draftId, values) : await modulesApi.create("communications", values);
     setDraftId(draft.id);
       const item = send ? await api<ModuleRecord>(`/mail/send/${draft.id}`, { method: "POST" }) : draft;
@@ -63,9 +77,17 @@ export function CommunicationComposer({ record, onClose, onSaved }: { record?: M
         {mail.isPending ? "Checking mailbox…" : mail.isError ? "Mailbox status unavailable." : !mail.data?.configured ? "Mail connection is not configured. Ask an admin to complete setup." : mail.data.connected ? `Sending as ${mail.data.email}` : <span>Mailbox not connected. <button onClick={() => void connect()} className="font-medium text-brand underline">Connect Google Workspace</button></span>}
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="text-[12px] font-medium text-ink-2">Recipient<input type="email" value={recipient} onChange={(event) => setRecipient(event.target.value)} placeholder="name@company.com" className={fieldControl} /></label>
+        <label className="text-[12px] font-medium text-ink-2">To<input type="email" value={recipient} onChange={(event) => setRecipient(event.target.value)} placeholder="name@company.com" className={fieldControl} /></label>
         <label className="text-[12px] font-medium text-ink-2">Account<input value={account} onChange={(event) => setAccount(event.target.value)} placeholder="Company name" className={fieldControl} /></label>
       </div>
+      {(!showCc || !showBcc) && (
+        <div className="flex gap-4 text-[12px]">
+          {!showCc && <button type="button" onClick={() => setShowCc(true)} className="font-medium text-brand hover:underline">Add Cc</button>}
+          {!showBcc && <button type="button" onClick={() => setShowBcc(true)} className="font-medium text-brand hover:underline">Add Bcc</button>}
+        </div>
+      )}
+      {showCc && <label className="text-[12px] font-medium text-ink-2">Cc<input value={cc} onChange={(event) => setCc(event.target.value)} placeholder="Separate addresses with commas" autoComplete="off" className={fieldControl} /></label>}
+      {showBcc && <label className="text-[12px] font-medium text-ink-2">Bcc<input value={bcc} onChange={(event) => setBcc(event.target.value)} placeholder="Hidden from the other people on this email" autoComplete="off" className={fieldControl} /></label>}
       <label className="text-[12px] font-medium text-ink-2">Subject<input value={subject} onChange={(event) => setSubject(event.target.value)} maxLength={160} className={fieldControl} /></label>
       <label className="text-[12px] font-medium text-ink-2">Message<textarea value={body} onChange={(event) => setBody(event.target.value)} rows={12} maxLength={10000} className={`${fieldControl} h-auto py-2`} /></label>
       <button onClick={() => void draftWithAi()} disabled={drafting} className={buttonSecondary}><Sparkles className="size-4" />{drafting ? "Drafting…" : "Draft with AI from this context"}</button>

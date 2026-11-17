@@ -1,6 +1,5 @@
 package com.nexus.crm.trash;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -17,7 +16,6 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.nexus.crm.shared.CurrentUser;
-import com.nexus.crm.trash.dto.TrashItem;
 
 /** Managers and admins can see what was deleted and bring it back. Reps cannot. */
 @RestController
@@ -29,7 +27,7 @@ class TrashController {
 	private final TrashService trash;
 
 	@GetMapping
-	List<TrashItem> list(@AuthenticationPrincipal CurrentUser user, @RequestParam(required = false) TrashType type) {
+	TrashService.TrashPage list(@AuthenticationPrincipal CurrentUser user, @RequestParam(required = false) TrashType type) {
 		return this.trash.list(user, Optional.ofNullable(type));
 	}
 

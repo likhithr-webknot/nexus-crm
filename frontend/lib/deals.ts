@@ -49,6 +49,20 @@ export const pipelineBoard = (ownerId?: string) => api<Deal[]>(`/pipeline/board$
 export const listDeals = (params: { q?: string; stage?: string; ownerId?: string; contactId?: string; companyId?: string; open?: boolean; page?: number; size?: number }) =>
   api<PageResponse<Deal>>(`/deals${qs(params)}`);
 
+/**
+ * Every deal the user may see, a page at a time, up to `limit` (newest first). `complete` is false when there were
+ * more than that, so a screen that adds deals up can say its figures leave some out.
+ */
+export async function listAllDeals(limit = 2000) {
+  const items: Deal[] = [];
+  for (let page = 1; ; page++) {
+    const result = await listDeals({ page, size: 100 });
+    items.push(...result.items);
+    if (items.length >= result.total || result.items.length === 0) return { items, total: result.total, complete: true };
+    if (items.length >= limit) return { items, total: result.total, complete: false };
+  }
+}
+
 export const getDeal = (id: string) => api<Deal>(`/deals/${id}`);
 
 export const createDeal = (body: NewDeal) => api<Deal>("/deals", { method: "POST", body: JSON.stringify(body) });

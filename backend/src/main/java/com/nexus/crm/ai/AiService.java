@@ -19,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -38,11 +39,15 @@ public class AiService {
   private final AiKeyService keys;
   private final NotificationService notifications;
   private final MailService mail;
+  private final TransactionTemplate transactions;
   private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(8)).build();
   @Value("${NEXUS_AI_MODEL:gpt-6-luna}") private String model;
   @Value("${NEXUS_AI_MONTHLY_REQUEST_LIMIT:0}") private int monthlyRequestLimit;
 
   /** How the assistant looks for new business. Shared by the streamed and the one-shot answer. */
+  /** How many AI requests one user may make in any hour. */
+  private static final int HOURLY_LIMIT = 30;
+
   private static final String PROSPECTING = "When asked to find prospects, opportunities or companies to approach: if the user has not said what "
     + "their organization sells, ask for that in one sentence and stop. Otherwise search the public web for organizations showing a current need "
     + "for it, such as a tender or RFP, a hiring post, a funding or expansion announcement, or a stated problem. List at most 8, each with the "
@@ -255,11 +260,21 @@ public class AiService {
   }
 
   private ProviderAnswer callResult(CurrentUser user, String kind, String prompt, boolean web, Map<String, Object> format) {
-    long recent = jdbc.sql("select count(*) from ai_request where user_id=:user and created_at>now()-interval '1 hour'")
-      .param("user", user.id()).query(Long.class).single();
-    if (recent >= 30) throw new ApiException(ErrorCode.INVALID_STATE, "AI request limit reached for this hour. Try later.");
     AiKeyService.Credentials credential = keys.active();
     if (credential.key().isBlank()) throw new ApiException(ErrorCode.INVALID_STATE, "AI API key has not been set.");
+    UUID requestId = reserve(user, kind);
+    boolean answered = false;
+    try {
+      ProviderAnswer answer = askProvider(credential, requestId, prompt, web, format);
+      answered = true;
+      return answer;
+    } finally {
+      // A request that never got an answer does not use up one of the user's hourly slots.
+      if (!answered) release(requestId);
+    }
+  }
+
+  private ProviderAnswer askProvider(AiKeyService.Credentials credential, UUID requestId, String prompt, boolean web, Map<String, Object> format) {
     Map<String, Object> request = new java.util.HashMap<>(web
       ? Map.of("model", model, "input", prompt, "tools", List.of(Map.of("type", "web_search")), "tool_choice", "required", "include", List.of("web_search_call.action.sources"), "store", false)
       : Map.of("model", model, "input", prompt, "store", false));
@@ -280,9 +295,8 @@ public class AiService {
       String text = outputText(data);
       if (text.isBlank()) throw new ApiException(ErrorCode.INVALID_STATE, "AI returned no answer. Try again.");
       @SuppressWarnings("unchecked") Map<String, Object> usage = data.get("usage") instanceof Map<?,?> m ? (Map<String, Object>) m : Map.of();
-      jdbc.sql("insert into ai_request (id,user_id,kind,input_tokens,output_tokens) values (:id,:user,:kind,:input,:output)")
-        .param("id", UUID.randomUUID()).param("user", user.id()).param("kind", kind)
-        .param("input", number(usage.get("input_tokens"))).param("output", number(usage.get("output_tokens"))).update();
+      jdbc.sql("update ai_request set input_tokens=:input,output_tokens=:output where id=:id")
+        .param("input", number(usage.get("input_tokens"))).param("output", number(usage.get("output_tokens"))).param("id", requestId).update();
       if (monthlyRequestLimit > 0) {
         long monthCount = jdbc.sql("select count(*) from ai_request where created_at>=date_trunc('month',now())").query(Long.class).single();
         if (monthCount >= Math.ceil(monthlyRequestLimit * .8)) alert(credential.name(), "request_budget", "AI key " + credential.name() + " has used at least 80% of the configured monthly request allowance.");
@@ -292,11 +306,34 @@ public class AiService {
     catch (java.io.IOException error) { throw new ApiException(ErrorCode.INVALID_STATE, "AI is unreachable. Try again later."); }
   }
 
+  /**
+   * Takes one of the user's hourly slots, or refuses. The count and the insert happen under a lock that is held for
+   * this user only, so requests that arrive at the same moment cannot all see "29 used" and all go ahead. The
+   * lock lets go when the transaction ends.
+   */
+  UUID reserve(CurrentUser user, String kind) {
+    UUID id = UUID.randomUUID();
+    Boolean taken = transactions.execute(tx -> {
+      jdbc.sql("select count(*) from (select pg_advisory_xact_lock(hashtextextended(:key, 0))) lock")
+        .param("key", "ai-request:" + user.id()).query(Long.class).single();
+      long recent = jdbc.sql("select count(*) from ai_request where user_id=:user and created_at>now()-interval '1 hour'")
+        .param("user", user.id()).query(Long.class).single();
+      if (recent >= HOURLY_LIMIT) return false;
+      jdbc.sql("insert into ai_request (id,user_id,kind) values (:id,:user,:kind)")
+        .param("id", id).param("user", user.id()).param("kind", kind).update();
+      return true;
+    });
+    if (!Boolean.TRUE.equals(taken)) throw new ApiException(ErrorCode.INVALID_STATE, "AI request limit reached for this hour. Try later.");
+    return id;
+  }
+
+  void release(UUID requestId) {
+    try { jdbc.sql("delete from ai_request where id=:id").param("id", requestId).update(); }
+    catch (RuntimeException ignored) { /* the slot just stays used for an hour */ }
+  }
+
   public SseEmitter streamAssist(CurrentUser user, String message) {
     String request = limit(message, 2000);
-    long recent = jdbc.sql("select count(*) from ai_request where user_id=:user and created_at>now()-interval '1 hour'")
-      .param("user", user.id()).query(Long.class).single();
-    if (recent >= 30) throw new ApiException(ErrorCode.INVALID_STATE, "AI request limit reached for this hour. Try later.");
     AiKeyService.Credentials credential = keys.active();
     if (credential.key().isBlank()) throw new ApiException(ErrorCode.INVALID_STATE, "AI API key has not been set.");
     boolean web = researchIntent(request);
@@ -307,9 +344,7 @@ public class AiService {
       + PROSPECTING
       + "Do not claim you created or changed records; a user must review a form first. Write clear plain text.\nLive CRM facts:\n"
       + snapshot(user) + "\nUser: " + request;
-    UUID requestId = UUID.randomUUID();
-    jdbc.sql("insert into ai_request (id,user_id,kind) values (:id,:user,:kind)")
-      .param("id", requestId).param("user", user.id()).param("kind", web ? "market_stream" : "assist_stream").update();
+    UUID requestId = reserve(user, web ? "market_stream" : "assist_stream");
     SseEmitter emitter = new SseEmitter(120_000L);
     Thread.ofVirtual().name("nexus-ai-stream").start(() -> streamProvider(emitter, credential, prompt, web, request, requestId));
     return emitter;
@@ -337,6 +372,7 @@ public class AiService {
             alert(credential.name(), "billing_quota", "AI key " + credential.name() + " has reached its billing quota. Please recharge it.");
             sendEvent(emitter, "error", Map.of("message", "AI billing quota was reached. An admin has been alerted."));
           } else sendEvent(emitter, "error", Map.of("message", "AI is unavailable. Try again later."));
+          release(requestId);
           emitter.complete();
           return;
         }

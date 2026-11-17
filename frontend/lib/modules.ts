@@ -1,4 +1,5 @@
-import { api } from "@/lib/api";
+import { api, qs } from "@/lib/api";
+import type { PageResponse } from "@/lib/page";
 
 export type ModuleKind = "campaigns" | "products" | "quotes" | "communications" | "automations";
 export type QuoteLine = { id: string; productId: string; name: string; quantity: number; unitPrice: number; discountPct: number; taxPct: number };
@@ -8,12 +9,26 @@ export type ModuleRecord = {
   id: string; name: string; status: string; owner: string; account: string; description: string;
   amount: number; createdAt: string; updatedAt: string; version: number;
   lineItems?: QuoteLine[]; flowNodes?: FlowNode[]; flowEdges?: FlowEdge[];
-  recipient?: string; bodyHtml?: string;
+  recipient?: string; cc?: string[]; bcc?: string[]; bodyHtml?: string;
 };
 export type ModuleValues = Omit<ModuleRecord, "id" | "owner" | "createdAt" | "updatedAt" | "version">;
 
+export type ModuleQuery = { q?: string; status?: string; sort?: "updated" | "name"; page?: number; size?: number };
+
+const PAGE_SIZE = 100;
+
 export const modulesApi = {
-  list: (kind: ModuleKind) => api<ModuleRecord[]>(`/workspaces/${kind}`),
+  /** One page. The answer says how many records match in all, so the screen never hides some without saying so. */
+  list: (kind: ModuleKind, query: ModuleQuery = {}) => api<PageResponse<ModuleRecord>>(`/workspaces/${kind}${qs(query)}`),
+  /** Every record that matches, page by page. For pickers and exports that need all of them. */
+  listAll: async (kind: ModuleKind, query: Omit<ModuleQuery, "page" | "size"> = {}) => {
+    const items: ModuleRecord[] = [];
+    for (let page = 1; ; page++) {
+      const result = await modulesApi.list(kind, { ...query, page, size: PAGE_SIZE });
+      items.push(...result.items);
+      if (items.length >= result.total || result.items.length === 0) return items;
+    }
+  },
   get: (kind: ModuleKind, id: string) => api<ModuleRecord>(`/workspaces/${kind}/${id}`),
   create: (kind: ModuleKind, values: ModuleValues) => api<ModuleRecord>(`/workspaces/${kind}`, { method: "POST", headers: { "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify(values) }),
   update: async (kind: ModuleKind, id: string, changes: Partial<ModuleRecord>) => {

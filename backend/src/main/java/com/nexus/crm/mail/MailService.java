@@ -12,6 +12,7 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -34,6 +35,7 @@ import com.nexus.crm.modules.ModuleKind;
 import com.nexus.crm.modules.ModuleRecord;
 import com.nexus.crm.modules.ModuleService;
 import com.nexus.crm.shared.CurrentUser;
+import com.nexus.crm.shared.Emails;
 import com.nexus.crm.shared.error.ApiException;
 import com.nexus.crm.shared.error.ErrorCode;
 
@@ -103,8 +105,10 @@ public class MailService {
 		ModuleRecord draft = modules.get(user, ModuleKind.COMMUNICATIONS, id);
 		if (!"Draft".equals(draft.status()) && !"Failed".equals(draft.status()))
 			throw invalid("Only a draft or failed email can be sent.");
-		if (draft.recipient() == null || !draft.recipient().matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"))
-			throw invalid("Add a valid recipient before sending.");
+		if (!Emails.isValid(draft.recipient())) throw invalid("Add one valid recipient in To before sending.");
+		// The draft was checked when it was saved. Check again, because these values go straight into the message headers.
+		if (draft.cc().stream().anyMatch(a -> !Emails.isValid(a)) || draft.bcc().stream().anyMatch(a -> !Emails.isValid(a)))
+			throw invalid("Cc or Bcc has an address that is not valid. Fix it and save the draft first.");
 		String sender = status(user.id()).email();
 		if (sender == null) throw invalid("Connect your Google Workspace mailbox before sending.");
 		byte[] encrypted = jdbc.sql("select refresh_token_cipher from mail_connection where user_id=:user")
@@ -121,7 +125,7 @@ public class MailService {
 				+ "&client_id=" + enc(clientId) + "&client_secret=" + enc(clientSecret) + "&grant_type=refresh_token");
 			access = string(token.get("access_token"));
 			if (access.isEmpty()) throw invalid("The mailbox connection expired. Connect it again.");
-			String mime = personalizedMime(user.id(), sender, draft.recipient(), draft.name(), draft.description(), id);
+			String mime = personalizedMime(user.id(), sender, new Recipients(draft.recipient(), draft.cc(), draft.bcc()), draft.name(), draft.description(), id);
 			raw = Base64.getUrlEncoder().withoutPadding().encodeToString(mime.getBytes(StandardCharsets.UTF_8));
 		} catch (RuntimeException ex) {
 			setSendStatus(id, "Failed");
@@ -185,7 +189,7 @@ public class MailService {
 			+ "&client_id=" + enc(clientId) + "&client_secret=" + enc(clientSecret) + "&grant_type=refresh_token");
 		String access = string(token.get("access_token"));
 		if (access.isEmpty()) return false;
-		String raw = Base64.getUrlEncoder().withoutPadding().encodeToString(mime(sender, recipient, subject, body, UUID.randomUUID()).getBytes(StandardCharsets.UTF_8));
+		String raw = Base64.getUrlEncoder().withoutPadding().encodeToString(mime(sender, new Recipients(recipient, List.of(), List.of()), subject, body, UUID.randomUUID()).getBytes(StandardCharsets.UTF_8));
 		return !string(postJson("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", access,
 			json.writeValueAsString(Map.of("raw", raw))).get("id")).isEmpty();
 	}
@@ -219,16 +223,28 @@ public class MailService {
 			return new String(cipher.doFinal(ciphertext), StandardCharsets.UTF_8);
 		} catch (Exception e) { throw new IllegalStateException("Mail connection could not be read.", e); }
 	}
-	private String mime(String from, String to, String subject, String body, UUID id) {
+	/** Who a message goes to. Every address was checked with {@link Emails#isValid}, so none can carry a line break or a second address. */
+	record Recipients(String to, List<String> cc, List<String> bcc) { }
+	/**
+	 * The To, Cc and Bcc header lines. Each address sits on its own folded line so a long list never goes past the
+	 * 998 character limit. Gmail delivers to Bcc addresses and removes the header from the copies the others get.
+	 */
+	static String addressHeaders(Recipients recipients) {
+		StringBuilder headers = new StringBuilder("To: ").append(recipients.to()).append("\r\n");
+		if (!recipients.cc().isEmpty()) headers.append("Cc: ").append(String.join(",\r\n ", recipients.cc())).append("\r\n");
+		if (!recipients.bcc().isEmpty()) headers.append("Bcc: ").append(String.join(",\r\n ", recipients.bcc())).append("\r\n");
+		return headers.toString();
+	}
+	private String mime(String from, Recipients to, String subject, String body, UUID id) {
 		String encodedSubject = "=?UTF-8?B?" + Base64.getEncoder().encodeToString(subject.getBytes(StandardCharsets.UTF_8)) + "?=";
 		String html = html(body, null);
 		String encodedBody = Base64.getMimeEncoder(76, "\r\n".getBytes(StandardCharsets.US_ASCII))
 			.encodeToString(html.getBytes(StandardCharsets.UTF_8));
-		return "From: " + from + "\r\nTo: " + to + "\r\nSubject: " + encodedSubject
+		return "From: " + from + "\r\n" + addressHeaders(to) + "Subject: " + encodedSubject
 			+ "\r\nMessage-ID: <" + id + "@nexus-crm.local>\r\nMIME-Version: 1.0\r\n"
 			+ "Content-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n" + encodedBody;
 	}
-	private String personalizedMime(UUID senderId, String from, String to, String subject, String body, UUID id) {
+	private String personalizedMime(UUID senderId, String from, Recipients to, String subject, String body, UUID id) {
 		MailBannerService.Rendered signature = banner.render(senderId);
 		if (signature == null) return mime(from, to, subject, body, id);
 		byte[] image = signature.png();
@@ -237,7 +253,7 @@ public class MailService {
 		String html = html(body, signature.alt());
 		String encodedHtml = Base64.getMimeEncoder(76, "\r\n".getBytes(StandardCharsets.US_ASCII)).encodeToString(html.getBytes(StandardCharsets.UTF_8));
 		String encodedImage = Base64.getMimeEncoder(76, "\r\n".getBytes(StandardCharsets.US_ASCII)).encodeToString(image);
-		return "From: " + from + "\r\nTo: " + to + "\r\nSubject: " + encodedSubject
+		return "From: " + from + "\r\n" + addressHeaders(to) + "Subject: " + encodedSubject
 			+ "\r\nMessage-ID: <" + id + "@nexus-crm.local>\r\nMIME-Version: 1.0\r\n"
 			+ "Content-Type: multipart/related; boundary=\"" + boundary + "\"\r\n\r\n"
 			+ "--" + boundary + "\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n"

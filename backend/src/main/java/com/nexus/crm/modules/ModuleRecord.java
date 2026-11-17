@@ -9,5 +9,5 @@ import java.util.UUID;
 public record ModuleRecord(UUID id, String name, String status, String owner, String account,
 		String description, BigDecimal amount, Instant createdAt, Instant updatedAt, int version,
 		List<Map<String, Object>> lineItems, List<Map<String, Object>> flowNodes,
-		List<Map<String, Object>> flowEdges, String recipient, String bodyHtml) {
+		List<Map<String, Object>> flowEdges, String recipient, List<String> cc, List<String> bcc, String bodyHtml) {
 }

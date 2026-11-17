@@ -1,7 +1,7 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, Download, Pencil, Plus, Search, SearchX } from "lucide-react";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Archive, ChevronLeft, ChevronRight, Download, Pencil, Plus, Search, SearchX } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import { useSession } from "@/components/auth/session";
@@ -10,6 +10,7 @@ import { Drawer } from "@/components/ui/drawer";
 import { LoadFailed } from "@/components/ui/load-state";
 import { Badge, Card, EmptyState, Page, PageHeader, buttonPrimary, buttonSecondary, control } from "@/components/ui/primitives";
 import { toast } from "@/components/ui/toast";
+import { useDebounced } from "@/hooks/use-debounced";
 import { useRecordRoute } from "@/hooks/use-record-route";
 import { api, errorMessage } from "@/lib/api";
 import { downloadSheet } from "@/lib/export";
@@ -42,6 +43,7 @@ export function ModuleWorkspace({ kind }: { kind: ModuleKind }) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
   const [sort, setSort] = useState<"name" | "updatedAt">("updatedAt");
+  const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [form, setForm] = useState<"create" | "edit" | null>(null);
   const [compose, setCompose] = useState<"create" | "edit" | null>(null);
@@ -50,13 +52,17 @@ export function ModuleWorkspace({ kind }: { kind: ModuleKind }) {
   const [confirmUnsent, setConfirmUnsent] = useState(false);
   const [exporting, setExporting] = useState(false);
 
-  const records = useQuery({ queryKey: ["workspace", kind], queryFn: () => modulesApi.list(kind), staleTime: 30_000 });
-  const all = records.data ?? [];
-  const term = query.trim().toLowerCase();
-  const filtered = all
-    .filter((record) => (!status || record.status === status) && (!term || `${record.name} ${record.account} ${record.owner}`.toLowerCase().includes(term)))
-    .sort((a, b) => (sort === "name" ? a.name.localeCompare(b.name) : b.updatedAt.localeCompare(a.updatedAt)));
-  const selected = route.id ? all.find((record) => record.id === route.id) : undefined;
+  // Search, status, sort and paging happen on the server, so a long list is never cut off without saying so.
+  const term = useDebounced(query.trim());
+  const params = { q: term, status, sort: sort === "name" ? ("name" as const) : ("updated" as const), page };
+  const records = useQuery({ queryKey: ["workspace", kind, "list", params], queryFn: () => modulesApi.list(kind, params), staleTime: 30_000, placeholderData: keepPreviousData });
+  const filtered = records.data?.items ?? [];
+  const total = records.data?.total ?? 0;
+  const pageSize = records.data?.size ?? 50;
+  const inList = route.id ? filtered.find((record) => record.id === route.id) : undefined;
+  // A record opened from a link can be on another page, so it is fetched by itself when the list does not hold it.
+  const single = useQuery({ queryKey: ["workspace", kind, "record", route.id], queryFn: () => modulesApi.get(kind, route.id!), enabled: Boolean(route.id) && !inList, retry: false });
+  const selected = inList ?? single.data;
   const filtering = Boolean(term || status);
 
   const refresh = () => client.invalidateQueries({ queryKey: ["workspace", kind] });
@@ -99,8 +105,10 @@ export function ModuleWorkspace({ kind }: { kind: ModuleKind }) {
     setExporting(true);
     try {
       const header = ["Name", "Status", "Owner", "Account", ...(config.metric ? [config.metric] : []), "Updated"];
-      await downloadSheet(kind, config.title, header, filtered.map((record) => [record.name, record.status, record.owner, record.account, ...(config.metric ? [record.amount] : []), record.updatedAt.slice(0, 10)]));
-      toast(`Exported ${filtered.length} ${filtered.length === 1 ? "record" : "records"}.`);
+      // Every record that matches the search and status, not only the page on screen.
+      const rows = await modulesApi.listAll(kind, { q: term, status, sort: params.sort });
+      await downloadSheet(kind, config.title, header, rows.map((record) => [record.name, record.status, record.owner, record.account, ...(config.metric ? [record.amount] : []), record.updatedAt.slice(0, 10)]));
+      toast(`Exported ${rows.length} ${rows.length === 1 ? "record" : "records"}.`);
     } catch (cause) {
       toast(errorMessage(cause, "The export could not be created."));
     } finally {
@@ -130,21 +138,21 @@ export function ModuleWorkspace({ kind }: { kind: ModuleKind }) {
           <label className="relative min-w-44 flex-1 sm:max-w-sm">
             <span className="sr-only">Search {config.title.toLowerCase()}</span>
             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-3" aria-hidden />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${config.title.toLowerCase()}`} className={cn(control, "w-full pr-3 pl-9 placeholder:text-ink-3")} />
+            <input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder={`Search ${config.title.toLowerCase()}`} className={cn(control, "w-full pr-3 pl-9 placeholder:text-ink-3")} />
           </label>
-          <select value={status} onChange={(event) => setStatus(event.target.value)} className={cn(control, "px-2.5")} aria-label="Filter by status">
+          <select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }} className={cn(control, "px-2.5")} aria-label="Filter by status">
             <option value="">All statuses</option>
             {config.statuses.map((value) => (
               <option key={value}>{value}</option>
             ))}
           </select>
-          <select value={sort} onChange={(event) => setSort(event.target.value as "name" | "updatedAt")} className={cn(control, "px-2.5")} aria-label="Sort records">
+          <select value={sort} onChange={(event) => { setSort(event.target.value as "name" | "updatedAt"); setPage(1); }} className={cn(control, "px-2.5")} aria-label="Sort records">
             <option value="updatedAt">Recently updated</option>
             <option value="name">Name</option>
           </select>
           {records.data && (
             <p className="tnum ml-auto text-[12.5px] text-ink-3" aria-live="polite">
-              {filtering ? `${filtered.length} of ${all.length}` : `${all.length} ${all.length === 1 ? config.singular : `${config.singular}s`}`}
+              {filtering ? `${total} matching` : `${total} ${total === 1 ? config.singular : `${config.singular}s`}`}
             </p>
           )}
         </div>
@@ -182,6 +190,7 @@ export function ModuleWorkspace({ kind }: { kind: ModuleKind }) {
                 onClick={() => {
                   setQuery("");
                   setStatus("");
+                  setPage(1);
                 }}
               >
                 Clear filters
@@ -247,6 +256,21 @@ export function ModuleWorkspace({ kind }: { kind: ModuleKind }) {
             </table>
           </div>
         )}
+        {total > pageSize && (
+          <div className="flex items-center justify-between border-t border-line px-4 py-2.5 text-[12.5px] text-ink-3">
+            <span className="tnum" aria-live="polite">
+              {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}
+            </span>
+            <div className="flex gap-2">
+              <button className={buttonSecondary} disabled={page <= 1} onClick={() => setPage((current) => current - 1)} aria-label="Previous page">
+                <ChevronLeft className="size-4" aria-hidden />
+              </button>
+              <button className={buttonSecondary} disabled={page * pageSize >= total} onClick={() => setPage((current) => current + 1)} aria-label="Next page">
+                <ChevronRight className="size-4" aria-hidden />
+              </button>
+            </div>
+          </div>
+        )}
       </Card>
       <p className="text-[12.5px] text-ink-3">{config.note}</p>
 
@@ -274,7 +298,7 @@ export function ModuleWorkspace({ kind }: { kind: ModuleKind }) {
         }
       >
         {!selected ? (
-          records.isPending ? (
+          records.isPending || single.isPending ? (
             <div className="skeleton h-40" role="status" aria-label="Loading record" />
           ) : (
             <Card>
@@ -287,7 +311,9 @@ export function ModuleWorkspace({ kind }: { kind: ModuleKind }) {
               <dl className="divide-y divide-line px-5 text-[13px]">
                 <Fact label="Owner">{selected.owner}</Fact>
                 {selected.account && <Fact label="Account">{selected.account}</Fact>}
-                {selected.recipient && <Fact label="Recipient">{selected.recipient}</Fact>}
+                {selected.recipient && <Fact label="To">{selected.recipient}</Fact>}
+                {!!selected.cc?.length && <Addresses label="Cc" list={selected.cc} />}
+                {!!selected.bcc?.length && <Addresses label="Bcc" list={selected.bcc} />}
                 {config.metric && <Fact label={config.metric}>{amount(selected)}</Fact>}
                 <Fact label="Updated">{formatDay(selected.updatedAt)}</Fact>
                 <div className="py-3">
@@ -347,6 +373,16 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
     <div className="flex items-baseline justify-between gap-4 py-3">
       <dt className="shrink-0 text-ink-3">{label}</dt>
       <dd className="tnum min-w-0 truncate text-right font-medium">{children}</dd>
+    </div>
+  );
+}
+
+/** A long list of addresses, wrapped instead of cut off. */
+function Addresses({ label, list }: { label: string; list: string[] }) {
+  return (
+    <div className="py-3">
+      <dt className="text-ink-3">{label}</dt>
+      <dd className="mt-1 leading-6 font-medium break-words">{list.join(", ")}</dd>
     </div>
   );
 }

@@ -15,7 +15,7 @@ import { formatDay, localIso, todayLocal, toInstant } from "@/lib/format";
 import { listLeads } from "@/lib/leads";
 import { KEYS } from "@/lib/query-keys";
 import { dashboard } from "@/lib/reports";
-import { listDeals, listStages } from "@/lib/deals";
+import { listAllDeals, listStages } from "@/lib/deals";
 import { RANGES, rangeDays, type RangeId } from "@/lib/date-range";
 import { useQuery } from "@tanstack/react-query";
 import { CalendarDays, Plus } from "lucide-react";
@@ -46,7 +46,7 @@ export function DashboardView() {
   const [range, setRange] = useState<RangeId>("month");
   const [from, to] = rangeDays(range);
   const summary = useQuery({ queryKey: [...KEYS.dashboard, "summary", from, to], queryFn: () => dashboard(from, to) });
-  const deals = useQuery({ queryKey: [...KEYS.deals, "dashboard"], queryFn: () => listDeals({ size: 100 }) });
+  const deals = useQuery({ queryKey: [...KEYS.deals, "dashboard"], queryFn: () => listAllDeals() });
   const stages = useQuery({ queryKey: KEYS.stages, queryFn: listStages });
   const revenue = useRevenuePoints();
   const months = revenue.query;
@@ -70,6 +70,7 @@ export function DashboardView() {
   const due = (dueNow.data?.items ?? []).sort((a, b) => a.dueAt.localeCompare(b.dueAt));
   const overdue = due.filter((f) => localIso(f.dueAt).slice(0, 10) < today).length;
   const allDeals = deals.data?.items ?? [];
+  const dealsCut = deals.data && !deals.data.complete ? `${deals.data.items.length.toLocaleString("en-IN")} of ${deals.data.total.toLocaleString("en-IN")}` : null;
   const stageMap = new Map((stages.data ?? []).map((stage) => [stage.code, stage]));
   const openDeals = allDeals.filter((deal) => stageMap.get(deal.stageCode)?.kind === "OPEN");
   const toBase = (deal: typeof allDeals[number]) => Number(deal.baseAmount ?? Number(deal.amount.amount) / (rateState.status === "ready" ? rateState.rates[deal.amount.currency] ?? 1 : 1));
@@ -113,6 +114,7 @@ export function DashboardView() {
         <Insight label="Win rate" value={deals.isPending ? "…" : `${winRate}%`} note={`${won.length} won of ${closed.length} closed deals`} />
         <Insight label="Forecast confidence" value={deals.isPending || stages.isPending ? "…" : `${forecastConfidence}%`} note="Weighted share of open pipeline" />
       </div>
+      {dealsCut && <p className="-mt-2 text-[12.5px] text-ink-3" role="status">Deal figures above use the {dealsCut} most recently updated deals. Open Deals to see them all.</p>}
 
       {summary.isError ? (
         <Card>
