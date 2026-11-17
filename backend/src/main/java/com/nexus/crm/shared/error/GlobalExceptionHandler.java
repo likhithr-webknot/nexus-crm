@@ -69,7 +69,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 	/** A database rule stopped the change, for example the unique email of an open lead. */
 	@ExceptionHandler(DataIntegrityViolationException.class)
 	ResponseEntity<Object> handleConstraint(DataIntegrityViolationException ex, WebRequest request) {
-		log.warn("Database constraint violated: {}", ex.getMostSpecificCause().getMessage());
+		// The database message repeats the values that clashed (an email, for example). Only the constraint name is logged.
+		log.warn("Database constraint violated: {}", constraintName(ex));
 		return respond(ex, ErrorCode.DUPLICATE, "A record with the same unique value already exists.", request);
 	}
 
@@ -115,6 +116,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
 	private ResponseEntity<Object> respond(Exception ex, ErrorCode code, String detail, WebRequest request) {
 		return handleExceptionInternal(ex, problem(code, detail), new HttpHeaders(), code.getStatus(), request);
+	}
+
+	private static final java.util.regex.Pattern CONSTRAINT = java.util.regex.Pattern.compile("constraint \"([^\"]+)\"");
+
+	private static String constraintName(DataIntegrityViolationException ex) {
+		String message = ex.getMostSpecificCause().getMessage();
+		java.util.regex.Matcher found = (message == null) ? null : CONSTRAINT.matcher(message);
+		return (found != null && found.find()) ? found.group(1) : "unknown";
 	}
 
 	private static ProblemDetail problem(ErrorCode code, String detail) {

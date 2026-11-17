@@ -1,5 +1,6 @@
 package com.nexus.crm.leads;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -39,6 +40,7 @@ import com.nexus.crm.leads.dto.LeadSummaryResponse;
 import com.nexus.crm.leads.dto.LeadView;
 import com.nexus.crm.leads.dto.UpdateLeadRequest;
 import com.nexus.crm.shared.CurrentUser;
+import com.nexus.crm.shared.limits.RateLimit;
 import com.nexus.crm.shared.Ref;
 import com.nexus.crm.shared.currency.Money;
 import com.nexus.crm.shared.web.PageResponse;
@@ -126,8 +128,12 @@ class LeadController {
 		this.leads.delete(user, r.ids());
 	}
 
+	/** Each import reports which emails already exist, so it is limited to stop it being used to look up emails in bulk. */
+	private static final RateLimit IMPORT_LIMIT = new RateLimit(10, Duration.ofHours(1));
+
 	@PostMapping("/imports")
 	LeadImportResult importLeads(@AuthenticationPrincipal CurrentUser user, @Valid @RequestBody LeadImportRequest r) {
+		IMPORT_LIMIT.require(user.id());
 		return this.leads.importRows(user, r.rows());
 	}
 

@@ -8,6 +8,7 @@
 #   Frontend
 #   1. Install dependencies exactly as pinned in package-lock.json
 #   2. Lint          - code style and React rules (ESLint)
+#      Audit         - known vulnerabilities in the shipped packages (npm audit)
 #   3. Type-check    - TypeScript errors, without building
 #   4. Build         - a full production build, the same one we would deploy
 #
@@ -61,6 +62,10 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      # Fails on a known high or critical vulnerability in what ships to users (dev tools are left out).
+      - name: Audit dependencies
+        run: npm audit --omit=dev --audit-level=high
 
       # Generates Next.js route types first (they are not committed),
       # then runs the TypeScript compiler without emitting files.

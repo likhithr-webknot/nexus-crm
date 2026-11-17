@@ -21,6 +21,8 @@ public enum ErrorCode {
 	INVALID_STATE(HttpStatus.CONFLICT, "Not allowed in the current state"),
 	VERSION_CONFLICT(HttpStatus.CONFLICT, "Changed by someone else"),
 	VALIDATION_FAILED(HttpStatus.UNPROCESSABLE_CONTENT, "Validation failed"),
+	TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "Request too large"),
+	RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "Too many requests"),
 	UNSUPPORTED_CURRENCY(HttpStatus.UNPROCESSABLE_CONTENT, "Currency not available"),
 	INVALID_PRECISION(HttpStatus.UNPROCESSABLE_CONTENT, "Too many decimal places"),
 	INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong");

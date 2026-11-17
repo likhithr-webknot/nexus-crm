@@ -165,6 +165,7 @@ public class UserService {
 			// Admins cannot change themselves, so there is always at least one admin left.
 			throw new ApiException(ErrorCode.INVALID_STATE, "You cannot change your own role or status.");
 		}
+		requireAnotherAdminStays(user, role, status);
 		if (role != null) {
 			user.changeRole(role);
 		}
@@ -183,6 +184,23 @@ public class UserService {
 		this.activeRoles.invalidate(id);
 		log.info("User updated: userId={} role={} status={} by={}", id, user.getRole(), user.getStatus(), actorId);
 		return user;
+	}
+
+	/**
+	 * An active admin cannot lose that role while they are the last one. Changing yourself is already refused, but two
+	 * admins could change each other at the same moment and leave nobody. The lock makes them go one at a time.
+	 */
+	private void requireAnotherAdminStays(AppUser user, Role newRole, AppUser.Status newStatus) {
+		boolean loses = user.getRole() == Role.ADMIN && user.getStatus() == AppUser.Status.ACTIVE
+				&& ((newRole != null && newRole != Role.ADMIN) || newStatus == AppUser.Status.DISABLED);
+		if (!loses) {
+			return;
+		}
+		boolean another = this.users.lockByRoleAndStatus(Role.ADMIN, AppUser.Status.ACTIVE).stream()
+			.anyMatch((admin) -> !admin.getId().equals(user.getId()));
+		if (!another) {
+			throw new ApiException(ErrorCode.INVALID_STATE, "There must always be at least one active admin.");
+		}
 	}
 
 	/**

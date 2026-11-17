@@ -4,11 +4,14 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Optional;
 import java.util.UUID;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
@@ -43,6 +46,12 @@ public class SessionService {
 
 	private final AuthProperties properties;
 
+	/** Which sessions are still alive. Kept for a few seconds so a request does not need a database query. */
+	private final Cache<UUID, Boolean> liveSessions = Caffeine.newBuilder()
+		.expireAfterWrite(Duration.ofSeconds(15))
+		.maximumSize(50_000)
+		.build();
+
 	/** Starts a new session for a user who has just signed in. */
 	@Transactional
 	public SessionTokens start(AppUser user, ClientInfo client) {
@@ -60,6 +69,7 @@ public class SessionService {
 		if (token.isUsed() && !token.wasUsedWithin(this.properties.refreshToken().reuseGrace(), now)) {
 			// The real browser always has the newest token.
 			this.refreshTokens.revokeFamily(token.getFamilyId(), now);
+			this.liveSessions.invalidate(token.getFamilyId());
 			log.warn("Security event: refresh_token_reuse userId={} sessionId={} ip={}", token.getUserId(),
 					token.getFamilyId(), client.ip());
 			return Optional.empty();
@@ -69,6 +79,7 @@ public class SessionService {
 			.orElse(null);
 		if (user == null) {
 			this.refreshTokens.revokeFamily(token.getFamilyId(), now);
+			this.liveSessions.invalidate(token.getFamilyId());
 			return Optional.empty();
 		}
 		// If the token was used a moment ago, this is a second browser tab refreshing at the same time.
@@ -78,16 +89,27 @@ public class SessionService {
 		return Optional.of(issue(user, token.getFamilyId(), client, now));
 	}
 
+	/**
+	 * Whether the sign-in session an access token belongs to has not been ended. Without this check, signing out would
+	 * only stop new tokens: the access token already issued would keep working until it expires. On other servers it
+	 * can take up to 15 seconds to notice.
+	 */
+	public boolean isLive(UUID sessionId) {
+		return this.liveSessions.get(sessionId, (id) -> this.refreshTokens.existsLive(id, Instant.now()));
+	}
+
 	/** Ends one session (sign out). */
 	@Transactional
 	public void end(UUID sessionId) {
 		this.refreshTokens.revokeFamily(sessionId, Instant.now());
+		this.liveSessions.invalidate(sessionId);
 	}
 
 	/** Ends every session of a user (sign out everywhere, or the user was disabled). */
 	@Transactional
 	public void endAll(UUID userId) {
 		this.refreshTokens.revokeAllForUser(userId, Instant.now());
+		this.liveSessions.invalidateAll();
 	}
 
 	private SessionTokens issue(AppUser user, UUID sessionId, ClientInfo client, Instant now) {

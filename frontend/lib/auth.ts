@@ -1,6 +1,7 @@
 /* Sign-in contract with the backend (docs/backend-technical-design.md, "Sign-in with Google"). The browser navigates to the backend, which runs the whole OIDC flow and sets the session cookies; the frontend never sees a token. */
 
 import { API_BASE_URL, api } from "@/lib/api";
+import { clearRecents } from "@/lib/recents";
 
 export const GOOGLE_SIGN_IN_URL = `${API_BASE_URL}/auth/oauth2/authorization/google`;
 
@@ -26,7 +27,10 @@ export const updateProfile = (body: { displayName: string; jobTitle: string }) =
   api<SessionUser>("/me", { method: "PATCH", body: JSON.stringify(body) });
 
 /** A full page load, so nothing from the session stays in memory, and Back does not return to the app. */
-export const leaveSignedOut = () => window.location.replace("/login?notice=signed_out");
+export const leaveSignedOut = () => {
+  clearRecents();
+  window.location.replace("/login?notice=signed_out");
+};
 
 /** Ends the session on the server, then leaves for the login page. `everywhere` also signs out every other browser and device. */
 export async function signOut({ everywhere = false } = {}) {

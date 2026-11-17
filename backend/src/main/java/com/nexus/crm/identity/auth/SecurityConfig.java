@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
+import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -44,12 +45,15 @@ import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.filter.CorsFilter;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
 import com.nexus.crm.identity.user.UserService;
 import com.nexus.crm.shared.CurrentUser;
 import com.nexus.crm.shared.Role;
+import com.nexus.crm.shared.limits.AuthRateLimitFilter;
+import com.nexus.crm.shared.limits.BodySizeLimitFilter;
 import com.nexus.crm.shared.web.RequestIdFilter;
 
 /** Security rules: sign-in and token refresh are open; everything else needs a signed-in user, and changes need the CSRF token. */
@@ -62,7 +66,8 @@ class SecurityConfig {
 	@Bean
 	@Order(1)
 	SecurityFilterChain signInFilterChain(HttpSecurity http, ClientRegistrationRepository clientRegistrations,
-			CookieOAuth2AuthorizationRequestRepository authorizationRequests, OidcSignInHandlers handlers) {
+			CookieOAuth2AuthorizationRequestRepository authorizationRequests, OidcSignInHandlers handlers,
+			AuthProperties properties, @Qualifier("handlerExceptionResolver") HandlerExceptionResolver errors) {
 		http.securityMatcher("/api/v1/auth/oauth2/**", "/api/v1/auth/login/**", "/api/v1/mail/callback", AuthCookies.REFRESH_PATH)
 			.authorizeHttpRequests((requests) -> requests.anyRequest().permitAll())
 			// No CSRF token needed here. Google sign-in has its own protection (the state value), and the refresh cookie is never sent on requests from other sites.
@@ -76,12 +81,13 @@ class SecurityConfig {
 				.authorizedClientRepository(new DiscardingAuthorizedClientRepository())
 				.successHandler(handlers)
 				.failureHandler(handlers));
-		return stateless(http).build();
+		return stateless(http, new AuthRateLimitFilter(errors, properties.frontendUrl()), new BodySizeLimitFilter(errors))
+			.build();
 	}
 
 	@Bean
 	@Order(2)
-	SecurityFilterChain apiFilterChain(HttpSecurity http, JwtDecoder jwtDecoder, UserService users,
+	SecurityFilterChain apiFilterChain(HttpSecurity http, JwtDecoder jwtDecoder, UserService users, SessionService sessions,
 			AuthProperties properties, @Qualifier("handlerExceptionResolver") HandlerExceptionResolver errors) {
 		// Send "not signed in" (401) and "not allowed" (403) to the global exception handler, so they look like every other error response.
 		AuthenticationEntryPoint notSignedIn = (request, response, ex) -> errors.resolveException(request, response,
@@ -99,17 +105,17 @@ class SecurityConfig {
 			// CSRF protection: the frontend reads the XSRF-TOKEN cookie and sends it back in the X-XSRF-TOKEN header.
 			.csrf((csrf) -> csrf.csrfTokenRepository(csrfTokens).spa())
 			.addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
-			.addFilter(accessTokenFilter(jwtDecoder, users, notSignedIn))
+			.addFilter(accessTokenFilter(jwtDecoder, users, sessions, notSignedIn))
 			.exceptionHandling((handling) -> handling.authenticationEntryPoint(notSignedIn)
 				.accessDeniedHandler(notAllowed));
-		return stateless(http).build();
+		return stateless(http, new BodySizeLimitFilter(errors)).build();
 	}
 
 	/** Signs the user in on each request, using the access token in the {@code nx_at} cookie. Important: do not replace this with {@code http.oauth2ResourceServer(...)}. That is unsafe for us, because our token is in a cookie and the browser sends cookies automatically, even on requests made by other websites. */
 	private static BearerTokenAuthenticationFilter accessTokenFilter(JwtDecoder jwtDecoder, UserService users,
-			AuthenticationEntryPoint notSignedIn) {
+			SessionService sessions, AuthenticationEntryPoint notSignedIn) {
 		JwtAuthenticationProvider provider = new JwtAuthenticationProvider(jwtDecoder);
-		provider.setJwtAuthenticationConverter((jwt) -> currentUser(jwt, users));
+		provider.setJwtAuthenticationConverter((jwt) -> currentUser(jwt, users, sessions));
 		BearerTokenAuthenticationFilter filter = new BearerTokenAuthenticationFilter(new ProviderManager(provider));
 		// Read the token from the cookie, not from an Authorization header.
 		filter.setBearerTokenResolver((request) -> AuthCookies.read(request, AuthCookies.ACCESS_TOKEN));
@@ -118,7 +124,7 @@ class SecurityConfig {
 	}
 
 	/** Turns a valid access token into the {@link CurrentUser} for the request. */
-	private static AbstractAuthenticationToken currentUser(Jwt jwt, UserService users) {
+	private static AbstractAuthenticationToken currentUser(Jwt jwt, UserService users, SessionService sessions) {
 		UUID userId;
 		UUID sessionId;
 		try {
@@ -128,12 +134,20 @@ class SecurityConfig {
 		catch (RuntimeException ex) {
 			throw new InvalidBearerTokenException("Malformed access token");
 		}
+		// A token outlives its session unless this is checked: after signing out, the token would work until it expires.
+		if (!sessions.isLive(sessionId)) {
+			throw new InvalidBearerTokenException("The session has ended");
+		}
 		Role role = users.activeRole(userId).orElseThrow(() -> new InvalidBearerTokenException("User is not active"));
 		return UsernamePasswordAuthenticationToken.authenticated(new CurrentUser(userId, role, sessionId), null,
 				List.of(new SimpleGrantedAuthority("ROLE_" + role.name())));
 	}
 
-	private static HttpSecurity stateless(HttpSecurity http) {
+	/** The shared settings. {@code guards} run right after CORS, so even their refusals carry the CORS headers. */
+	private static HttpSecurity stateless(HttpSecurity http, Filter... guards) {
+		for (Filter guard : guards) {
+			http.addFilterAfter(guard, CorsFilter.class);
+		}
 		return http.cors(Customizer.withDefaults())
 			.sessionManagement((session) -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 			.headers((headers) -> headers

@@ -1,15 +1,8 @@
 package com.nexus.crm.ai;
 
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.security.SecureRandom;
 import java.time.Instant;
-import java.util.Base64;
 import java.util.UUID;
 
-import javax.crypto.Cipher;
-import javax.crypto.spec.GCMParameterSpec;
-import javax.crypto.spec.SecretKeySpec;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,13 +12,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.nexus.crm.audit.AuditLog;
 import com.nexus.crm.audit.AuditService;
+import com.nexus.crm.shared.SecretBox;
 import com.nexus.crm.shared.error.ApiException;
 import com.nexus.crm.shared.error.ErrorCode;
 
 @Service
 @RequiredArgsConstructor
 public class AiKeyService {
-  private static final SecureRandom RANDOM = new SecureRandom();
   private static final UUID AUDIT_ID = new UUID(0, 2);
   private final JdbcClient jdbc;
   private final AuditService audit;
@@ -84,37 +77,23 @@ public class AiKeyService {
   /** OpenAI keeps the id it always had; Sarvam gets its own, so the audit log tells them apart. */
   private UUID auditId(Provider provider) { return provider == Provider.OPENAI ? AUDIT_ID : new UUID(0, 3); }
 
-  private byte[] encryptionKey() {
-    String encoded = configKey.isBlank() ? mailKey : configKey;
-    try {
-      byte[] decoded = Base64.getDecoder().decode(encoded);
-      if (decoded.length == 32) return decoded;
-    } catch (IllegalArgumentException ignored) { }
-    throw invalid("AI key storage is not configured on the server.");
-  }
+  /** Keys are saved with NEXUS_AI_CONFIG_KEY only. It is never shared with the mail key, so one leak cannot open both. */
+  private static final String CONTEXT = "nexus-ai-key-v1";
 
   private byte[] encrypt(String value) {
-    byte[] key = encryptionKey();
-    try {
-      byte[] nonce = new byte[12]; RANDOM.nextBytes(nonce);
-      Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-      cipher.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(key, "AES"), new GCMParameterSpec(128, nonce));
-      cipher.updateAAD("nexus-ai-key-v1".getBytes(StandardCharsets.UTF_8));
-      byte[] body = cipher.doFinal(value.getBytes(StandardCharsets.UTF_8));
-      return ByteBuffer.allocate(nonce.length + body.length).put(nonce).put(body).array();
-    } catch (Exception error) { throw new IllegalStateException("AI key could not be stored.", error); }
+    SecretBox box = SecretBox.of(configKey, CONTEXT);
+    if (box == null) throw invalid("AI key storage is not configured on the server. Set NEXUS_AI_CONFIG_KEY.");
+    return box.encrypt(value);
   }
 
+  /**
+   * Also tries the mail key, because older installs saved AI keys with it. Saving the key again re-encrypts it with
+   * NEXUS_AI_CONFIG_KEY, and then the mail key can be taken out of the list.
+   */
   private String decrypt(byte[] stored) {
-    try {
-      ByteBuffer data = ByteBuffer.wrap(stored);
-      byte[] nonce = new byte[12]; data.get(nonce);
-      byte[] body = new byte[data.remaining()]; data.get(body);
-      Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-      cipher.init(Cipher.DECRYPT_MODE, new SecretKeySpec(encryptionKey(), "AES"), new GCMParameterSpec(128, nonce));
-      cipher.updateAAD("nexus-ai-key-v1".getBytes(StandardCharsets.UTF_8));
-      return new String(cipher.doFinal(body), StandardCharsets.UTF_8);
-    } catch (Exception error) { throw new IllegalStateException("Saved AI key could not be read.", error); }
+    SecretBox box = SecretBox.of(configKey + "," + mailKey, CONTEXT);
+    if (box == null) throw invalid("AI key storage is not configured on the server. Set NEXUS_AI_CONFIG_KEY.");
+    return box.decrypt(stored);
   }
 
   private ApiException invalid(String message) { return new ApiException(ErrorCode.VALIDATION_FAILED, message); }

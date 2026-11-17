@@ -76,6 +76,8 @@ management:
         enabled: true
 
 nexus:
+  # "production" makes the app refuse to start with unsafe settings (empty database password, throwaway signing key, ...).
+  environment: ${NEXUS_ENVIRONMENT:local}
   fx:
     # Daily exchange rates. {base} is replaced by the base currency (INR).
     enabled: ${NEXUS_FX_ENABLED:true}

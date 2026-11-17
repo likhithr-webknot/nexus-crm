@@ -23,6 +23,7 @@ import com.nexus.crm.identity.user.dto.UpdateProfileRequest;
 import com.nexus.crm.identity.user.dto.UpdateUserRequest;
 import com.nexus.crm.identity.user.dto.UserResponse;
 import com.nexus.crm.shared.CurrentUser;
+import com.nexus.crm.shared.Role;
 
 /** Any signed-in user can see users. Only admins can invite or change them. */
 @RestController
@@ -44,9 +45,15 @@ class UserController {
 		return UserResponse.from(this.users.editProfile(user.id(), request.displayName(), request.jobTitle()));
 	}
 
+	/** Admins see everyone. Everyone else sees only active people, without sign-in activity: invited and disabled accounts are not for them. */
 	@GetMapping("/users")
-	List<UserResponse> list() {
-		return this.users.list().stream().map(UserResponse::from).toList();
+	List<UserResponse> list(@AuthenticationPrincipal CurrentUser me) {
+		boolean admin = me.role() == Role.ADMIN;
+		return this.users.list().stream()
+			.filter((user) -> admin || user.getStatus() == AppUser.Status.ACTIVE)
+			.map(UserResponse::from)
+			.map((response) -> admin ? response : response.withoutActivity())
+			.toList();
 	}
 
 	@PostMapping("/users")

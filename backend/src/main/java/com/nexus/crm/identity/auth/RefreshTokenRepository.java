@@ -18,6 +18,10 @@ interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID> {
 	@Query("select t from RefreshToken t where t.tokenHash = :hash")
 	Optional<RefreshToken> findByTokenHashForUpdate(@Param("hash") byte[] hash);
 
+	/** True while the session still has a refresh token that is neither revoked nor expired. */
+	@Query("select count(t) > 0 from RefreshToken t where t.familyId = :familyId and t.revokedAt is null and t.expiresAt > :now")
+	boolean existsLive(@Param("familyId") UUID familyId, @Param("now") Instant now);
+
 	@Modifying
 	@Query("update RefreshToken t set t.revokedAt = :now where t.familyId = :familyId and t.revokedAt is null")
 	int revokeFamily(@Param("familyId") UUID familyId, @Param("now") Instant now);

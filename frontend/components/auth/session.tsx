@@ -4,6 +4,7 @@ import { Logo } from "@/components/ui/logo";
 import { buttonPrimary } from "@/components/ui/primitives";
 import { ApiError, isSignedOut, SESSION_EXPIRED } from "@/lib/api";
 import { fetchMe, leaveSignedOut, signOut, type SessionUser } from "@/lib/auth";
+import { clearRecents } from "@/lib/recents";
 import { cn, initials } from "@/lib/format";
 import { KEYS } from "@/lib/query-keys";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
@@ -47,7 +48,9 @@ function SessionGate({ children }: { children: React.ReactNode }) {
   const expired = error instanceof ApiError && error.code === SESSION_EXPIRED;
 
   useEffect(() => {
-    if (signedOut) window.location.replace(expired ? "/login?notice=session_expired" : "/login");
+    if (!signedOut) return;
+    clearRecents();
+    window.location.replace(expired ? "/login?notice=session_expired" : "/login");
   }, [signedOut, expired]);
 
   if (user && !signedOut) return <SessionContext value={user}>{children}</SessionContext>;

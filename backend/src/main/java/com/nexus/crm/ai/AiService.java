@@ -45,6 +45,8 @@ public class AiService {
   @Value("${NEXUS_AI_MONTHLY_REQUEST_LIMIT:0}") private int monthlyRequestLimit;
 
   /** How the assistant looks for new business. Shared by the streamed and the one-shot answer. */
+  private enum Refusal { NONE, HOUR, MONTH }
+
   /** How many AI requests one user may make in any hour. */
   private static final int HOURLY_LIMIT = 30;
 
@@ -349,17 +351,24 @@ public class AiService {
    */
   UUID reserve(CurrentUser user, String kind) {
     UUID id = UUID.randomUUID();
-    Boolean taken = transactions.execute(tx -> {
+    Refusal taken = transactions.execute(tx -> {
       jdbc.sql("select count(*) from (select pg_advisory_xact_lock(hashtextextended(:key, 0))) lock")
         .param("key", "ai-request:" + user.id()).query(Long.class).single();
       long lastHour = jdbc.sql("select count(*) from ai_request where user_id = :user and created_at > now() - interval '1 hour'")
         .param("user", user.id()).query(Long.class).single();
-      if (lastHour >= HOURLY_LIMIT) return false;
+      if (lastHour >= HOURLY_LIMIT) return Refusal.HOUR;
+      if (monthlyRequestLimit > 0) {
+        // The whole team shares the monthly allowance, so take a second lock for the count. Always in this order, so locks cannot deadlock.
+        jdbc.sql("select count(*) from (select pg_advisory_xact_lock(hashtextextended('ai-request:month', 0))) lock").query(Long.class).single();
+        long thisMonth = jdbc.sql("select count(*) from ai_request where created_at >= date_trunc('month', now())").query(Long.class).single();
+        if (thisMonth >= monthlyRequestLimit) return Refusal.MONTH;
+      }
       jdbc.sql("insert into ai_request (id, user_id, kind) values (:id, :user, :kind)")
         .param("id", id).param("user", user.id()).param("kind", kind).update();
-      return true;
+      return Refusal.NONE;
     });
-    if (!Boolean.TRUE.equals(taken)) throw new ApiException(ErrorCode.INVALID_STATE, "AI request limit reached for this hour. Try later.");
+    if (taken == Refusal.HOUR) throw new ApiException(ErrorCode.INVALID_STATE, "AI request limit reached for this hour. Try later.");
+    if (taken == Refusal.MONTH) throw new ApiException(ErrorCode.INVALID_STATE, "The monthly AI allowance has been used. Ask an admin.");
     return id;
   }
 

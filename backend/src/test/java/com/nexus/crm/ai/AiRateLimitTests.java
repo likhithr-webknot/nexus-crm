@@ -14,6 +14,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.nexus.crm.identity.user.AppUser;
 import com.nexus.crm.shared.CurrentUser;
@@ -79,6 +80,24 @@ class AiRateLimitTests extends IntegrationTest {
 		this.ai.release(last);
 
 		assertThat(this.ai.reserve(current, "test")).isNotNull();
+	}
+
+	@Test
+	void theMonthlyAllowanceStopsRequestsInsteadOfOnlyWarning() {
+		AppUser user = invite(uniqueEmail(), Role.REP);
+		CurrentUser current = new CurrentUser(user.getId(), Role.REP, java.util.UUID.randomUUID());
+		long used = this.jdbc.sql("select count(*) from ai_request where created_at >= date_trunc('month', now())")
+			.query(Long.class).single();
+		ReflectionTestUtils.setField(this.ai, "monthlyRequestLimit", (int) used + 1);
+		try {
+			this.ai.reserve(current, "test");
+
+			assertThatThrownBy(() -> this.ai.reserve(current, "test")).isInstanceOfSatisfying(ApiException.class,
+					(ex) -> assertThat(ex.getMessage()).contains("monthly"));
+		}
+		finally {
+			ReflectionTestUtils.setField(this.ai, "monthlyRequestLimit", 0);
+		}
 	}
 
 }

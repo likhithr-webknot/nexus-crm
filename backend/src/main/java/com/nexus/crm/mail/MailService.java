@@ -5,7 +5,6 @@ import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
@@ -16,9 +15,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import javax.crypto.Cipher;
-import javax.crypto.spec.GCMParameterSpec;
-import javax.crypto.spec.SecretKeySpec;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -36,14 +32,18 @@ import com.nexus.crm.modules.ModuleRecord;
 import com.nexus.crm.modules.ModuleService;
 import com.nexus.crm.shared.CurrentUser;
 import com.nexus.crm.shared.Emails;
+import com.nexus.crm.shared.SecretBox;
 import com.nexus.crm.shared.error.ApiException;
 import com.nexus.crm.shared.error.ErrorCode;
+import com.nexus.crm.shared.limits.RateLimit;
 
 @Service
 @RequiredArgsConstructor
 public class MailService {
 	private static final String SCOPE = "openid email https://www.googleapis.com/auth/gmail.send";
 	private static final SecureRandom RANDOM = new SecureRandom();
+	/** A stolen or misused account could otherwise send mail as the user all day. */
+	private static final RateLimit SEND_LIMIT = new RateLimit(50, Duration.ofHours(1));
 	private final JdbcClient jdbc;
 	private final JsonMapper json;
 	private final TransactionTemplate transactions;
@@ -102,6 +102,7 @@ public class MailService {
 
 	public ModuleRecord send(CurrentUser user, UUID id) {
 		requireConfigured();
+		SEND_LIMIT.require(user.id());
 		ModuleRecord draft = modules.get(user, ModuleKind.COMMUNICATIONS, id);
 		requireSendable(draft);
 		String sender = status(user.id()).email();
@@ -205,34 +206,22 @@ public class MailService {
 	}
 
 	private boolean configured() {
-		if (clientId.isBlank() || clientSecret.isBlank() || redirectUri.isBlank() || tokenKey.isBlank()) return false;
-		try { return Base64.getDecoder().decode(tokenKey).length == 32; }
-		catch (IllegalArgumentException e) { return false; }
+		return !clientId.isBlank() && !clientSecret.isBlank() && !redirectUri.isBlank() && SecretBox.of(tokenKey, null) != null;
 	}
 	private void requireConfigured() { if (!configured()) throw invalid("Mail connection is not configured. Ask an admin to set it up."); }
 	private byte[] hash(String value) {
 		try { return MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)); }
 		catch (Exception e) { throw new IllegalStateException(e); }
 	}
-	private byte[] encrypt(String value) {
-		try {
-			byte[] nonce = new byte[12]; RANDOM.nextBytes(nonce);
-			Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-			cipher.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(Base64.getDecoder().decode(tokenKey), "AES"), new GCMParameterSpec(128, nonce));
-			byte[] ciphertext = cipher.doFinal(value.getBytes(StandardCharsets.UTF_8));
-			return ByteBuffer.allocate(nonce.length + ciphertext.length).put(nonce).put(ciphertext).array();
-		} catch (Exception e) { throw new IllegalStateException("Mail encryption failed.", e); }
+	/** The refresh token is stored encrypted. {@code NEXUS_MAIL_TOKEN_KEY} may list several keys, newest first, to replace a key. */
+	private byte[] encrypt(String value) { return mailKeys().encrypt(value); }
+	private String decrypt(byte[] stored) { return mailKeys().decrypt(stored); }
+	private SecretBox mailKeys() {
+		SecretBox box = SecretBox.of(tokenKey, null);
+		if (box == null) throw new IllegalStateException("NEXUS_MAIL_TOKEN_KEY is not a valid key.");
+		return box;
 	}
-	private String decrypt(byte[] stored) {
-		try {
-			ByteBuffer data = ByteBuffer.wrap(stored);
-			byte[] nonce = new byte[12]; data.get(nonce);
-			byte[] ciphertext = new byte[data.remaining()]; data.get(ciphertext);
-			Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-			cipher.init(Cipher.DECRYPT_MODE, new SecretKeySpec(Base64.getDecoder().decode(tokenKey), "AES"), new GCMParameterSpec(128, nonce));
-			return new String(cipher.doFinal(ciphertext), StandardCharsets.UTF_8);
-		} catch (Exception e) { throw new IllegalStateException("Mail connection could not be read.", e); }
-	}
+
 	/** Who a message goes to. Each address passed {@link Emails#isValid}, so none can add a header line or a second recipient. */
 	record Recipients(String to, List<String> cc, List<String> bcc) { }
 

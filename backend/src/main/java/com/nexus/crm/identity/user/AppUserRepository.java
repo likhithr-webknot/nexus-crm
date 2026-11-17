@@ -5,8 +5,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import jakarta.persistence.LockModeType;
+
 import com.nexus.crm.identity.user.dto.TeamMemberCount;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -30,6 +33,11 @@ public interface AppUserRepository extends JpaRepository<AppUser, UUID> {
 	List<TeamMemberCount> countMembersByTeam(@Param("teamIds") Collection<UUID> teamIds);
 
 	List<AppUser> findByRoleAndStatus(Role role, AppUser.Status status);
+
+	/** The same, and locks the rows until the transaction ends, so two admins cannot change each other at the same moment. */
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("select u from AppUser u where u.role = :role and u.status = :status")
+	List<AppUser> lockByRoleAndStatus(@Param("role") Role role, @Param("status") AppUser.Status status);
 
 	List<AppUser> findByIdIn(Collection<UUID> ids);
 
