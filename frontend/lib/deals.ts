@@ -1,5 +1,6 @@
 /* The pipeline and deals (backend: DealController). */
 
+import type { Tag } from "@/lib/tags";
 import { api, qs } from "@/lib/api";
 import type { Money } from "@/lib/money";
 import type { PageResponse, Ref } from "@/lib/page";
@@ -30,6 +31,7 @@ export type Deal = {
   createdAt: string;
   updatedAt: string;
   version: number;
+  tags: Tag[];
 };
 
 export type NewDeal = {
@@ -46,7 +48,7 @@ export const listStages = () => api<PipelineStage[]>("/pipeline/stages");
 /** Every open deal and the ones closed in the last 90 days. */
 export const pipelineBoard = (ownerId?: string) => api<Deal[]>(`/pipeline/board${qs({ ownerId })}`);
 
-export const listDeals = (params: { q?: string; stage?: string; ownerId?: string; contactId?: string; companyId?: string; open?: boolean; page?: number; size?: number }) =>
+export const listDeals = (params: { q?: string; stage?: string; ownerId?: string; contactId?: string; companyId?: string; open?: boolean; tag?: string; page?: number; size?: number }) =>
   api<PageResponse<Deal>>(`/deals${qs(params)}`);
 
 /** Deals fetched page by page, newest first, up to `limit`. `complete` is false when there were more. */

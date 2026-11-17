@@ -68,7 +68,8 @@ class SecurityConfig {
 	SecurityFilterChain signInFilterChain(HttpSecurity http, ClientRegistrationRepository clientRegistrations,
 			CookieOAuth2AuthorizationRequestRepository authorizationRequests, OidcSignInHandlers handlers,
 			AuthProperties properties, @Qualifier("handlerExceptionResolver") HandlerExceptionResolver errors) {
-		http.securityMatcher("/api/v1/auth/oauth2/**", "/api/v1/auth/login/**", "/api/v1/mail/callback", AuthCookies.REFRESH_PATH)
+		http.securityMatcher("/api/v1/auth/oauth2/**", "/api/v1/auth/login/**", "/api/v1/mail/callback", "/api/v1/calendar/ics/**",
+				AuthCookies.REFRESH_PATH)
 			.authorizeHttpRequests((requests) -> requests.anyRequest().permitAll())
 			// No CSRF token needed here. Google sign-in has its own protection (the state value), and the refresh cookie is never sent on requests from other sites.
 			.csrf(AbstractHttpConfigurer::disable)

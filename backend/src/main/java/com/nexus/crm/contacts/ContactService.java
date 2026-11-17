@@ -26,6 +26,7 @@ import com.nexus.crm.shared.Emails;
 import com.nexus.crm.shared.Search;
 import com.nexus.crm.shared.error.ApiException;
 import com.nexus.crm.shared.error.ErrorCode;
+import com.nexus.crm.tags.TagService;
 
 /** Contacts and the companies they work for. */
 @Service
@@ -42,11 +43,15 @@ public class ContactService {
 
 	private final org.springframework.jdbc.core.simple.JdbcClient jdbc;
 
+	private final TagService tags;
+
 	// ---- contacts ----
 
 	@Transactional(readOnly = true)
-	public Page<Contact> list(CurrentUser user, String query, int page, int size) {
-		Specification<Contact> spec = ownedByVisible(user, Contact.class).and(matching(query));
+	public Page<Contact> list(CurrentUser user, String query, UUID ownerId, UUID tagId, int page, int size) {
+		Specification<Contact> spec = ownedByVisible(user, Contact.class).and(matching(query))
+			.and((root, q, cb) -> (ownerId == null) ? cb.conjunction() : cb.equal(root.get("ownerId"), ownerId))
+			.and(TagService.hasTag("contact", tagId));
 		return this.contacts.findAll(spec,
 				PageRequest.of(Math.max(0, page - 1), size, Sort.by("firstName", "lastName", "id")));
 	}
@@ -106,6 +111,23 @@ public class ContactService {
 		this.contacts.save(contact);
 		this.audit.record(user.id(), "Contact", id, AuditLog.Action.UPDATE, changes);
 		return contact;
+	}
+
+	/** Deletes several contacts at once. All of them are deleted, or none. */
+	@Transactional
+	public int delete(CurrentUser user, Collection<UUID> ids) {
+		Set<UUID> unique = new java.util.LinkedHashSet<>(ids);
+		unique.forEach((id) -> delete(user, id));
+		return unique.size();
+	}
+
+	/** Adds and removes tags on several contacts. */
+	@Transactional
+	public int tag(CurrentUser user, Collection<UUID> ids, Collection<UUID> add, Collection<UUID> remove) {
+		Set<UUID> unique = new java.util.LinkedHashSet<>(ids);
+		unique.forEach((id) -> get(user, id));
+		this.tags.change(user, "contact", unique, add, remove);
+		return unique.size();
 	}
 
 	@Transactional

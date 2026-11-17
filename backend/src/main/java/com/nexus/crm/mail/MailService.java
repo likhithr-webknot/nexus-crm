@@ -40,7 +40,9 @@ import com.nexus.crm.shared.limits.RateLimit;
 @Service
 @RequiredArgsConstructor
 public class MailService {
-	private static final String SCOPE = "openid email https://www.googleapis.com/auth/gmail.send";
+	/** What each feature asks Google for. Asking for one feature at a time keeps people from granting more than they use. */
+	private static final Map<String, String> FEATURE_SCOPE = Map.of("mail", GoogleApi.GMAIL_SEND_SCOPE, "calendar", GoogleApi.CALENDAR_SCOPE,
+		"inbox", GoogleApi.GMAIL_READ_SCOPE);
 	private static final SecureRandom RANDOM = new SecureRandom();
 	/** A stolen or misused account could otherwise send mail as the user all day. */
 	private static final RateLimit SEND_LIMIT = new RateLimit(50, Duration.ofHours(1));
@@ -57,32 +59,41 @@ public class MailService {
 	@Value("${NEXUS_MAIL_REDIRECT_URI:}") private String redirectUri;
 	@Value("${NEXUS_MAIL_TOKEN_KEY:}") private String tokenKey;
 
-	public record Status(boolean configured, boolean connected, String email) { }
+	/** {@code connected} means "may send mail". Calendar and inbox have their own flags, because each is a separate permission. */
+	public record Status(boolean configured, boolean connected, String email, boolean calendar, boolean inbox, boolean needsReconnect) { }
 
 	public Status status(UUID userId) {
-		String email = jdbc.sql("select email from mail_connection where user_id=:user")
-			.param("user", userId).query(String.class).optional().orElse(null);
-		return new Status(configured(), email != null, email);
+		var row = jdbc.sql("select email, scopes, needs_reconnect from mail_connection where user_id=:user")
+			.param("user", userId).query((rs, i) -> new Object[] { rs.getString(1), rs.getString(2), rs.getBoolean(3) }).optional();
+		if (row.isEmpty()) return new Status(configured(), false, null, false, false, false);
+		String scopes = (String) row.get()[1];
+		boolean usable = !(Boolean) row.get()[2];
+		return new Status(configured(), usable && scopes.contains(GoogleApi.GMAIL_SEND_SCOPE), (String) row.get()[0],
+			usable && scopes.contains(GoogleApi.CALENDAR_SCOPE), usable && scopes.contains(GoogleApi.GMAIL_READ_SCOPE), !usable);
 	}
 
-	public String connectionUrl(CurrentUser user) {
+	public String connectionUrl(CurrentUser user, String feature) {
 		requireConfigured();
+		if (!FEATURE_SCOPE.containsKey(feature)) throw invalid("Choose mail, calendar or inbox.");
 		byte[] random = new byte[32];
 		RANDOM.nextBytes(random);
 		String state = Base64.getUrlEncoder().withoutPadding().encodeToString(random);
-		jdbc.sql("insert into mail_oauth_state (state_hash,user_id,expires_at) values (:hash,:user,:expiry)")
-			.param("hash", hash(state)).param("user", user.id()).param("expiry", java.time.OffsetDateTime.ofInstant(Instant.now().plusSeconds(600), java.time.ZoneOffset.UTC)).update();
+		jdbc.sql("insert into mail_oauth_state (state_hash,user_id,feature,expires_at) values (:hash,:user,:feature,:expiry)")
+			.param("hash", hash(state)).param("user", user.id()).param("feature", feature).param("expiry", java.time.OffsetDateTime.ofInstant(Instant.now().plusSeconds(600), java.time.ZoneOffset.UTC)).update();
 		return "https://accounts.google.com/o/oauth2/v2/auth?client_id=" + enc(clientId)
-			+ "&redirect_uri=" + enc(redirectUri) + "&response_type=code&scope=" + enc(SCOPE)
+			+ "&redirect_uri=" + enc(redirectUri) + "&response_type=code&scope=" + enc("openid email " + FEATURE_SCOPE.get(feature))
 			+ "&access_type=offline&prompt=consent&include_granted_scopes=true&state=" + enc(state);
 	}
 
-	public void callback(String code, String state) {
+	/** Finishes a Google consent and returns which feature it was for, so the caller can send the user back to the right page. */
+	public String callback(String code, String state) {
 		requireConfigured();
 		if (code == null || state == null || state.length() > 200) throw invalid("Mailbox connection was cancelled or expired.");
-		UUID userId = jdbc.sql("delete from mail_oauth_state where state_hash=:hash and expires_at>now() returning user_id")
-			.param("hash", hash(state)).query(UUID.class).optional()
+		var consent = jdbc.sql("delete from mail_oauth_state where state_hash=:hash and expires_at>now() returning user_id, feature")
+			.param("hash", hash(state)).query((rs, i) -> new Object[] { rs.getObject(1, UUID.class), rs.getString(2) }).optional()
 			.orElseThrow(() -> invalid("Mailbox connection was cancelled or expired."));
+		UUID userId = (UUID) consent[0];
+		String feature = (String) consent[1];
 		Map<String, Object> token = postForm("https://oauth2.googleapis.com/token", "code=" + enc(code)
 			+ "&client_id=" + enc(clientId) + "&client_secret=" + enc(clientSecret)
 			+ "&redirect_uri=" + enc(redirectUri) + "&grant_type=authorization_code");
@@ -95,9 +106,17 @@ public class MailService {
 			.query(String.class).single();
 		if (!email.equalsIgnoreCase(expected) || !Boolean.TRUE.equals(info.get("email_verified")))
 			throw invalid("Connect the same verified Google account used to sign in to Nexus CRM.");
-		jdbc.sql("insert into mail_connection (user_id,email,refresh_token_cipher) values (:user,:email,:cipher) "
-				+ "on conflict (user_id) do update set email=excluded.email,refresh_token_cipher=excluded.refresh_token_cipher,connected_at=now()")
-			.param("user", userId).param("email", email).param("cipher", encrypt(refresh)).update();
+		// The user can untick a permission on Google's screen, so check that this feature's permission was really granted.
+		String granted = string(token.get("scope"));
+		if (!granted.contains(FEATURE_SCOPE.get(feature))) throw invalid("Google did not grant the permission this feature needs. Connect again and keep every box ticked.");
+		jdbc.sql("insert into mail_connection (user_id,email,refresh_token_cipher,scopes,needs_reconnect) values (:user,:email,:cipher,:scopes,false) "
+				+ "on conflict (user_id) do update set email=excluded.email,refresh_token_cipher=excluded.refresh_token_cipher,scopes=excluded.scopes,needs_reconnect=false,connected_at=now()")
+			.param("user", userId).param("email", email).param("cipher", encrypt(refresh)).param("scopes", granted).update();
+		if ("calendar".equals(feature))
+			jdbc.sql("insert into calendar_google_sync (user_id) values (:user) on conflict (user_id) do update set last_error=null").param("user", userId).update();
+		if ("inbox".equals(feature))
+			jdbc.sql("insert into mail_sync_state (user_id) values (:user) on conflict (user_id) do update set last_error=null").param("user", userId).update();
+		return feature;
 	}
 
 	public ModuleRecord send(CurrentUser user, UUID id) {
@@ -105,7 +124,8 @@ public class MailService {
 		SEND_LIMIT.require(user.id());
 		ModuleRecord draft = modules.get(user, ModuleKind.COMMUNICATIONS, id);
 		requireSendable(draft);
-		String sender = status(user.id()).email();
+		Status connection = status(user.id());
+		String sender = connection.connected() ? connection.email() : null;
 		if (sender == null) throw invalid("Connect your Google Workspace mailbox before sending.");
 		byte[] encrypted = jdbc.sql("select refresh_token_cipher from mail_connection where user_id=:user")
 			.param("user", user.id()).query(byte[].class).single();
@@ -190,7 +210,7 @@ public class MailService {
 
 	public boolean sendSystemAlert(UUID adminId, String recipient, String subject, String body) {
 		if (!configured()) return false;
-		var connection = jdbc.sql("select email,refresh_token_cipher from mail_connection where user_id=:user")
+		var connection = jdbc.sql("select email,refresh_token_cipher from mail_connection where user_id=:user and needs_reconnect=false and scopes like '%gmail.send%'")
 			.param("user", adminId).query((rs, row) -> Map.<String, Object>of("email", rs.getString("email"),
 				"cipher", rs.getBytes("refresh_token_cipher"))).optional();
 		if (connection.isEmpty()) return false;

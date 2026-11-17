@@ -1,7 +1,10 @@
+import { SavedViewsMenu } from "@/components/saved-views/saved-views-menu";
 import { Popover } from "@/components/ui/popover";
 import { control } from "@/components/ui/primitives";
 import { cn } from "@/lib/format";
 import { LEAD_STATUSES, SOURCES, SOURCE_LABELS, stageLabel, type LeadSource, type LeadStatus } from "@/lib/stages";
+import type { ViewFilters } from "@/lib/saved-views";
+import type { Tag } from "@/lib/tags";
 import type { User } from "@/lib/users";
 import { Search, SlidersHorizontal } from "lucide-react";
 import type { LeadFilterState } from "./use-lead-filters";
@@ -11,12 +14,18 @@ const UNASSIGNED = "unassigned";
 export function LeadFilterBar({
   filters,
   people,
+  tags,
+  saveable,
   active,
   onChange,
   onClear,
+  onApplyView,
 }: {
   filters: LeadFilterState;
   people: User[];
+  tags: Tag[];
+  saveable: ViewFilters;
+  onApplyView: (filters: ViewFilters) => void;
   active: boolean;
   onChange: (patch: Partial<LeadFilterState>) => void;
   onClear: () => void;
@@ -52,6 +61,17 @@ export function LeadFilterBar({
             </option>
           ))}
         </select>
+        {tags.length > 0 && (
+          <select aria-label="Tag" value={filters.tag} onChange={(e) => onChange({ tag: e.target.value })} className={cn(control, "px-2.5")}>
+            <option value="">All tags</option>
+            {tags.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        )}
+        <SavedViewsMenu kind="lead" current={saveable} onApply={onApplyView} />
         <Popover
           label="More filters"
           className="w-64 p-4"

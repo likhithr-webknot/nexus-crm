@@ -33,13 +33,17 @@ class MailController {
 	@GetMapping("/status")
 	MailService.Status status(@AuthenticationPrincipal CurrentUser user) { return mail.status(user.id()); }
 
+	/** {@code feature} is mail (send), calendar (push follow-ups) or inbox (read mail from contacts). */
 	@PostMapping("/connect")
-	Map<String, String> connect(@AuthenticationPrincipal CurrentUser user) { return Map.of("url", mail.connectionUrl(user)); }
+	Map<String, String> connect(@AuthenticationPrincipal CurrentUser user, @RequestParam(defaultValue = "mail") String feature) {
+		return Map.of("url", mail.connectionUrl(user, feature));
+	}
 
 	@GetMapping("/callback")
 	ResponseEntity<Void> callback(@RequestParam(required = false) String code, @RequestParam(required = false) String state) {
-		mail.callback(code, state);
-		return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(frontendUrl + "/communications?mail=connected")).build();
+		String feature = mail.callback(code, state);
+		String landing = "mail".equals(feature) ? "/communications?mail=connected" : "/settings?section=" + ("calendar".equals(feature) ? "calendar" : "mail") + "&google=" + feature;
+		return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(frontendUrl + landing)).build();
 	}
 
 	@PostMapping("/send/{id}")

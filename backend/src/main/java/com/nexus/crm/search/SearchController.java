@@ -41,15 +41,15 @@ class SearchController {
 			return List.of();
 		}
 		List<Hit> hits = new ArrayList<>();
-		this.leads.list(user, new LeadFilter(query, null, null, null, false, null), 1, PER_TYPE, null, false)
+		this.leads.list(user, new LeadFilter(query, null, null, null, false, null, null), 1, PER_TYPE, null, false)
 			.forEach((l) -> hits.add(new Hit("Lead", l.getId(), LeadService.fullName(l),
 					String.join(" · ", nonBlank(l.getCompanyName(), l.getEmail())), "/leads")));
-		this.contacts.list(user, query, 1, PER_TYPE)
+		this.contacts.list(user, query, null, null, 1, PER_TYPE)
 			.forEach((c) -> hits.add(new Hit("Contact", c.getId(), c.getFirstName() + " " + c.getLastName(),
 					String.join(" · ", nonBlank(c.getJobTitle(), c.getEmail())), "/contacts")));
 		this.contacts.listCompanies(user, query, 1, PER_TYPE)
 			.forEach((c) -> hits.add(new Hit("Company", c.getId(), c.getName(), c.getDomain() == null ? "" : c.getDomain(), "/contacts")));
-		this.deals.list(user, new DealFilter(query, null, null, null, null, null), 1, PER_TYPE)
+		this.deals.list(user, new DealFilter(query, null, null, null, null, null, null), 1, PER_TYPE)
 			.forEach((d) -> hits.add(new Hit("Deal", d.getId(), d.getName(), d.getStageCode(), "/pipeline")));
 		return hits;
 	}

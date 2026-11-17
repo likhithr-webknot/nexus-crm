@@ -1,9 +1,11 @@
 package com.nexus.crm.contacts.dto;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 import com.nexus.crm.shared.Ref;
+import com.nexus.crm.tags.dto.TagRef;
 
 public record ContactResponse(
 	UUID id,
@@ -17,6 +19,7 @@ public record ContactResponse(
 	Ref owner,
 	Instant createdAt,
 	Instant updatedAt,
-	Integer version
+	Integer version,
+	List<TagRef> tags
 ) {
 }

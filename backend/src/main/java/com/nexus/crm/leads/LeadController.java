@@ -25,6 +25,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.nexus.crm.identity.user.UserService;
 import com.nexus.crm.leads.dto.AssignLeadRequest;
+import com.nexus.crm.leads.dto.BulkAssignRequest;
+import com.nexus.crm.leads.dto.BulkStatusRequest;
 import com.nexus.crm.leads.dto.ConvertLeadRequest;
 import com.nexus.crm.leads.dto.CreateLeadRequest;
 import com.nexus.crm.leads.dto.DeleteLeadsRequest;
@@ -44,6 +46,10 @@ import com.nexus.crm.shared.limits.RateLimit;
 import com.nexus.crm.shared.Ref;
 import com.nexus.crm.shared.currency.Money;
 import com.nexus.crm.shared.web.PageResponse;
+import com.nexus.crm.tags.TagService;
+import com.nexus.crm.tags.dto.BulkResult;
+import com.nexus.crm.tags.dto.BulkTagRequest;
+import com.nexus.crm.tags.dto.TagRef;
 
 @RestController
 @RequestMapping("/api/v1/leads")
@@ -54,15 +60,18 @@ class LeadController {
 
 	private final UserService users;
 
+	private final TagService tags;
+
 	@GetMapping
 	PageResponse<LeadResponse> list(@AuthenticationPrincipal CurrentUser user, @RequestParam(required = false) String q,
 			@RequestParam(required = false) Lead.Source source, @RequestParam(required = false) Lead.Status status,
 			@RequestParam(required = false) String ownerId, @RequestParam(required = false) LeadView view,
-			@RequestParam(required = false) String sort, @RequestParam(defaultValue = "desc") String dir,
+			@RequestParam(required = false) UUID tag, @RequestParam(required = false) String sort,
+			@RequestParam(defaultValue = "desc") String dir,
 			@RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "25") int size) {
 		boolean unassigned = "unassigned".equals(ownerId);
 		UUID owner = (ownerId == null || unassigned) ? null : ("me".equals(ownerId) ? user.id() : parseId(ownerId));
-		Page<Lead> found = this.leads.list(user, new LeadFilter(q, source, status, owner, unassigned, view),
+		Page<Lead> found = this.leads.list(user, new LeadFilter(q, source, status, owner, unassigned, view, tag),
 				page, PageResponse.clampSize(size), sort, "asc".equalsIgnoreCase(dir));
 		List<LeadResponse> items = responses(found.getContent());
 		return new PageResponse<>(items, found.getTotalElements(), found.getNumber() + 1, found.getSize());
@@ -128,6 +137,23 @@ class LeadController {
 		this.leads.delete(user, r.ids());
 	}
 
+	/** Gives several leads to one person (or to nobody). All of them change, or none do. */
+	@PostMapping("/bulk-assign")
+	@PreAuthorize("hasAnyRole('MANAGER','ADMIN')")
+	BulkResult bulkAssign(@AuthenticationPrincipal CurrentUser user, @Valid @RequestBody BulkAssignRequest r) {
+		return new BulkResult(this.leads.assign(user, r.ids(), r.ownerId()));
+	}
+
+	@PostMapping("/bulk-status")
+	BulkResult bulkStatus(@AuthenticationPrincipal CurrentUser user, @Valid @RequestBody BulkStatusRequest r) {
+		return new BulkResult(this.leads.changeStatus(user, r.ids(), r.status(), r.reason()));
+	}
+
+	@PostMapping("/bulk-tags")
+	BulkResult bulkTags(@AuthenticationPrincipal CurrentUser user, @Valid @RequestBody BulkTagRequest r) {
+		return new BulkResult(this.leads.tag(user, r.ids(), r.add(), r.remove()));
+	}
+
 	/** Each import reports which emails already exist, so it is limited to stop it being used to look up emails in bulk. */
 	private static final RateLimit IMPORT_LIMIT = new RateLimit(10, Duration.ofHours(1));
 
@@ -149,12 +175,13 @@ class LeadController {
 	private List<LeadResponse> responses(List<Lead> list) {
 		Map<UUID, String> owners = this.users.displayNames(list.stream().map(Lead::getOwnerId)
 			.filter(java.util.Objects::nonNull).collect(Collectors.toSet()));
+		Map<UUID, List<TagRef>> tagged = this.tags.tagsFor("lead", list.stream().map(Lead::getId).toList());
 		return list.stream()
 			.map((l) -> new LeadResponse(l.getId(), l.getFirstName(), l.getLastName(), LeadService.fullName(l), l.getEmail(),
 					l.getPhone(), l.getCompanyName(), l.getJobTitle(), l.getSource(), l.getStatus(),
 					(l.getOwnerId() == null) ? null : new Ref(l.getOwnerId(), owners.get(l.getOwnerId())),
 					Money.of(l.getEstimatedValue(), l.getCurrency()), l.getDisqualifyReason(), l.getConvertedDealId(),
-					l.getCreatedAt(), l.getUpdatedAt(), l.getVersion()))
+					l.getCreatedAt(), l.getUpdatedAt(), l.getVersion(), tagged.getOrDefault(l.getId(), List.of())))
 			.toList();
 	}
 

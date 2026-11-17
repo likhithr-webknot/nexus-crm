@@ -1,11 +1,13 @@
 package com.nexus.crm.leads.dto;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 import com.nexus.crm.leads.Lead;
 import com.nexus.crm.shared.Ref;
 import com.nexus.crm.shared.currency.Money;
+import com.nexus.crm.tags.dto.TagRef;
 
 public record LeadResponse(
 	UUID id,
@@ -24,6 +26,7 @@ public record LeadResponse(
 	UUID convertedDealId,
 	Instant createdAt,
 	Instant updatedAt,
-	Integer version
+	Integer version,
+	List<TagRef> tags
 ) {
 }

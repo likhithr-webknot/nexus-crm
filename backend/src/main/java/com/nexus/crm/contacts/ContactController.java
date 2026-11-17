@@ -34,6 +34,11 @@ import com.nexus.crm.identity.user.UserService;
 import com.nexus.crm.shared.CurrentUser;
 import com.nexus.crm.shared.Ref;
 import com.nexus.crm.shared.web.PageResponse;
+import com.nexus.crm.tags.TagService;
+import com.nexus.crm.tags.dto.BulkIdsRequest;
+import com.nexus.crm.tags.dto.BulkResult;
+import com.nexus.crm.tags.dto.BulkTagRequest;
+import com.nexus.crm.tags.dto.TagRef;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -44,11 +49,14 @@ class ContactController {
 
 	private final UserService users;
 
+	private final TagService tags;
+
 	@GetMapping("/contacts")
 	PageResponse<ContactResponse> list(@AuthenticationPrincipal CurrentUser user,
-			@RequestParam(required = false) String q, @RequestParam(defaultValue = "1") int page,
+			@RequestParam(required = false) String q, @RequestParam(required = false) UUID ownerId,
+			@RequestParam(required = false) UUID tag, @RequestParam(defaultValue = "1") int page,
 			@RequestParam(defaultValue = "50") int size) {
-		Page<Contact> found = this.contacts.list(user, q, page, PageResponse.clampSize(size));
+		Page<Contact> found = this.contacts.list(user, q, ownerId, tag, page, PageResponse.clampSize(size));
 		return PageResponse.of(found, contactMapper(found.getContent()));
 	}
 
@@ -78,6 +86,17 @@ class ContactController {
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	void delete(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) {
 		this.contacts.delete(user, id);
+	}
+
+	@PostMapping("/contacts/bulk-delete")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	void bulkDelete(@AuthenticationPrincipal CurrentUser user, @Valid @RequestBody BulkIdsRequest r) {
+		this.contacts.delete(user, r.ids());
+	}
+
+	@PostMapping("/contacts/bulk-tags")
+	BulkResult bulkTags(@AuthenticationPrincipal CurrentUser user, @Valid @RequestBody BulkTagRequest r) {
+		return new BulkResult(this.contacts.tag(user, r.ids(), r.add(), r.remove()));
 	}
 
 	@GetMapping("/companies")
@@ -122,11 +141,12 @@ class ContactController {
 		Map<UUID, String> companyNames = this.contacts
 			.companyNames(list.stream().map(Contact::getCompanyId).filter(java.util.Objects::nonNull).collect(Collectors.toSet()));
 		Map<UUID, String> ownerNames = this.users.displayNames(list.stream().map(Contact::getOwnerId).collect(Collectors.toSet()));
+		Map<UUID, List<TagRef>> tagged = this.tags.tagsFor("contact", list.stream().map(Contact::getId).toList());
 		return (c) -> new ContactResponse(c.getId(), c.getFirstName(), c.getLastName(),
 				c.getFirstName() + " " + c.getLastName(), c.getJobTitle(), c.getEmail(), c.getPhone(),
 				(c.getCompanyId() == null) ? null : new Ref(c.getCompanyId(), companyNames.get(c.getCompanyId())),
 				new Ref(c.getOwnerId(), ownerNames.get(c.getOwnerId())), c.getCreatedAt(), c.getUpdatedAt(),
-				c.getVersion());
+				c.getVersion(), tagged.getOrDefault(c.getId(), List.of()));
 	}
 
 	private java.util.function.Function<Company, CompanyResponse> companyMapper(Collection<Company> list) {

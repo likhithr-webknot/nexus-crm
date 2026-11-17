@@ -21,6 +21,10 @@ export const KEYS = {
   targets: ["targets"],
   audit: ["audit"],
   trash: ["trash"],
+  tags: ["tags"],
+  emails: ["emails"],
+  inbox: ["inbox"],
+  savedViews: ["saved-views"],
 } as const;
 
 type Key = readonly string[];
@@ -30,6 +34,7 @@ export const AFTER = {
   lead: [KEYS.leads, KEYS.leadSummary, KEYS.deals, KEYS.pipeline, KEYS.contacts, KEYS.dashboard, KEYS.overview, KEYS.activities],
   deal: [KEYS.pipeline, KEYS.deals, KEYS.dashboard, KEYS.overview, KEYS.activities],
   contact: [KEYS.contacts],
+  tag: [KEYS.tags, KEYS.leads, KEYS.contacts, KEYS.deals, KEYS.pipeline],
   followUp: [KEYS.followUps],
   activity: [KEYS.activities],
   team: [KEYS.teams, KEYS.users, KEYS.assignable],

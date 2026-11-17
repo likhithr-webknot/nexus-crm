@@ -9,6 +9,7 @@ public record DealFilter(
 	UUID ownerId,
 	UUID companyId,
 	UUID contactId,
-	Boolean open
+	Boolean open,
+	UUID tagId
 ) {
 }

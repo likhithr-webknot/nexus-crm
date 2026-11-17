@@ -4,6 +4,7 @@ import { api, qs } from "@/lib/api";
 import type { Money } from "@/lib/money";
 import type { PageResponse, Ref } from "@/lib/page";
 import type { LeadSource, LeadStatus } from "@/lib/stages";
+import type { Tag } from "@/lib/tags";
 
 export type Lead = {
   id: string;
@@ -23,6 +24,7 @@ export type Lead = {
   createdAt: string;
   updatedAt: string;
   version: number;
+  tags: Tag[];
 };
 
 export type LeadView = "ALL" | "NEW_THIS_MONTH" | "QUALIFIED" | "UNASSIGNED";
@@ -34,6 +36,8 @@ export type LeadFilters = {
   /** A user ID, "me" or "unassigned". */
   ownerId?: string;
   view?: LeadView;
+  /** A tag ID. */
+  tag?: string;
   page?: number;
   size?: number;
 };
@@ -114,3 +118,9 @@ export type LeadChanges = Partial<Omit<NewLead, "ownerId" | "unassigned">> & { v
 
 export const updateLead = (id: string, body: LeadChanges) =>
   api<Lead>(`/leads/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+
+export const assignLeads = (ids: string[], ownerId: string | null) =>
+  api<{ count: number }>("/leads/bulk-assign", { method: "POST", body: JSON.stringify({ ids, ownerId }) });
+
+export const changeLeadsStatus = (ids: string[], status: LeadStatus, reason?: string) =>
+  api<{ count: number }>("/leads/bulk-status", { method: "POST", body: JSON.stringify({ ids, status, reason }) });

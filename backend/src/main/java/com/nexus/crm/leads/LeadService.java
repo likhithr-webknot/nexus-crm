@@ -54,6 +54,7 @@ import com.nexus.crm.shared.currency.CurrencyService;
 import com.nexus.crm.shared.currency.Money;
 import com.nexus.crm.shared.error.ApiException;
 import com.nexus.crm.shared.error.ErrorCode;
+import com.nexus.crm.tags.TagService;
 
 /** Leads. A user sees the leads they own, their team's (managers), everyone's (admins), and the unassigned queue. */
 @Slf4j
@@ -86,6 +87,8 @@ public class LeadService {
 
 	private final JsonMapper json;
 
+	private final TagService tags;
+
 	// ---- reading ----
 
 	@Transactional(readOnly = true)
@@ -96,7 +99,7 @@ public class LeadService {
 			default -> "createdAt";
 		};
 		Sort sort = Sort.by(ascending ? Sort.Direction.ASC : Sort.Direction.DESC, field).and(Sort.by("id"));
-		return this.leads.findAll(visible(user).and(matching(filter)), PageRequest.of(Math.max(0, page - 1), size, sort));
+		return this.leads.findAll(visible(user).and(matching(filter)).and(TagService.hasTag("lead", filter.tagId())), PageRequest.of(Math.max(0, page - 1), size, sort));
 	}
 
 	@Transactional(readOnly = true)
@@ -238,6 +241,35 @@ public class LeadService {
 			lead.softDelete(Instant.now());
 			this.audit.record(user.id(), "Lead", id, AuditLog.Action.DELETE, null);
 		}
+	}
+
+	/** Gives several leads to one person, or to nobody. All of them change, or none do. */
+	@Transactional
+	public int assign(CurrentUser user, Collection<UUID> ids, UUID ownerId) {
+		Set<UUID> unique = new java.util.LinkedHashSet<>(ids);
+		for (UUID id : unique) {
+			assign(user, id, ownerId);
+		}
+		return unique.size();
+	}
+
+	/** Moves several leads to one status. If one lead cannot move, nothing changes and the message says why. */
+	@Transactional
+	public int changeStatus(CurrentUser user, Collection<UUID> ids, Lead.Status status, String reason) {
+		Set<UUID> unique = new java.util.LinkedHashSet<>(ids);
+		for (UUID id : unique) {
+			changeStatus(user, id, status, reason);
+		}
+		return unique.size();
+	}
+
+	/** Adds and removes tags on several leads. */
+	@Transactional
+	public int tag(CurrentUser user, Collection<UUID> ids, Collection<UUID> add, Collection<UUID> remove) {
+		Set<UUID> unique = new java.util.LinkedHashSet<>(ids);
+		unique.forEach((id) -> get(user, id));
+		this.tags.change(user, "lead", unique, add, remove);
+		return unique.size();
 	}
 
 	/** Turns a lead into a company, a contact and a deal, all in one transaction: either everything is created or nothing is. */
@@ -454,7 +486,7 @@ public class LeadService {
 	}
 
 	private static LeadFilter filterOf(LeadView view) {
-		return new LeadFilter(null, null, null, null, false, view);
+		return new LeadFilter(null, null, null, null, false, view, null);
 	}
 
 	private static Specification<Lead> statusIn(Lead.Status... statuses) {

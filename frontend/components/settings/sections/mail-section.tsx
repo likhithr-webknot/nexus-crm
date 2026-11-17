@@ -1,12 +1,15 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { ImageUp, Trash2, Wand2 } from "lucide-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { ImageUp, Inbox, Trash2, Wand2 } from "lucide-react";
 import { useState } from "react";
 import { useSession } from "@/components/auth/session";
 import { Card, CardHeader, Field, buttonPrimary, buttonSecondary, fieldControl } from "@/components/ui/primitives";
 import { toast } from "@/components/ui/toast";
+import { useRefresh } from "@/hooks/use-refresh";
 import { api, errorMessage } from "@/lib/api";
+import { inboxStatus, turnOffInbox } from "@/lib/emails";
+import { KEYS } from "@/lib/query-keys";
 import { cn } from "@/lib/format";
 
 type MailStatus = { configured: boolean; connected: boolean; email: string | null };
@@ -44,6 +47,7 @@ export function MailSection() {
   return (
     <div className="space-y-5">
       <MailboxCard />
+      <InboxCard />
       <SignatureCard />
     </div>
   );
@@ -234,6 +238,95 @@ function SignatureCard() {
           )}
         </div>
       )}
+    </Card>
+  );
+}
+
+/** Copies mail with people who are already contacts or leads onto their records. Needs its own, read-only, Google permission. */
+function InboxCard() {
+  const refresh = useRefresh();
+  const status = useQuery({ queryKey: KEYS.inbox, queryFn: inboxStatus, refetchInterval: 60_000 });
+  const [deleteImported, setDeleteImported] = useState(false);
+  const connect = useMutation({
+    mutationFn: async () => {
+      const { url } = await api<{ url: string }>("/mail/connect?feature=inbox", { method: "POST" });
+      window.location.assign(url);
+    },
+  });
+  const turnOff = useMutation({
+    mutationFn: () => turnOffInbox(deleteImported),
+    onSuccess: () => {
+      toast(deleteImported ? "Inbox sync is off and the copied emails were deleted." : "Inbox sync is off. Emails already copied stay on their records.");
+      setDeleteImported(false);
+      void refresh([KEYS.inbox, KEYS.emails, ["mail-status"]]);
+    },
+  });
+  const error = connect.isError ? errorMessage(connect.error, "The connection could not start.") : turnOff.isError ? errorMessage(turnOff.error) : null;
+  const data = status.data;
+
+  return (
+    <Card>
+      <CardHeader title="Inbox sync" subtitle="Show emails with your contacts and leads on their records." />
+      <div className="space-y-4 border-t border-line p-5 text-[13px]">
+        {status.isPending ? (
+          <p className="text-ink-3">Checking connection…</p>
+        ) : status.isError || !data ? (
+          <p className="text-down">
+            The connection could not be checked.{" "}
+            <button onClick={() => void status.refetch()} className="underline">
+              Retry
+            </button>
+          </p>
+        ) : !data.configured ? (
+          <p className="text-ink-2">Google setup is incomplete. An admin must configure the Google client and encryption key on the server.</p>
+        ) : data.connected ? (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p>
+                <span className="text-ink-3">Reading</span> <span className="font-medium">{data.email}</span>
+                <span className="tnum ml-2 text-[12px] text-ink-3">
+                  {data.imported} {data.imported === 1 ? "email" : "emails"} copied
+                  {data.backfilling ? " · reading the last 30 days…" : data.lastSyncedAt ? ` · last checked ${new Date(data.lastSyncedAt).toLocaleString()}` : ""}
+                </span>
+              </p>
+              <button onClick={() => turnOff.mutate()} disabled={turnOff.isPending} className={buttonSecondary}>
+                <Trash2 className="size-4" aria-hidden />
+                {turnOff.isPending ? "Turning off…" : "Turn off"}
+              </button>
+            </div>
+            <label className="flex items-center gap-2 text-[12.5px] text-ink-2">
+              <input type="checkbox" checked={deleteImported} onChange={(e) => setDeleteImported(e.target.checked)} className="accent-brand" />
+              When turning off, also delete the emails already copied from my mailbox
+            </label>
+            {data.lastError && (
+              <p role="status" className="rounded-lg border border-line bg-canvas px-3 py-2 text-[12.5px] text-ink-2">
+                {data.lastError}
+              </p>
+            )}
+          </>
+        ) : (
+          <div className="space-y-2">
+            {data.needsReconnect && <p className="text-[12.5px] text-down">Google no longer accepts the saved permission. Connect again to resume.</p>}
+            <button onClick={() => connect.mutate()} disabled={connect.isPending} className={buttonPrimary}>
+              <Inbox className="size-4" aria-hidden />
+              {connect.isPending ? "Connecting…" : data.needsReconnect ? "Reconnect inbox sync" : "Turn on inbox sync"}
+            </button>
+          </div>
+        )}
+        {error && (
+          <p role="alert" className="text-[12.5px] text-down">
+            {error}
+          </p>
+        )}
+        <ul className="list-disc space-y-1 pl-5 text-[12.5px] text-ink-3">
+          <li>Read-only: the CRM can never send, change or delete anything in your mailbox with this permission.</li>
+          <li>Only emails to or from someone who is already a contact or lead are kept. Everything else is ignored and not stored. Spam, trash and drafts are skipped.</li>
+          <li>What is kept: the subject, who it was from and to, the date, and Gmail&apos;s short preview. Not the full message or attachments.</li>
+          <li>Anyone who can open that contact or lead can see these emails, including those from your mailbox.</li>
+          <li>Starts with the last 30 days, then checks every few minutes.</li>
+          <li>Google treats reading mail as a sensitive permission. While the Google app is in Testing, an owner of the Google Cloud project must add your address as a test user.</li>
+        </ul>
+      </div>
     </Card>
   );
 }

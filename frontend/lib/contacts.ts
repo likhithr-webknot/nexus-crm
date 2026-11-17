@@ -1,5 +1,6 @@
 /* Contacts and companies (backend: ContactController). */
 
+import type { Tag } from "@/lib/tags";
 import { api, qs } from "@/lib/api";
 import type { PageResponse, Ref } from "@/lib/page";
 
@@ -16,6 +17,7 @@ export type Contact = {
   createdAt: string;
   updatedAt: string;
   version: number;
+  tags: Tag[];
 };
 
 export type NewContact = {
@@ -31,7 +33,7 @@ export type NewContact = {
 
 export type Company = { id: string; name: string; domain: string | null; industry: string | null; websiteUrl: string | null; logoUrl: string | null; owner: Ref };
 
-export const listContacts = (params: { q?: string; page?: number; size?: number }) =>
+export const listContacts = (params: { q?: string; ownerId?: string; tag?: string; page?: number; size?: number }) =>
   api<PageResponse<Contact>>(`/contacts${qs(params)}`);
 
 export const createContact = (body: NewContact) => api<Contact>("/contacts", { method: "POST", body: JSON.stringify(body) });

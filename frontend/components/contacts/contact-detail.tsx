@@ -1,6 +1,8 @@
 "use client";
 
 import { useCurrency } from "@/components/currency/currency-provider";
+import { RecordEmails } from "@/components/inbox/record-emails";
+import { TagList } from "@/components/tags/tag-chip";
 import { DeleteDialog } from "@/components/ui/delete-dialog";
 import { EditDeleteActions } from "@/components/ui/icon-action";
 import { Avatar, Card, StageBadge, buttonSecondary } from "@/components/ui/primitives";
@@ -54,6 +56,7 @@ export function ContactDetail({ contact: c, full = false }: { contact: Contact; 
           </div>
           <EditDeleteActions name={c.name} onEdit={() => setEditing(true)} onDelete={() => setDeleting(c)} />
         </div>
+        {(c.tags ?? []).length > 0 && <div className="mt-3"><TagList tags={c.tags ?? []} max={6} /></div>}
         {!full && <Link href={`/contacts/${c.id}`} className="mt-3 inline-block text-[12px] font-medium text-brand hover:underline">Open full record →</Link>}
         {c.company && (
           <p className="mt-3 flex items-center gap-1 text-[12.5px] text-ink-3">
@@ -138,6 +141,10 @@ export function ContactDetail({ contact: c, full = false }: { contact: Contact; 
           </li>
         ))}
       </Section>
+
+      <section className="border-b border-line px-5 py-4 last:border-b-0">
+        <RecordEmails owner={{ contactId: c.id }} />
+      </section>
 
       <EditContactDialog contact={c} open={editing} onClose={() => setEditing(false)} />
       <DeleteDialog

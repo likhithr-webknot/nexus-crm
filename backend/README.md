@@ -143,6 +143,38 @@ If Gmail returns `403 PERMISSION_DENIED`, reconnect the mailbox to refresh its
 Google Cloud project and that Workspace policy allows the OAuth app and Gmail
 send scope.
 
+Each Google feature asks for its own permission, so people only grant what
+they use: **mail** (`gmail.send`), **calendar** (`calendar.events`) and
+**inbox** (`gmail.readonly`). Connecting a second feature uses Google's
+incremental consent, so earlier permissions are kept. The permissions Google
+granted are stored on the connection (`mail_connection.scopes`); if Google
+later refuses the saved token, the connection is marked `needs_reconnect` and
+the Settings screens ask the user to connect again.
+
+- **Calendar link (Apple Calendar and others).** *Settings → Calendars* makes a
+  private `.ics` link per user. Only a SHA-256 hash is stored. The link is the
+  credential, so the public feed (`/api/v1/calendar/ics/{token}.ics`) has no
+  sign-in, is rate limited, and answers every wrong link with the same 404.
+  Behind a proxy set `NEXUS_FORWARD_HEADERS=framework` so the link carries the
+  public address.
+- **Google Calendar push.** Enable the Google Calendar API in the Cloud
+  project and add the `calendar.events` scope to the consent screen (a
+  sensitive scope). A job runs every minute, one way (CRM to Google), and gives
+  each event an id made from the follow-up id so a retry never duplicates it.
+  Turn it off with `nexus.calendar.google-sync=false`.
+- **Inbox sync.** Uses `gmail.readonly`, which Google classes as a *restricted*
+  scope: it works for test users now, but serving more than 100 users needs
+  Google's verification and a security assessment. Every five minutes each
+  connected mailbox is read; only messages to or from an address that matches a
+  contact or lead are kept, as subject, people and Gmail's snippet (no full
+  body, no attachments). Spam, trash and drafts are skipped. Anyone who can
+  open the contact or lead can see those emails. Turn it off for everyone with
+  `nexus.inbox.sync=false`.
+- **Alerts.** An hourly job tells deal owners (and their team lead and admins)
+  about open deals with no activity for `nexus.alerts.stale-deal-days` days,
+  and assignees about follow-ups overdue by `nexus.alerts.overdue-follow-up-hours`
+  hours. Each person gets one notification per run, not one per record.
+
 Set `OPENAI_API_KEY` only in the backend environment to enable the assistant,
 email drafts, workflow generation and public web research. An admin can also
 set or replace the key in **Settings → Nexus assistant**. That key overrides

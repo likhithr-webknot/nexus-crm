@@ -3,12 +3,14 @@ package com.nexus.crm.deals.dto;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 
 import com.nexus.crm.shared.Ref;
 import com.nexus.crm.shared.currency.Money;
+import com.nexus.crm.tags.dto.TagRef;
 
 /** A deal. {@code baseAmount} is the INR value saved when the deal was won or lost, with the rate used. */
 public record DealResponse(
@@ -28,6 +30,7 @@ public record DealResponse(
 	UUID leadId,
 	Instant createdAt,
 	Instant updatedAt,
-	Integer version
+	Integer version,
+	List<TagRef> tags
 ) {
 }

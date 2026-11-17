@@ -1,6 +1,7 @@
 package com.nexus.crm.deals;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import jakarta.validation.Valid;
@@ -31,6 +32,11 @@ import com.nexus.crm.shared.CurrentUser;
 import com.nexus.crm.shared.Ref;
 import com.nexus.crm.shared.currency.Money;
 import com.nexus.crm.shared.web.PageResponse;
+import com.nexus.crm.tags.TagService;
+import com.nexus.crm.tags.dto.BulkIdsRequest;
+import com.nexus.crm.tags.dto.BulkResult;
+import com.nexus.crm.tags.dto.BulkTagRequest;
+import com.nexus.crm.tags.dto.TagRef;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -38,6 +44,8 @@ import com.nexus.crm.shared.web.PageResponse;
 class DealController {
 
 	private final DealService deals;
+
+	private final TagService tags;
 
 	@GetMapping("/pipeline/stages")
 	List<PipelineStageResponse> stages() {
@@ -55,9 +63,10 @@ class DealController {
 	PageResponse<DealResponse> list(@AuthenticationPrincipal CurrentUser user, @RequestParam(required = false) String q,
 			@RequestParam(required = false) String stage, @RequestParam(required = false) UUID ownerId,
 			@RequestParam(required = false) UUID companyId, @RequestParam(required = false) UUID contactId,
-			@RequestParam(required = false) Boolean open, @RequestParam(defaultValue = "1") int page,
+			@RequestParam(required = false) Boolean open, @RequestParam(required = false) UUID tag,
+			@RequestParam(defaultValue = "1") int page,
 			@RequestParam(defaultValue = "25") int size) {
-		Page<Deal> found = this.deals.list(user, new DealFilter(q, stage, ownerId, companyId, contactId, open),
+		Page<Deal> found = this.deals.list(user, new DealFilter(q, stage, ownerId, companyId, contactId, open, tag),
 				page, PageResponse.clampSize(size));
 		List<DealResponse> items = responses(found.getContent());
 		return new PageResponse<>(items, found.getTotalElements(), found.getNumber() + 1, found.getSize());
@@ -97,8 +106,20 @@ class DealController {
 		this.deals.delete(user, id);
 	}
 
+	@PostMapping("/deals/bulk-delete")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	void bulkDelete(@AuthenticationPrincipal CurrentUser user, @Valid @RequestBody BulkIdsRequest r) {
+		this.deals.delete(user, r.ids());
+	}
+
+	@PostMapping("/deals/bulk-tags")
+	BulkResult bulkTags(@AuthenticationPrincipal CurrentUser user, @Valid @RequestBody BulkTagRequest r) {
+		return new BulkResult(this.deals.tag(user, r.ids(), r.add(), r.remove()));
+	}
+
 	private List<DealResponse> responses(List<Deal> list) {
 		DealNames names = this.deals.names(list);
+		Map<UUID, List<TagRef>> tagged = this.tags.tagsFor("deal", list.stream().map(Deal::getId).toList());
 		return list.stream()
 			.map((d) -> new DealResponse(d.getId(), d.getName(), new Ref(d.getCompanyId(), names.companies().get(d.getCompanyId())),
 					(d.getPrimaryContactId() == null) ? null
@@ -106,7 +127,7 @@ class DealController {
 					new Ref(d.getOwnerId(), names.owners().get(d.getOwnerId())), d.getStageCode(),
 					new Money(d.getAmount(), d.getCurrency()), d.getBaseAmount(), d.getFxRate(), d.getFxRateDate(),
 					d.getExpectedCloseDate(), d.getClosedAt(), d.getLostReason(), d.getLeadId(), d.getCreatedAt(),
-					d.getUpdatedAt(), d.getVersion()))
+					d.getUpdatedAt(), d.getVersion(), tagged.getOrDefault(d.getId(), List.of())))
 			.toList();
 	}
 

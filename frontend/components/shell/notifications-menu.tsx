@@ -6,8 +6,11 @@ import { cn, localIso } from "@/lib/format";
 import { listNotifications, markRead, unreadCount } from "@/lib/notifications";
 import { KEYS } from "@/lib/query-keys";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Bell } from "lucide-react";
+import { AlarmClock, Bell, Hourglass, type LucideIcon } from "lucide-react";
 import Link from "next/link";
+
+/** Alerts the system raises on its own get an icon, so they stand out from "a lead was assigned to you". */
+const ALERT_ICONS: Record<string, LucideIcon> = { DEAL_STALE: Hourglass, FOLLOW_UP_OVERDUE: AlarmClock };
 
 /** "12 min ago", "3 h ago", or the date for anything older than a day. */
 function timeAgo(instant: string) {
@@ -65,6 +68,14 @@ export function NotificationsMenu() {
             const body = (
               <>
                 <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", n.read ? "bg-transparent" : "bg-brand")} aria-hidden />
+                {ALERT_ICONS[n.type] && (
+                  <span className="mt-0.5 shrink-0 text-ink-2" aria-hidden>
+                    {(() => {
+                      const Icon = ALERT_ICONS[n.type];
+                      return <Icon className="size-4" />;
+                    })()}
+                  </span>
+                )}
                 <div>
                   <p className="text-[13px] text-ink">{n.title}</p>
                   <p className="mt-0.5 text-[12px] text-ink-3">{timeAgo(n.createdAt)}</p>

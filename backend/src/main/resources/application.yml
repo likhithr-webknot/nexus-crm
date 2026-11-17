@@ -78,6 +78,12 @@ management:
 nexus:
   # "production" makes the app refuse to start with unsafe settings (empty database password, throwaway signing key, ...).
   environment: ${NEXUS_ENVIRONMENT:local}
+  alerts:
+    # An hourly job tells deal owners (and their team leads) about deals with no activity, and assignees about overdue follow-ups.
+    enabled: ${NEXUS_ALERTS_ENABLED:true}
+    interval: ${NEXUS_ALERTS_INTERVAL:PT1H}
+    stale-deal-days: ${NEXUS_ALERTS_STALE_DEAL_DAYS:14}
+    overdue-follow-up-hours: ${NEXUS_ALERTS_OVERDUE_FOLLOW_UP_HOURS:24}
   fx:
     # Daily exchange rates. {base} is replaced by the base currency (INR).
     enabled: ${NEXUS_FX_ENABLED:true}

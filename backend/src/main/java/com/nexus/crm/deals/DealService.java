@@ -37,6 +37,7 @@ import com.nexus.crm.shared.currency.CurrencyService;
 import com.nexus.crm.shared.currency.dto.Rate;
 import com.nexus.crm.shared.error.ApiException;
 import com.nexus.crm.shared.error.ErrorCode;
+import com.nexus.crm.tags.TagService;
 
 /** Deals and the one fixed pipeline they move through. Moving a deal to Won or Lost saves its INR value at that day's exchange rate, so reported revenue never changes afterwards. */
 @Slf4j
@@ -66,6 +67,8 @@ public class DealService {
 
 	private final ApplicationEventPublisher events;
 
+	private final TagService tags;
+
 	@Transactional(readOnly = true)
 	public List<PipelineStage> stages() {
 		return this.stages.findAllByOrderByPositionAsc();
@@ -73,7 +76,7 @@ public class DealService {
 
 	@Transactional(readOnly = true)
 	public Page<Deal> list(CurrentUser user, DealFilter filter, int page, int size) {
-		return this.deals.findAll(visible(user).and(matching(filter)),
+		return this.deals.findAll(visible(user).and(matching(filter)).and(TagService.hasTag("deal", filter.tagId())),
 				PageRequest.of(Math.max(0, page - 1), size, Sort.by(Sort.Direction.DESC, "updatedAt", "id")));
 	}
 
@@ -83,7 +86,7 @@ public class DealService {
 		Instant since = Instant.now().minus(java.time.Duration.ofDays(BOARD_CLOSED_DAYS));
 		Specification<Deal> recent = (root, q, cb) -> cb.or(cb.isNull(root.get("closedAt")),
 				cb.greaterThanOrEqualTo(root.get("closedAt"), since));
-		Specification<Deal> spec = visible(user).and(recent).and(matching(new DealFilter(null, null, ownerId, null, null, null)));
+		Specification<Deal> spec = visible(user).and(recent).and(matching(new DealFilter(null, null, ownerId, null, null, null, null)));
 		return this.deals.findAll(spec, PageRequest.of(0, BOARD_LIMIT, Sort.by(Sort.Direction.DESC, "updatedAt"))).getContent();
 	}
 
@@ -195,6 +198,23 @@ public class DealService {
 		Deal deal = get(user, id);
 		deal.softDelete(Instant.now());
 		this.audit.record(user.id(), "Deal", id, AuditLog.Action.DELETE, null);
+	}
+
+	/** Deletes several deals at once. All of them are deleted, or none. */
+	@Transactional
+	public int delete(CurrentUser user, java.util.Collection<UUID> ids) {
+		Set<UUID> unique = new java.util.LinkedHashSet<>(ids);
+		unique.forEach((id) -> delete(user, id));
+		return unique.size();
+	}
+
+	/** Adds and removes tags on several deals. */
+	@Transactional
+	public int tag(CurrentUser user, java.util.Collection<UUID> ids, java.util.Collection<UUID> add, java.util.Collection<UUID> remove) {
+		Set<UUID> unique = new java.util.LinkedHashSet<>(ids);
+		unique.forEach((id) -> get(user, id));
+		this.tags.change(user, "deal", unique, add, remove);
+		return unique.size();
 	}
 
 	/** DealNames for the response: companies, contacts and owners looked up once for the whole list. */

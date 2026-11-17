@@ -1,6 +1,7 @@
 "use client";
 
 import { useCurrency } from "@/components/currency/currency-provider";
+import { RecordEmails } from "@/components/inbox/record-emails";
 import { Card, Page, PageHeader, Avatar, StageBadge, buttonPrimary, buttonSecondary, fieldControl } from "@/components/ui/primitives";
 import { toast } from "@/components/ui/toast";
 import { DeleteDialog } from "@/components/ui/delete-dialog";
@@ -69,6 +70,7 @@ export function LeadRecord({ id }: { id: string }) {
           <form onSubmit={(event) => { event.preventDefault(); if (note.trim()) addNote.mutate(); }} className="flex gap-2 border-b border-line p-4"><input value={note} onChange={(event) => setNote(event.target.value)} placeholder="Add a note…" aria-label="Add a note" maxLength={2000} className={fieldControl + " flex-1"} /><button className={buttonSecondary} disabled={!note.trim() || addNote.isPending}><Plus className="size-4" />Add</button></form>
           {history.isError ? <div className="p-5 text-[13px] text-down">Activity could not be loaded. <button onClick={() => history.refetch()} className="underline">Retry</button></div> : history.isPending ? <p className="p-5 text-[13px] text-ink-3">Loading activity…</p> : history.data?.items.length ? <ol className="divide-y divide-line">{history.data.items.map((item) => <li key={item.id} className="px-5 py-4"><div className="flex items-baseline justify-between gap-3"><p className="text-[13px] font-medium">{item.subject}</p><time className="tnum shrink-0 text-[11px] text-ink-3" dateTime={item.occurredAt}>{formatDay(localIso(item.occurredAt))}</time></div><p className="mt-1 text-[12.5px] text-ink-2">{item.body ?? item.type}</p><p className="mt-1 text-[11px] text-ink-3">{item.actorName ?? "System"}</p></li>)}</ol> : <p className="p-5 text-[13px] text-ink-3">No activity yet. Add a note to start the timeline.</p>}
         </Card>
+        <Card className="p-5"><RecordEmails owner={{ leadId: id }} /></Card>
       </div>
       <aside className="space-y-5">
         <Card className="p-5"><h2 className="text-[12px] font-semibold uppercase tracking-wide text-ink-3">Quick contact</h2><div className="mt-4 space-y-2">{c.email && <a href={`mailto:${c.email}`} className={buttonSecondary + " w-full justify-center"}><Mail className="size-4" />Email</a>}{c.phone && <a href={`tel:${c.phone.replace(/[^+\d]/g, "")}`} className={buttonSecondary + " w-full justify-center"}><Phone className="size-4" />Call</a>}{c.companyName && <p className="flex items-center gap-2 pt-2 text-[12.5px] text-ink-2"><Building2 className="size-4" />{c.companyName}</p>}</div></Card>

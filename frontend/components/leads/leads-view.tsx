@@ -7,6 +7,7 @@ import { Pagination } from "@/components/ui/pagination";
 import { Card, EmptyState, Page, PageHeader, buttonPrimary, buttonSecondary } from "@/components/ui/primitives";
 import { toast } from "@/components/ui/toast";
 import { useAssignableUsers } from "@/hooks/use-people";
+import { useTags } from "@/hooks/use-tags";
 import { useRefresh } from "@/hooks/use-refresh";
 import { errorMessage } from "@/lib/api";
 import { deleteLeads, listAllLeads, type Lead } from "@/lib/leads";
@@ -18,6 +19,7 @@ import { EditLeadDialog } from "./edit-lead-dialog";
 import { ImportLeadsDialog } from "./import-leads-dialog";
 import { LeadActionsDialog } from "./lead-actions-dialog";
 import { exportLeads } from "./lead-export";
+import { LeadBulkBar } from "./lead-bulk-bar";
 import { LeadFilterBar } from "./lead-filter-bar";
 import { LeadSummaryTiles } from "./lead-summary-tiles";
 import { LeadTable } from "./lead-table";
@@ -33,10 +35,11 @@ export function LeadsView() {
   const [deleting, setDeleting] = useState<Lead | null>(null);
   const refresh = useRefresh();
 
-  const { view, filters, page, setPage, apiFilters, update, changeView, clearAll, active } = useLeadFilters();
+  const { view, filters, page, setPage, apiFilters, update, changeView, clearAll, active, apply, saveable } = useLeadFilters();
   const list = useLeadList(apiFilters, page, PAGE_SIZE);
   const summary = useLeadSummary();
   const people = useAssignableUsers();
+  const tags = useTags();
 
   const rows = list.data?.items ?? [];
   const total = list.data?.total ?? 0;
@@ -87,7 +90,18 @@ export function LeadsView() {
       <LeadSummaryTiles summary={summary.data} view={view} onChange={changeView} />
 
       <Card>
-        <LeadFilterBar filters={filters} people={people.data ?? []} active={active} onChange={update} onClear={clearAll} />
+        <LeadFilterBar
+          filters={filters}
+          people={people.data ?? []}
+          tags={tags.data ?? []}
+          saveable={saveable}
+          active={active}
+          onChange={update}
+          onClear={clearAll}
+          onApplyView={apply}
+        />
+
+        {count > 0 && <LeadBulkBar ids={[...selection.selected.keys()]} onClear={selection.clear} onDelete={() => setDialog("delete")} />}
 
         {list.isError && !list.data ? (
           <div className="border-t border-line">
@@ -118,19 +132,7 @@ export function LeadsView() {
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-3">
             <p className="tnum text-[12.5px] text-ink-3" aria-live="polite">
               Showing {(current - 1) * PAGE_SIZE + 1}–{(current - 1) * PAGE_SIZE + rows.length} of {total} leads
-              {count > 0 && (
-                <>
-                  {" · "}
-                  {count} selected{" "}
-                  <button onClick={selection.clear} className="font-medium text-brand hover:underline">
-                    Clear
-                  </button>
-                  {" · "}
-                  <button onClick={() => setDialog("delete")} className="font-medium text-down hover:underline">
-                    Delete
-                  </button>
-                </>
-              )}
+              {count > 0 && <> · {count} selected</>}
             </p>
             <Pagination current={current} pageCount={pageCount} onChange={setPage} />
           </div>
@@ -144,7 +146,7 @@ export function LeadsView() {
       <DeleteDialog
         target={deleting}
         title={(l) => `Delete ${l.name}?`}
-        body="The lead is removed from the list. An admin can recover it from the database if this was a mistake."
+        body="The lead is moved to the recycle bin. A manager or admin can restore it from there for 30 days."
         successMessage={(l) => `${l.name} deleted.`}
         action={(l) => deleteLeads([l.id])}
         onClose={() => setDeleting(null)}
@@ -157,7 +159,7 @@ export function LeadsView() {
         pending={remove.isPending}
         error={remove.isError ? errorMessage(remove.error) : null}
         title={count === 1 ? "Delete this lead?" : `Delete ${count} leads?`}
-        body="They are removed from the list. An admin can recover them from the database if this was a mistake."
+        body="They are moved to the recycle bin. A manager or admin can restore them from there for 30 days."
         confirmLabel="Delete"
       />
     </Page>

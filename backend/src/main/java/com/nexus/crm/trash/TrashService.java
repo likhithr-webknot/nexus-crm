@@ -203,6 +203,7 @@ public class TrashService {
 	 * belong to other records stay and only lose the link.
 	 */
 	private void removeLinks(TrashType type, UUID id) {
+		exec("delete from entity_tag where entity_id = :id", id);
 		switch (type) {
 			case DEAL -> {
 				exec("delete from deal_stage_history where deal_id = :id", id);
@@ -210,12 +211,14 @@ public class TrashService {
 				unlink("lead", "converted_deal_id", id);
 			}
 			case CONTACT -> {
+				exec("delete from email_message where contact_id = :id", id);
 				detachNotes("contact_id", "lead_id is null and deal_id is null", id);
 				unlink("deal", "primary_contact_id", id);
 				unlink("lead", "converted_contact_id", id);
 				exec("delete from ai_research where kind = 'contact' and record_id = :id", id);
 			}
 			case LEAD -> {
+				exec("delete from email_message where lead_id = :id", id);
 				exec("delete from lead_status_history where lead_id = :id", id);
 				detachNotes("lead_id", "contact_id is null and deal_id is null", id);
 				unlink("deal", "lead_id", id);
