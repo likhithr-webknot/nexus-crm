@@ -103,21 +103,13 @@ public class MailService {
 	public ModuleRecord send(CurrentUser user, UUID id) {
 		requireConfigured();
 		ModuleRecord draft = modules.get(user, ModuleKind.COMMUNICATIONS, id);
-		if (!"Draft".equals(draft.status()) && !"Failed".equals(draft.status()))
-			throw invalid("Only a draft or failed email can be sent.");
-		if (!Emails.isValid(draft.recipient())) throw invalid("Add one valid recipient in To before sending.");
-		// The draft was checked when it was saved. Check again, because these values go straight into the message headers.
-		if (draft.cc().stream().anyMatch(a -> !Emails.isValid(a)) || draft.bcc().stream().anyMatch(a -> !Emails.isValid(a)))
-			throw invalid("Cc or Bcc has an address that is not valid. Fix it and save the draft first.");
+		requireSendable(draft);
 		String sender = status(user.id()).email();
 		if (sender == null) throw invalid("Connect your Google Workspace mailbox before sending.");
 		byte[] encrypted = jdbc.sql("select refresh_token_cipher from mail_connection where user_id=:user")
 			.param("user", user.id()).query(byte[].class).single();
 		String refresh = decrypt(encrypted);
-		int claimed = transactions.execute(tx -> jdbc.sql("update crm_module_record set status='Sending',updated_at=now(),version=version+1 "
-				+ "where id=:id and owner_id=:user and status in ('Draft','Failed') and version=:version")
-			.param("id", id).param("user", user.id()).param("version", draft.version()).update());
-		if (claimed != 1) throw new ApiException(ErrorCode.VERSION_CONFLICT, "This draft changed. Reload it and try again.");
+		claimForSending(user, draft);
 		String access;
 		String raw;
 		try {
@@ -125,7 +117,8 @@ public class MailService {
 				+ "&client_id=" + enc(clientId) + "&client_secret=" + enc(clientSecret) + "&grant_type=refresh_token");
 			access = string(token.get("access_token"));
 			if (access.isEmpty()) throw invalid("The mailbox connection expired. Connect it again.");
-			String mime = personalizedMime(user.id(), sender, new Recipients(draft.recipient(), draft.cc(), draft.bcc()), draft.name(), draft.description(), id);
+			Recipients recipients = new Recipients(draft.recipient(), draft.cc(), draft.bcc());
+			String mime = personalizedMime(user.id(), sender, recipients, draft.name(), draft.description(), id);
 			raw = Base64.getUrlEncoder().withoutPadding().encodeToString(mime.getBytes(StandardCharsets.UTF_8));
 		} catch (RuntimeException ex) {
 			setSendStatus(id, "Failed");
@@ -154,6 +147,23 @@ public class MailService {
 			setSendStatus(id, "Unknown");
 			throw invalid("Gmail delivery could not be confirmed. Check Sent mail before contacting an admin; this email cannot be retried automatically.");
 		}
+	}
+
+	private void requireSendable(ModuleRecord draft) {
+		if (!"Draft".equals(draft.status()) && !"Failed".equals(draft.status()))
+			throw invalid("Only a draft or failed email can be sent.");
+		if (!Emails.isValid(draft.recipient())) throw invalid("Add one valid recipient in To before sending.");
+		// Checked when the draft was saved, and again here because these go straight into the message headers.
+		boolean copiesValid = draft.cc().stream().allMatch(Emails::isValid) && draft.bcc().stream().allMatch(Emails::isValid);
+		if (!copiesValid) throw invalid("Cc or Bcc has an address that is not valid. Fix it and save the draft first.");
+	}
+
+	/** Moves the draft to "Sending". It only works once, so two clicks cannot send the email twice. */
+	private void claimForSending(CurrentUser user, ModuleRecord draft) {
+		int claimed = transactions.execute(tx -> jdbc.sql("update crm_module_record set status='Sending',updated_at=now(),version=version+1 "
+				+ "where id=:id and owner_id=:user and status in ('Draft','Failed') and version=:version")
+			.param("id", draft.id()).param("user", user.id()).param("version", draft.version()).update());
+		if (claimed != 1) throw new ApiException(ErrorCode.VERSION_CONFLICT, "This draft changed. Reload it and try again.");
 	}
 
 	@Transactional
@@ -223,11 +233,12 @@ public class MailService {
 			return new String(cipher.doFinal(ciphertext), StandardCharsets.UTF_8);
 		} catch (Exception e) { throw new IllegalStateException("Mail connection could not be read.", e); }
 	}
-	/** Who a message goes to. Every address was checked with {@link Emails#isValid}, so none can carry a line break or a second address. */
+	/** Who a message goes to. Each address passed {@link Emails#isValid}, so none can add a header line or a second recipient. */
 	record Recipients(String to, List<String> cc, List<String> bcc) { }
+
 	/**
-	 * The To, Cc and Bcc header lines. Each address sits on its own folded line so a long list never goes past the
-	 * 998 character limit. Gmail delivers to Bcc addresses and removes the header from the copies the others get.
+	 * The To, Cc and Bcc lines. Each address goes on its own folded line, so a long list stays under the 998 character
+	 * limit. Gmail delivers to Bcc and removes that header from the copies the others receive.
 	 */
 	static String addressHeaders(Recipients recipients) {
 		StringBuilder headers = new StringBuilder("To: ").append(recipients.to()).append("\r\n");
@@ -235,32 +246,41 @@ public class MailService {
 		if (!recipients.bcc().isEmpty()) headers.append("Bcc: ").append(String.join(",\r\n ", recipients.bcc())).append("\r\n");
 		return headers.toString();
 	}
+
+	/** A plain HTML message. */
 	private String mime(String from, Recipients to, String subject, String body, UUID id) {
-		String encodedSubject = "=?UTF-8?B?" + Base64.getEncoder().encodeToString(subject.getBytes(StandardCharsets.UTF_8)) + "?=";
-		String html = html(body, null);
-		String encodedBody = Base64.getMimeEncoder(76, "\r\n".getBytes(StandardCharsets.US_ASCII))
-			.encodeToString(html.getBytes(StandardCharsets.UTF_8));
-		return "From: " + from + "\r\n" + addressHeaders(to) + "Subject: " + encodedSubject
-			+ "\r\nMessage-ID: <" + id + "@nexus-crm.local>\r\nMIME-Version: 1.0\r\n"
-			+ "Content-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n" + encodedBody;
+		return commonHeaders(from, to, subject, id)
+			+ "Content-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n"
+			+ wrapBase64(html(body, null).getBytes(StandardCharsets.UTF_8));
 	}
+
+	/** The message with the sender's signature image inside it, or a plain one when they have none. */
 	private String personalizedMime(UUID senderId, String from, Recipients to, String subject, String body, UUID id) {
 		MailBannerService.Rendered signature = banner.render(senderId);
 		if (signature == null) return mime(from, to, subject, body, id);
-		byte[] image = signature.png();
 		String boundary = "nexus_" + id.toString().replace("-", "");
-		String encodedSubject = "=?UTF-8?B?" + Base64.getEncoder().encodeToString(subject.getBytes(StandardCharsets.UTF_8)) + "?=";
 		String html = html(body, signature.alt());
-		String encodedHtml = Base64.getMimeEncoder(76, "\r\n".getBytes(StandardCharsets.US_ASCII)).encodeToString(html.getBytes(StandardCharsets.UTF_8));
-		String encodedImage = Base64.getMimeEncoder(76, "\r\n".getBytes(StandardCharsets.US_ASCII)).encodeToString(image);
-		return "From: " + from + "\r\n" + addressHeaders(to) + "Subject: " + encodedSubject
-			+ "\r\nMessage-ID: <" + id + "@nexus-crm.local>\r\nMIME-Version: 1.0\r\n"
+		return commonHeaders(from, to, subject, id)
 			+ "Content-Type: multipart/related; boundary=\"" + boundary + "\"\r\n\r\n"
 			+ "--" + boundary + "\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n"
-			+ encodedHtml + "\r\n--" + boundary + "\r\nContent-Type: image/png\r\nContent-ID: <nexus-banner>\r\n"
+			+ wrapBase64(html.getBytes(StandardCharsets.UTF_8))
+			+ "\r\n--" + boundary + "\r\nContent-Type: image/png\r\nContent-ID: <nexus-banner>\r\n"
 			+ "Content-Disposition: inline; filename=\"banner.png\"\r\nContent-Transfer-Encoding: base64\r\n\r\n"
-			+ encodedImage + "\r\n--" + boundary + "--\r\n";
+			+ wrapBase64(signature.png())
+			+ "\r\n--" + boundary + "--\r\n";
 	}
+
+	private String commonHeaders(String from, Recipients to, String subject, UUID id) {
+		String encodedSubject = "=?UTF-8?B?" + Base64.getEncoder().encodeToString(subject.getBytes(StandardCharsets.UTF_8)) + "?=";
+		return "From: " + from + "\r\n" + addressHeaders(to) + "Subject: " + encodedSubject
+			+ "\r\nMessage-ID: <" + id + "@nexus-crm.local>\r\nMIME-Version: 1.0\r\n";
+	}
+
+	/** Base64 in lines of 76 characters, as mail requires. */
+	private String wrapBase64(byte[] bytes) {
+		return Base64.getMimeEncoder(76, "\r\n".getBytes(StandardCharsets.US_ASCII)).encodeToString(bytes);
+	}
+
 	/**
 	 * The message as HTML: readable text in a 600px column, then the signature image when there is one.
 	 * No text colours are set, so a mail client's dark mode can restyle the text itself.

@@ -18,9 +18,9 @@ export type ModuleQuery = { q?: string; status?: string; sort?: "updated" | "nam
 const PAGE_SIZE = 100;
 
 export const modulesApi = {
-  /** One page. The answer says how many records match in all, so the screen never hides some without saying so. */
+  /** One page, with the total number of matches. */
   list: (kind: ModuleKind, query: ModuleQuery = {}) => api<PageResponse<ModuleRecord>>(`/workspaces/${kind}${qs(query)}`),
-  /** Every record that matches, page by page. For pickers and exports that need all of them. */
+  /** Every match, fetched page by page. For pickers and exports. */
   listAll: async (kind: ModuleKind, query: Omit<ModuleQuery, "page" | "size"> = {}) => {
     const items: ModuleRecord[] = [];
     for (let page = 1; ; page++) {

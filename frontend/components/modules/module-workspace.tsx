@@ -52,7 +52,7 @@ export function ModuleWorkspace({ kind }: { kind: ModuleKind }) {
   const [confirmUnsent, setConfirmUnsent] = useState(false);
   const [exporting, setExporting] = useState(false);
 
-  // Search, status, sort and paging happen on the server, so a long list is never cut off without saying so.
+  // Search, status, sort and paging happen on the server.
   const term = useDebounced(query.trim());
   const params = { q: term, status, sort: sort === "name" ? ("name" as const) : ("updated" as const), page };
   const records = useQuery({ queryKey: ["workspace", kind, "list", params], queryFn: () => modulesApi.list(kind, params), staleTime: 30_000, placeholderData: keepPreviousData });
@@ -60,7 +60,7 @@ export function ModuleWorkspace({ kind }: { kind: ModuleKind }) {
   const total = records.data?.total ?? 0;
   const pageSize = records.data?.size ?? 50;
   const inList = route.id ? filtered.find((record) => record.id === route.id) : undefined;
-  // A record opened from a link can be on another page, so it is fetched by itself when the list does not hold it.
+  // A linked record can be on another page, so fetch it by itself when the list does not hold it.
   const single = useQuery({ queryKey: ["workspace", kind, "record", route.id], queryFn: () => modulesApi.get(kind, route.id!), enabled: Boolean(route.id) && !inList, retry: false });
   const selected = inList ?? single.data;
   const filtering = Boolean(term || status);
@@ -105,7 +105,7 @@ export function ModuleWorkspace({ kind }: { kind: ModuleKind }) {
     setExporting(true);
     try {
       const header = ["Name", "Status", "Owner", "Account", ...(config.metric ? [config.metric] : []), "Updated"];
-      // Every record that matches the search and status, not only the page on screen.
+      // Every match, not only the page on screen.
       const rows = await modulesApi.listAll(kind, { q: term, status, sort: params.sort });
       await downloadSheet(kind, config.title, header, rows.map((record) => [record.name, record.status, record.owner, record.account, ...(config.metric ? [record.amount] : []), record.updatedAt.slice(0, 10)]));
       toast(`Exported ${rows.length} ${rows.length === 1 ? "record" : "records"}.`);
@@ -377,7 +377,7 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
   );
 }
 
-/** A long list of addresses, wrapped instead of cut off. */
+/** Addresses wrapped over several lines instead of cut off. */
 function Addresses({ label, list }: { label: string; list: string[] }) {
   return (
     <div className="py-3">

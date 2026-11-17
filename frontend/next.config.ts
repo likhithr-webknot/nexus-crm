@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const isProduction = process.env.NODE_ENV === "production";
 
-/** The API's origin when it is not on the same origin as the pages (local development: http://localhost:8080). */
+/** The API's origin, when it is not on the same origin as the pages (local development). */
 const apiOrigin = (() => {
   try {
     return new URL(process.env.NEXT_PUBLIC_API_BASE_URL ?? "").origin;
@@ -12,22 +12,19 @@ const apiOrigin = (() => {
 })();
 
 /*
- * Content Security Policy. What it blocks: pages framing this app (clickjacking), scripts from other sites, data sent to
- * other sites by injected code (connect-src), forms posting elsewhere, plugins, and a changed <base>.
- * What it cannot block: inline scripts. Next.js writes its own inline scripts into every page, and a nonce would make every
- * page dynamic and switch off the static pages this app relies on, so script-src keeps 'unsafe-inline'. XSS is still
- * prevented by React's escaping (nothing here uses dangerouslySetInnerHTML except one fixed theme script).
- * Images may come from any https site because company logos are web addresses people or the AI assistant provide.
+ * Content Security Policy. It stops framing, scripts and form posts from other sites, and data going to other sites.
+ * It cannot stop inline scripts: Next.js writes its own into every page, and a nonce would make every page dynamic.
+ * Images may come from any https site because company logos are web addresses.
  */
 const csp = [
   "default-src 'self'",
-  // React's development tools need eval; production does not.
+  // Development tools need eval. Production does not.
   `script-src 'self' 'unsafe-inline'${isProduction ? "" : " 'unsafe-eval'"}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
   `connect-src 'self' ${apiOrigin}${isProduction ? "" : " ws://localhost:* http://localhost:*"}`.trim(),
-  // The assistant plays spoken answers from a blob URL.
+  // The assistant plays spoken answers from a blob: URL.
   "media-src 'self' blob:",
   "worker-src 'self' blob:",
   "object-src 'none'",
@@ -39,18 +36,18 @@ const csp = [
 const securityHeaders = [
   { key: "Content-Security-Policy", value: csp },
   { key: "X-Content-Type-Options", value: "nosniff" },
-  // Older browsers ignore frame-ancestors; this covers them.
+  // For older browsers that ignore frame-ancestors.
   { key: "X-Frame-Options", value: "DENY" },
-  // Page addresses can hold record ids; other sites only get the origin, and only over https.
+  // Page addresses hold record ids, so other sites only get the origin.
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  // The microphone is for voice questions to the assistant. Nothing else is needed.
+  // The microphone is for voice questions to the assistant.
   { key: "Permissions-Policy", value: "camera=(), geolocation=(), microphone=(self), payment=(), usb=(), interest-cohort=()" },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
   ...(isProduction ? [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" }] : []),
 ];
 
 const nextConfig: NextConfig = {
-  // Do not announce the framework and version to every visitor.
+  // Do not announce the framework to visitors.
   poweredByHeader: false,
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];

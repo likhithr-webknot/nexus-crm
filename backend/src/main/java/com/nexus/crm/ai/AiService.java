@@ -260,8 +260,7 @@ public class AiService {
   }
 
   private ProviderAnswer callResult(CurrentUser user, String kind, String prompt, boolean web, Map<String, Object> format) {
-    AiKeyService.Credentials credential = keys.active();
-    if (credential.key().isBlank()) throw new ApiException(ErrorCode.INVALID_STATE, "AI API key has not been set.");
+    AiKeyService.Credentials credential = activeCredential();
     UUID requestId = reserve(user, kind);
     boolean answered = false;
     try {
@@ -269,57 +268,94 @@ public class AiService {
       answered = true;
       return answer;
     } finally {
-      // A request that never got an answer does not use up one of the user's hourly slots.
+      // No answer, no charge against the user's hourly limit.
       if (!answered) release(requestId);
     }
   }
 
-  private ProviderAnswer askProvider(AiKeyService.Credentials credential, UUID requestId, String prompt, boolean web, Map<String, Object> format) {
-    Map<String, Object> request = new java.util.HashMap<>(web
-      ? Map.of("model", model, "input", prompt, "tools", List.of(Map.of("type", "web_search")), "tool_choice", "required", "include", List.of("web_search_call.action.sources"), "store", false)
-      : Map.of("model", model, "input", prompt, "store", false));
-    if (format != null) request.put("text", Map.of("format", format));
+  private AiKeyService.Credentials activeCredential() {
+    AiKeyService.Credentials credential = keys.active();
+    if (credential.key().isBlank()) throw new ApiException(ErrorCode.INVALID_STATE, "AI API key has not been set.");
+    return credential;
+  }
+
+  private ProviderAnswer askProvider(AiKeyService.Credentials credential, UUID requestId, String prompt, boolean web,
+      Map<String, Object> format) {
     try {
-      HttpRequest httpRequest = HttpRequest.newBuilder(URI.create("https://api.openai.com/v1/responses"))
-        .timeout(Duration.ofSeconds(90)).header("Authorization", "Bearer " + credential.key())
-        .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(request))).build();
-      HttpResponse<String> response = http.send(httpRequest, HttpResponse.BodyHandlers.ofString());
-      if (response.statusCode() < 200 || response.statusCode() >= 300) {
-        if (response.statusCode() == 429 && response.body().contains("insufficient_quota")) {
-          alert(credential.name(), "billing_quota", "AI key " + credential.name() + " has reached its billing quota. Please recharge it.");
-          throw new ApiException(ErrorCode.INVALID_STATE, "AI billing quota was reached. An admin has been alerted.");
-        }
-        throw new ApiException(ErrorCode.INVALID_STATE, response.statusCode() == 429 ? "AI is busy. Try again shortly." : "AI is unavailable. Try again later.");
-      }
+      HttpRequest request = HttpRequest.newBuilder(URI.create("https://api.openai.com/v1/responses"))
+        .timeout(Duration.ofSeconds(90))
+        .header("Authorization", "Bearer " + credential.key())
+        .header("Content-Type", "application/json")
+        .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(requestBody(prompt, web, format))))
+        .build();
+      HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
+      if (response.statusCode() < 200 || response.statusCode() >= 300) throw refusal(credential, response);
+
       @SuppressWarnings("unchecked") Map<String, Object> data = json.readValue(response.body(), Map.class);
       String text = outputText(data);
       if (text.isBlank()) throw new ApiException(ErrorCode.INVALID_STATE, "AI returned no answer. Try again.");
-      @SuppressWarnings("unchecked") Map<String, Object> usage = data.get("usage") instanceof Map<?,?> m ? (Map<String, Object>) m : Map.of();
-      jdbc.sql("update ai_request set input_tokens=:input,output_tokens=:output where id=:id")
-        .param("input", number(usage.get("input_tokens"))).param("output", number(usage.get("output_tokens"))).param("id", requestId).update();
-      if (monthlyRequestLimit > 0) {
-        long monthCount = jdbc.sql("select count(*) from ai_request where created_at>=date_trunc('month',now())").query(Long.class).single();
-        if (monthCount >= Math.ceil(monthlyRequestLimit * .8)) alert(credential.name(), "request_budget", "AI key " + credential.name() + " has used at least 80% of the configured monthly request allowance.");
-      }
+      recordUsage(credential, requestId, data);
       return new ProviderAnswer(text, web ? citedUrls(data) : List.of());
-    } catch (InterruptedException error) { Thread.currentThread().interrupt(); throw new ApiException(ErrorCode.INVALID_STATE, "AI request was interrupted."); }
-    catch (java.io.IOException error) { throw new ApiException(ErrorCode.INVALID_STATE, "AI is unreachable. Try again later."); }
+    } catch (InterruptedException error) {
+      Thread.currentThread().interrupt();
+      throw new ApiException(ErrorCode.INVALID_STATE, "AI request was interrupted.");
+    } catch (java.io.IOException error) {
+      throw new ApiException(ErrorCode.INVALID_STATE, "AI is unreachable. Try again later.");
+    }
+  }
+
+  private Map<String, Object> requestBody(String prompt, boolean web, Map<String, Object> format) {
+    Map<String, Object> body = new java.util.HashMap<>(Map.of("model", model, "input", prompt, "store", false));
+    if (web) {
+      body.put("tools", List.of(Map.of("type", "web_search")));
+      body.put("tool_choice", "required");
+      body.put("include", List.of("web_search_call.action.sources"));
+    }
+    if (format != null) body.put("text", Map.of("format", format));
+    return body;
+  }
+
+  /** The error to show when OpenAI says no. A used-up billing quota also alerts the admins. */
+  private ApiException refusal(AiKeyService.Credentials credential, HttpResponse<String> response) {
+    int status = response.statusCode();
+    if (status == 429 && response.body().contains("insufficient_quota")) {
+      alert(credential.name(), "billing_quota", "AI key " + credential.name() + " has reached its billing quota. Please recharge it.");
+      return new ApiException(ErrorCode.INVALID_STATE, "AI billing quota was reached. An admin has been alerted.");
+    }
+    return new ApiException(ErrorCode.INVALID_STATE, status == 429 ? "AI is busy. Try again shortly." : "AI is unavailable. Try again later.");
+  }
+
+  /** Saves the token counts on the request row, and warns the admins when the monthly allowance is nearly used. */
+  @SuppressWarnings("unchecked")
+  private void recordUsage(AiKeyService.Credentials credential, UUID requestId, Map<String, Object> data) {
+    Map<String, Object> usage = data.get("usage") instanceof Map<?, ?> m ? (Map<String, Object>) m : Map.of();
+    jdbc.sql("update ai_request set input_tokens=:input, output_tokens=:output where id=:id")
+      .param("input", number(usage.get("input_tokens")))
+      .param("output", number(usage.get("output_tokens")))
+      .param("id", requestId)
+      .update();
+    if (monthlyRequestLimit <= 0) return;
+    long thisMonth = jdbc.sql("select count(*) from ai_request where created_at >= date_trunc('month', now())")
+      .query(Long.class).single();
+    if (thisMonth >= Math.ceil(monthlyRequestLimit * .8)) {
+      alert(credential.name(), "request_budget", "AI key " + credential.name() + " has used at least 80% of the configured monthly request allowance.");
+    }
   }
 
   /**
-   * Takes one of the user's hourly slots, or refuses. The count and the insert happen under a lock that is held for
-   * this user only, so requests that arrive at the same moment cannot all see "29 used" and all go ahead. The
-   * lock lets go when the transaction ends.
+   * Takes one of the user's hourly slots, or refuses. The count and the insert run while holding a lock for this
+   * user, so requests arriving together cannot all see "29 used" and all go ahead. The lock is released when the
+   * transaction ends.
    */
   UUID reserve(CurrentUser user, String kind) {
     UUID id = UUID.randomUUID();
     Boolean taken = transactions.execute(tx -> {
       jdbc.sql("select count(*) from (select pg_advisory_xact_lock(hashtextextended(:key, 0))) lock")
         .param("key", "ai-request:" + user.id()).query(Long.class).single();
-      long recent = jdbc.sql("select count(*) from ai_request where user_id=:user and created_at>now()-interval '1 hour'")
+      long lastHour = jdbc.sql("select count(*) from ai_request where user_id = :user and created_at > now() - interval '1 hour'")
         .param("user", user.id()).query(Long.class).single();
-      if (recent >= HOURLY_LIMIT) return false;
-      jdbc.sql("insert into ai_request (id,user_id,kind) values (:id,:user,:kind)")
+      if (lastHour >= HOURLY_LIMIT) return false;
+      jdbc.sql("insert into ai_request (id, user_id, kind) values (:id, :user, :kind)")
         .param("id", id).param("user", user.id()).param("kind", kind).update();
       return true;
     });
@@ -327,15 +363,18 @@ public class AiService {
     return id;
   }
 
+  /** Gives a slot back. If this fails the slot stays used for an hour, which is harmless. */
   void release(UUID requestId) {
-    try { jdbc.sql("delete from ai_request where id=:id").param("id", requestId).update(); }
-    catch (RuntimeException ignored) { /* the slot just stays used for an hour */ }
+    try {
+      jdbc.sql("delete from ai_request where id = :id").param("id", requestId).update();
+    } catch (RuntimeException ignored) {
+      // Nothing to do.
+    }
   }
 
   public SseEmitter streamAssist(CurrentUser user, String message) {
     String request = limit(message, 2000);
-    AiKeyService.Credentials credential = keys.active();
-    if (credential.key().isBlank()) throw new ApiException(ErrorCode.INVALID_STATE, "AI API key has not been set.");
+    AiKeyService.Credentials credential = activeCredential();
     boolean web = researchIntent(request);
     String prompt = "You are the Nexus CRM assistant. Answer only questions within the CRM and business research boundaries. "
       + "Use the supplied live CRM facts for private records and never invent a record. "

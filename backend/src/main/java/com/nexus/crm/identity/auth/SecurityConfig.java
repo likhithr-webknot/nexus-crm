@@ -137,11 +137,10 @@ class SecurityConfig {
 		return http.cors(Customizer.withDefaults())
 			.sessionManagement((session) -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 			.headers((headers) -> headers
-				// Spring already adds X-Content-Type-Options: nosniff, X-Frame-Options: DENY and Cache-Control: no-store.
-				// This API only returns JSON and redirects, so a page it returns may load nothing and may not be framed.
+				// Spring already sends nosniff, X-Frame-Options: DENY and Cache-Control: no-store. This API returns only JSON and redirects.
 				.contentSecurityPolicy((csp) -> csp.policyDirectives("default-src 'none'; frame-ancestors 'none'; base-uri 'none'"))
 				.referrerPolicy((referrer) -> referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER))
-				// Sent only on HTTPS requests (Spring skips it on plain HTTP). With a reverse proxy this needs NEXUS_FORWARD_HEADERS=framework.
+				// Only sent on HTTPS. Behind a proxy that needs NEXUS_FORWARD_HEADERS=framework.
 				.httpStrictTransportSecurity((hsts) -> hsts.includeSubDomains(true).maxAgeInSeconds(63_072_000))
 				.permissionsPolicyHeader((permissions) -> permissions.policy("camera=(), microphone=(), geolocation=(), payment=(), usb=()")))
 			.requestCache(AbstractHttpConfigurer::disable)

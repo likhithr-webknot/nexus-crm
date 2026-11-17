@@ -9,12 +9,8 @@ import java.lang.annotation.Target;
 import org.springframework.security.access.prepost.PreAuthorize;
 
 /**
- * Who may create, change or archive records in a workspace. The workspace comes from the {@code kind} path variable.
- * <ul>
- * <li>Products and automations: admins only.
- * <li>Campaigns: managers and admins.
- * <li>Quotes and communications: everyone who is signed in.
- * </ul>
+ * Who may create, change or archive records in a workspace (the {@code kind} path variable).
+ * Products and automations: admins. Campaigns: managers and admins. Quotes and communications: everyone.
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
