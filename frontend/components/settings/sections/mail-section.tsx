@@ -9,6 +9,7 @@ import { toast } from "@/components/ui/toast";
 import { useRefresh } from "@/hooks/use-refresh";
 import { api, errorMessage } from "@/lib/api";
 import { inboxStatus, turnOffInbox } from "@/lib/emails";
+import { disconnectMessage } from "@/lib/google";
 import { KEYS } from "@/lib/query-keys";
 import { cn } from "@/lib/format";
 
@@ -283,12 +284,11 @@ function InboxCard() {
   });
   const turnOff = useMutation({
     mutationFn: () => turnOffInbox(deleteImported),
-    onSuccess: () => {
-      toast(
-        deleteImported
-          ? "Inbox sync is off and the copied emails were deleted."
-          : "Inbox sync is off. Emails already copied stay on their records.",
-      );
+    onSuccess: (result) => {
+      const copies = deleteImported
+        ? "The copied emails were deleted."
+        : "Emails already copied stay on their records.";
+      toast(`${disconnectMessage("Inbox sync", result)} ${copies}`);
       setDeleteImported(false);
       void refresh([KEYS.inbox, KEYS.emails, ["mail-status"]]);
     },
@@ -372,14 +372,17 @@ function InboxCard() {
         <ul className="list-disc space-y-1 pl-5 text-[12.5px] text-ink-3">
           <li>Read-only: the CRM can never send, change or delete anything in your mailbox with this permission.</li>
           <li>
-            Only emails to or from someone who is already a contact or lead are kept. Everything else is ignored and not
-            stored. Spam, trash and drafts are skipped.
+            Only emails to or from someone who is already one of your contacts or leads are kept. Everything else is
+            ignored and not stored. Spam, trash and drafts are skipped.
           </li>
           <li>
             What is kept: the subject, who it was from and to, the date, and Gmail&apos;s short preview. Not the full
             message or attachments.
           </li>
-          <li>Anyone who can open that contact or lead can see these emails, including those from your mailbox.</li>
+          <li>
+            Private to you: only you can see the emails copied from your mailbox, even on a contact or lead that
+            colleagues can open. They are only attached to contacts and leads you can open yourself.
+          </li>
           <li>Starts with the last 30 days, then checks every few minutes.</li>
           <li>
             Google treats reading mail as a sensitive permission. While the Google app is in Testing, an owner of the

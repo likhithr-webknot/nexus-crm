@@ -133,14 +133,19 @@ class LeadController {
 	/** Deletes several leads at once. All of them are deleted, or none. */
 	@PostMapping("/bulk-delete")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
-	void bulkDelete(@AuthenticationPrincipal CurrentUser user, @Valid @RequestBody DeleteLeadsRequest r) {
+	void bulkDelete(
+		@AuthenticationPrincipal CurrentUser user, 
+		@Valid @RequestBody DeleteLeadsRequest r) {
 		this.leads.delete(user, r.ids());
 	}
 
 	/** Gives several leads to one person (or to nobody). All of them change, or none do. */
 	@PostMapping("/bulk-assign")
 	@PreAuthorize("hasAnyRole('MANAGER','ADMIN')")
-	BulkResult bulkAssign(@AuthenticationPrincipal CurrentUser user, @Valid @RequestBody BulkAssignRequest r) {
+	BulkResult bulkAssign(
+		@AuthenticationPrincipal CurrentUser user, 
+		@Valid @RequestBody BulkAssignRequest r
+	) {
 		return new BulkResult(this.leads.assign(user, r.ids(), r.ownerId()));
 	}
 

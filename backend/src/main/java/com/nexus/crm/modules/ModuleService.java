@@ -4,14 +4,14 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Locale;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -30,33 +30,62 @@ import com.nexus.crm.identity.user.UserService;
 import com.nexus.crm.shared.CurrentUser;
 import com.nexus.crm.shared.Emails;
 import com.nexus.crm.shared.Search;
-import com.nexus.crm.shared.web.PageResponse;
 import com.nexus.crm.shared.error.ApiException;
 import com.nexus.crm.shared.error.ErrorCode;
+import com.nexus.crm.shared.web.PageResponse;
 
+/**
+ * The workspaces that share one table ({@code crm_module_record}): campaigns, products, quotes, communications and
+ * automations. Each kind has the same few columns, and keeps anything extra (quote lines, email addresses, workflow steps)
+ * in a JSON {@code details} column. This class reads and writes them and checks what the user sent.
+ */
 @Service
 @RequiredArgsConstructor
 public class ModuleService {
-	private final JdbcClient jdbc;
-	private final JsonMapper json;
-	private final UserService users;
-	private final AuditService audit;
+
 	/** Most addresses allowed in Cc, and in Bcc. */
 	static final int MAX_COPIES = 20;
 
+	private static final int MAX_NAME_LENGTH = 160;
+
+	private static final int MAX_DESCRIPTION_LENGTH = 10_000;
+
+	private static final int MAX_EMAIL_BODY_LENGTH = 50_000;
+
+	private static final int MAX_QUOTE_LINES = 100;
+
+	private static final int MAX_WORKFLOW_STEPS = 50;
+
+	private static final int MAX_WORKFLOW_CONNECTIONS = 100;
+
+	private static final int MAX_REQUEST_KEY_LENGTH = 100;
+
 	private static final BigDecimal MAX_AMOUNT = new BigDecimal("9999999999999999.99");
+
+	/** Unsent drafts older than this are deleted by a nightly job. */
+	private static final Duration DRAFT_KEPT_FOR = Duration.ofDays(30);
 
 	/** Stands in for "nobody" because an empty IN () is not valid SQL. */
 	private static final UUID NOBODY = new UUID(0, 0);
 
+	private final JdbcClient jdbc;
+
+	private final JsonMapper json;
+
+	private final UserService users;
+
+	private final AuditService audit;
+
+	// ---- reading ----
+
 	/** One page of a workspace. {@code total} lets the screen say when there is more than one page. */
 	@Transactional(readOnly = true)
-	public PageResponse<ModuleRecord> list(CurrentUser user, ModuleKind kind, String q, String status, boolean byName,
-			int page, int size) {
+	public PageResponse<ModuleRecord> list(CurrentUser user, ModuleKind kind, String q, String status, boolean byName, int page,
+			int size) {
 		Map<String, Object> params = new HashMap<>();
 		params.put("kind", kind.path());
-		StringBuilder from = new StringBuilder("from crm_module_record m join app_user u on u.id = m.owner_id "
-			+ "where m.kind = :kind and m.deleted_at is null");
+		StringBuilder from = new StringBuilder(
+				"from crm_module_record m join app_user u on u.id = m.owner_id where m.kind = :kind and m.deleted_at is null");
 		limitToVisible(from, params, visibleOwners(user, kind));
 		if (status != null && !status.isBlank()) {
 			from.append(" and m.status = :status");
@@ -69,8 +98,8 @@ public class ModuleService {
 
 		int pageNumber = Math.max(1, page);
 		String order = byName ? "lower(m.name), m.id" : "m.updated_at desc, m.id";
-		long total = jdbc.sql("select count(*) " + from).params(params).query(Long.class).single();
-		List<ModuleRecord> items = jdbc.sql("select m.*, u.display_name " + from + " order by " + order + " limit :size offset :offset")
+		long total = this.jdbc.sql("select count(*) " + from).params(params).query(Long.class).single();
+		List<ModuleRecord> items = this.jdbc.sql("select m.*, u.display_name " + from + " order by " + order + " limit :size offset :offset")
 			.params(params)
 			.param("size", size)
 			.param("offset", (long) (pageNumber - 1) * size)
@@ -85,93 +114,148 @@ public class ModuleService {
 		params.put("id", id);
 		params.put("kind", kind.path());
 		StringBuilder sql = new StringBuilder("select m.*, u.display_name from crm_module_record m join app_user u on u.id = m.owner_id "
-			+ "where m.id = :id and m.kind = :kind and m.deleted_at is null");
+				+ "where m.id = :id and m.kind = :kind and m.deleted_at is null");
 		limitToVisible(sql, params, visibleOwners(user, kind));
-		return jdbc.sql(sql.toString()).params(params).query((rs, row) -> map(rs)).optional()
+		return this.jdbc.sql(sql.toString())
+			.params(params)
+			.query((rs, row) -> map(rs))
+			.optional()
 			.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Record not found."));
 	}
 
 	/** Whose records the user can see. Empty means everyone's. Products are shared by the whole team. */
 	private Optional<Set<UUID>> visibleOwners(CurrentUser user, ModuleKind kind) {
-		return kind == ModuleKind.PRODUCTS ? Optional.empty() : users.visibleOwnerIds(user);
+		return (kind == ModuleKind.PRODUCTS) ? Optional.empty() : this.users.visibleOwnerIds(user);
 	}
 
 	private void limitToVisible(StringBuilder sql, Map<String, Object> params, Optional<Set<UUID>> visible) {
-		visible.ifPresent(ids -> {
+		visible.ifPresent((ids) -> {
 			sql.append(" and m.owner_id in (:ids)");
 			// An empty IN () is not valid SQL, so a user with nobody in scope matches no one.
 			params.put("ids", ids.isEmpty() ? Set.of(NOBODY) : ids);
 		});
 	}
 
+	// ---- changing ----
+
+	/** Creates a record. A repeated request with the same {@code key} returns the record made the first time. */
 	@Transactional
 	public ModuleRecord create(CurrentUser user, ModuleKind kind, ModuleInput input, String key) {
 		if (key != null && !key.isBlank()) {
-			if (key.length() > 100) throw invalid("Idempotency key is too long.");
-			var previous = jdbc.sql("select id from crm_module_record where kind=:kind and owner_id=:owner and request_key=:key")
-				.param("kind", kind.path()).param("owner", user.id()).param("key", key)
-				.query(UUID.class).optional();
-			if (previous.isPresent()) return get(user, kind, previous.get());
+			if (key.length() > MAX_REQUEST_KEY_LENGTH) {
+				throw invalid("Idempotency key is too long.");
+			}
+			Optional<UUID> earlier = this.jdbc.sql("select id from crm_module_record where kind = :kind and owner_id = :owner and request_key = :key")
+				.param("kind", kind.path())
+				.param("owner", user.id())
+				.param("key", key)
+				.query(UUID.class)
+				.optional();
+			if (earlier.isPresent()) {
+				return get(user, kind, earlier.get());
+			}
 		}
+
 		Fields fields = validate(kind, input);
 		UUID id = UUID.randomUUID();
-		jdbc.sql("insert into crm_module_record (id,kind,name,status,owner_id,account,description,amount,details,request_key) "
-				+ "values (:id,:kind,:name,:status,:owner,:account,:description,:amount,cast(:details as jsonb),:key)")
-			.param("id", id).param("kind", kind.path()).param("name", fields.name())
-			.param("status", fields.status()).param("owner", user.id()).param("account", fields.account())
-			.param("description", fields.description()).param("amount", fields.amount())
-			.param("details", json.writeValueAsString(fields.details())).param("key", key).update();
-		audit.record(user.id(), kind.entity(), id, AuditLog.Action.CREATE, null);
+		this.jdbc.sql("""
+				insert into crm_module_record (id, kind, name, status, owner_id, account, description, amount, details, request_key)
+				values (:id, :kind, :name, :status, :owner, :account, :description, :amount, cast(:details as jsonb), :key)
+				""")
+			.param("id", id)
+			.param("kind", kind.path())
+			.param("name", fields.name())
+			.param("status", fields.status())
+			.param("owner", user.id())
+			.param("account", fields.account())
+			.param("description", fields.description())
+			.param("amount", fields.amount())
+			.param("details", this.json.writeValueAsString(fields.details()))
+			.param("key", key)
+			.update();
+		this.audit.record(user.id(), kind.entity(), id, AuditLog.Action.CREATE, null);
 		return get(user, kind, id);
 	}
 
 	@Transactional
 	public ModuleRecord update(CurrentUser user, ModuleKind kind, UUID id, ModuleInput input) {
 		ModuleRecord existing = get(user, kind, id);
-		if (kind == ModuleKind.COMMUNICATIONS && !Set.of("Draft", "Failed").contains(existing.status()))
+		if (kind == ModuleKind.COMMUNICATIONS && !Set.of("Draft", "Failed").contains(existing.status())) {
 			throw invalid("A sent or unconfirmed email cannot be edited. Create a new draft instead.");
-		if (input.version() == null || input.version() != existing.version())
-			throw new ApiException(ErrorCode.VERSION_CONFLICT, "This record changed. Reload it and try again.");
+		}
+		if (input.version() == null || input.version() != existing.version()) {
+			throw changedByAnotherUser();
+		}
+
 		Fields fields = validate(kind, input);
-		int changed = jdbc.sql("update crm_module_record set name=:name,status=:status,account=:account,description=:description,"
-				+ "amount=:amount,details=cast(:details as jsonb),updated_at=now(),version=version+1 "
-				+ "where id=:id and version=:version")
-			.param("name", fields.name()).param("status", fields.status()).param("account", fields.account())
-			.param("description", fields.description()).param("amount", fields.amount())
-			.param("details", json.writeValueAsString(fields.details()))
-			.param("id", id).param("version", existing.version()).update();
-		if (changed != 1) throw new ApiException(ErrorCode.VERSION_CONFLICT, "This record changed. Reload it and try again.");
-		audit.record(user.id(), kind.entity(), id, AuditLog.Action.UPDATE, null);
+		int changed = this.jdbc.sql("""
+				update crm_module_record
+				set name = :name, status = :status, account = :account, description = :description, amount = :amount,
+				    details = cast(:details as jsonb), updated_at = now(), version = version + 1
+				where id = :id and version = :version
+				""")
+			.param("name", fields.name())
+			.param("status", fields.status())
+			.param("account", fields.account())
+			.param("description", fields.description())
+			.param("amount", fields.amount())
+			.param("details", this.json.writeValueAsString(fields.details()))
+			.param("id", id)
+			.param("version", existing.version())
+			.update();
+		if (changed != 1) {
+			throw changedByAnotherUser();
+		}
+		this.audit.record(user.id(), kind.entity(), id, AuditLog.Action.UPDATE, null);
 		return get(user, kind, id);
 	}
 
+	/** Moves the record to the recycle bin. */
 	@Transactional
 	public void archive(CurrentUser user, ModuleKind kind, UUID id) {
 		get(user, kind, id);
-		jdbc.sql("update crm_module_record set deleted_at=now(),updated_at=now(),version=version+1 where id=:id")
-			.param("id", id).update();
-		audit.record(user.id(), kind.entity(), id, AuditLog.Action.DELETE, null);
+		this.jdbc.sql("update crm_module_record set deleted_at = now(), updated_at = now(), version = version + 1 where id = :id")
+			.param("id", id)
+			.update();
+		this.audit.record(user.id(), kind.entity(), id, AuditLog.Action.DELETE, null);
 	}
 
 	@Scheduled(cron = "0 30 3 * * *", zone = "UTC")
 	@Transactional
 	public void purgeCommunicationDrafts() {
-		jdbc.sql("delete from crm_module_record where kind='communications' and status='Draft' and created_at < :cutoff")
-			.param("cutoff", OffsetDateTime.ofInstant(Instant.now().minus(30, ChronoUnit.DAYS), ZoneOffset.UTC)).update();
+		OffsetDateTime cutoff = OffsetDateTime.ofInstant(Instant.now().minus(DRAFT_KEPT_FOR), ZoneOffset.UTC);
+		this.jdbc.sql("delete from crm_module_record where kind = 'communications' and status = 'Draft' and created_at < :cutoff")
+			.param("cutoff", cutoff)
+			.update();
+	}
+
+	// ---- checking what the user sent ----
+
+	/** The columns every kind shares, after checking. {@code details} holds what is specific to the kind. */
+	private record Fields(String name, String status, String account, String description, BigDecimal amount, Map<String, Object> details) {
 	}
 
 	private Fields validate(ModuleKind kind, ModuleInput input) {
-		if (input == null) throw invalid("A record is required.");
-		String name = trim(input.name(), 160);
-		if (name.length() < 2) throw invalid("Enter a name of at least two characters.");
+		if (input == null) {
+			throw invalid("A record is required.");
+		}
+		String name = trim(input.name(), MAX_NAME_LENGTH);
+		if (name.length() < 2) {
+			throw invalid("Enter a name of at least two characters.");
+		}
 		String status = input.status();
-		if (!kind.allows(status)) throw invalid("Choose a valid status.");
-		if (kind == ModuleKind.COMMUNICATIONS && !"Draft".equals(status)) throw invalid("Use Send to deliver a communication.");
-		String account = trim(input.account(), 160);
-		String description = trim(input.description(), 10_000);
-		BigDecimal amount = input.amount() == null ? BigDecimal.ZERO : input.amount();
-		if (amount.signum() < 0 || amount.scale() > 2 || amount.compareTo(MAX_AMOUNT) > 0)
+		if (!kind.allows(status)) {
+			throw invalid("Choose a valid status.");
+		}
+		if (kind == ModuleKind.COMMUNICATIONS && !"Draft".equals(status)) {
+			throw invalid("Use Send to deliver a communication.");
+		}
+		String account = trim(input.account(), MAX_NAME_LENGTH);
+		String description = trim(input.description(), MAX_DESCRIPTION_LENGTH);
+		BigDecimal amount = (input.amount() == null) ? BigDecimal.ZERO : input.amount();
+		if (amount.signum() < 0 || amount.scale() > 2 || amount.compareTo(MAX_AMOUNT) > 0) {
 			throw invalid("Enter a valid nonnegative amount with two decimal places.");
+		}
 
 		// Each kind keeps its own extra fields in "details". Quotes work out their own amount, the others have none.
 		Map<String, Object> details = new HashMap<>();
@@ -185,159 +269,172 @@ public class ModuleService {
 				validateEmail(input, details);
 				amount = BigDecimal.ZERO;
 			}
-			default -> { }
+			default -> {
+			}
 		}
 		return new Fields(name, status, account, description, amount, details);
 	}
 
 	/** Checks the lines and returns the total, worked out here so the client cannot send a different one. */
 	private BigDecimal validateQuote(ModuleInput input, Map<String, Object> details) {
-		List<Map<String, Object>> lines = input.lineItems() == null ? List.of() : input.lineItems();
-		if (lines.size() > 100) throw invalid("A quote can have at most 100 lines.");
+		List<Map<String, Object>> lines = (input.lineItems() == null) ? List.of() : input.lineItems();
+		if (lines.size() > MAX_QUOTE_LINES) {
+			throw invalid("A quote can have at most " + MAX_QUOTE_LINES + " lines.");
+		}
+
 		BigDecimal total = BigDecimal.ZERO;
 		for (Map<String, Object> line : lines) {
 			BigDecimal quantity = decimal(line.get("quantity"));
 			BigDecimal price = decimal(line.get("unitPrice"));
-			BigDecimal discount = decimal(line.get("discountPct"));
-			BigDecimal tax = decimal(line.get("taxPct"));
-			boolean valid = quantity.signum() > 0 && price.signum() >= 0 && isPercent(discount) && isPercent(tax);
-			if (!valid) throw invalid("A quote line has an invalid quantity, price, discount or tax.");
-			BigDecimal afterDiscount = quantity.multiply(price).multiply(BigDecimal.ONE.subtract(discount.movePointLeft(2)));
-			total = total.add(afterDiscount.multiply(BigDecimal.ONE.add(tax.movePointLeft(2))));
+			BigDecimal discountPercent = decimal(line.get("discountPct"));
+			BigDecimal taxPercent = decimal(line.get("taxPct"));
+
+			boolean valid = quantity.signum() > 0 && price.signum() >= 0 && isPercent(discountPercent) && isPercent(taxPercent);
+			if (!valid) {
+				throw invalid("A quote line has an invalid quantity, price, discount or tax.");
+			}
+			BigDecimal afterDiscount = quantity.multiply(price).multiply(BigDecimal.ONE.subtract(discountPercent.movePointLeft(2)));
+			total = total.add(afterDiscount.multiply(BigDecimal.ONE.add(taxPercent.movePointLeft(2))));
 		}
 		details.put("lineItems", lines);
 		return total.setScale(2, RoundingMode.HALF_UP);
 	}
 
-	private boolean isPercent(BigDecimal value) {
+	private static boolean isPercent(BigDecimal value) {
 		return value.signum() >= 0 && value.compareTo(BigDecimal.valueOf(100)) <= 0;
 	}
 
 	private void validateAutomation(ModuleInput input, String status, Map<String, Object> details) {
-		List<Map<String, Object>> nodes = input.flowNodes() == null ? List.of() : input.flowNodes();
-		List<Map<String, Object>> edges = input.flowEdges() == null ? List.of() : input.flowEdges();
-		if (nodes.size() > 50 || edges.size() > 100) throw invalid("Workflow is too large.");
-		if ("Published".equals(status)) validateFlow(nodes, edges);
+		List<Map<String, Object>> nodes = (input.flowNodes() == null) ? List.of() : input.flowNodes();
+		List<Map<String, Object>> edges = (input.flowEdges() == null) ? List.of() : input.flowEdges();
+		if (nodes.size() > MAX_WORKFLOW_STEPS || edges.size() > MAX_WORKFLOW_CONNECTIONS) {
+			throw invalid("Workflow is too large.");
+		}
+		if ("Published".equals(status)) {
+			WorkflowValidator.validate(nodes, edges);
+		}
 		details.put("flowNodes", nodes);
 		details.put("flowEdges", edges);
 	}
 
 	private void validateEmail(ModuleInput input, Map<String, Object> details) {
 		String to = trim(input.recipient(), 254).toLowerCase(Locale.ROOT);
-		if (!to.isEmpty() && !Emails.isValid(to)) throw invalid("Enter one valid email address in To.");
+		if (!to.isEmpty() && !Emails.isValid(to)) {
+			throw invalid("Enter one valid email address in To.");
+		}
 		List<String> cc = addresses("Cc", input.cc());
 		List<String> bcc = addresses("Bcc", input.bcc());
 		rejectRepeats(to, cc, bcc);
+
 		details.put("recipient", to);
 		details.put("cc", cc);
 		details.put("bcc", bcc);
-		details.put("bodyHtml", trim(input.bodyHtml(), 50_000));
+		details.put("bodyHtml", trim(input.bodyHtml(), MAX_EMAIL_BODY_LENGTH));
 	}
 
 	/** A Cc or Bcc list: valid addresses only, lower-cased, repeats dropped, at most {@link #MAX_COPIES}. */
 	private List<String> addresses(String label, List<String> given) {
-		if (given == null) return List.of();
-		Set<String> clean = new java.util.LinkedHashSet<>();
+		if (given == null) {
+			return List.of();
+		}
+		Set<String> clean = new LinkedHashSet<>();
 		for (String raw : given) {
-			String address = raw == null ? "" : raw.strip();
-			if (address.isEmpty()) continue;
-			if (!Emails.isValid(address)) throw invalid(label + " has an address that is not a valid email: " + shorten(address));
+			String address = (raw == null) ? "" : raw.strip();
+			if (address.isEmpty()) {
+				continue;
+			}
+			if (!Emails.isValid(address)) {
+				throw invalid(label + " has an address that is not a valid email: " + shorten(address));
+			}
 			clean.add(address.toLowerCase(Locale.ROOT));
 		}
-		if (clean.size() > MAX_COPIES) throw invalid(label + " can have at most " + MAX_COPIES + " addresses.");
+		if (clean.size() > MAX_COPIES) {
+			throw invalid(label + " can have at most " + MAX_COPIES + " addresses.");
+		}
 		return List.copyOf(clean);
 	}
+
 	/** The same address in two fields would reach the person twice, and a Bcc address also in Cc would not stay hidden. */
 	private void rejectRepeats(String to, List<String> cc, List<String> bcc) {
-		for (String address : bcc) if (address.equals(to) || cc.contains(address)) throw invalid(address + " is listed in Bcc and also in To or Cc.");
-		for (String address : cc) if (address.equals(to)) throw invalid(address + " is listed in both To and Cc.");
-	}
-	private static String shorten(String text) { return text.length() > 60 ? text.substring(0, 60) + "…" : text; }
-
-	private void validateFlow(List<Map<String, Object>> nodes, List<Map<String, Object>> edges) {
-		if (nodes.stream().filter(n -> "Trigger".equals(n.get("type"))).count() != 1)
-			throw invalid("A published workflow needs exactly one trigger.");
-		Set<String> ids = new HashSet<>();
-		int actions = 0;
-		for (Map<String, Object> node : nodes) {
-			String id = String.valueOf(node.get("id"));
-			String type = String.valueOf(node.get("type"));
-			String label = String.valueOf(node.get("label"));
-			if (node.get("id") == null || !ids.add(id) || id.length() > 100 || !Set.of("Trigger","Condition","Action","Delay","Branch").contains(type))
-				throw invalid("Workflow has an invalid step.");
-			boolean supported = switch (type) {
-				case "Trigger" -> Set.of("Deal created", "Deal won", "Lead qualified").contains(label);
-				case "Action" -> Set.of("Notify owner", "Create follow-up").contains(label);
-				case "Delay" -> Set.of("Wait 1 hour", "Wait 1 day").contains(label);
-				default -> Set.of("Deal is won", "Lead is qualified").contains(label);
-			};
-			if (!supported) throw invalid("Choose a supported workflow step.");
-			if ("Action".equals(type)) actions++;
-		}
-		if (actions == 0) throw invalid("Add an action before publishing.");
-		for (Map<String, Object> edge : edges) {
-			if (!ids.contains(edge.get("source")) || !ids.contains(edge.get("target")) || edge.get("source").equals(edge.get("target")))
-				throw invalid("Workflow has an invalid connection.");
-			String sourceType = String.valueOf(nodes.stream().filter(n -> edge.get("source").equals(n.get("id"))).findFirst().orElseThrow().get("type"));
-			if (("Condition".equals(sourceType) || "Branch".equals(sourceType)) && !Set.of("Yes", "No").contains(String.valueOf(edge.get("label"))))
-				throw invalid("Condition paths must be Yes or No.");
-		}
-		Map<String, List<String>> graph = new HashMap<>();
-		for (Map<String, Object> edge : edges) graph.computeIfAbsent((String) edge.get("source"), key -> new java.util.ArrayList<>()).add((String) edge.get("target"));
-		String triggerId = String.valueOf(nodes.stream().filter(n -> "Trigger".equals(n.get("type"))).findFirst().orElseThrow().get("id"));
-		Set<String> reachable = new HashSet<>();
-		collectReachable(triggerId, graph, reachable);
-		if (reachable.size() != ids.size()) throw invalid("Connect every step to the trigger.");
-		for (String id : ids) {
-			String type = String.valueOf(nodes.stream().filter(n -> id.equals(n.get("id"))).findFirst().orElseThrow().get("type"));
-			int outgoing = graph.getOrDefault(id, List.of()).size();
-			if (outgoing > ("Condition".equals(type) || "Branch".equals(type) ? 2 : 1))
-				throw invalid("A step has too many connections.");
-			if ("Condition".equals(type) || "Branch".equals(type)) {
-				long distinct = edges.stream().filter(e -> id.equals(e.get("source"))).map(e -> e.get("label")).distinct().count();
-				if (distinct != outgoing) throw invalid("Each condition path must be unique.");
+		for (String address : bcc) {
+			if (address.equals(to) || cc.contains(address)) {
+				throw invalid(address + " is listed in Bcc and also in To or Cc.");
 			}
-			if (hasCycle(id, graph, new HashSet<>())) throw invalid("Workflow connections cannot form a cycle.");
+		}
+		for (String address : cc) {
+			if (address.equals(to)) {
+				throw invalid(address + " is listed in both To and Cc.");
+			}
 		}
 	}
-	private void collectReachable(String id, Map<String, List<String>> graph, Set<String> reachable) {
-		if (!reachable.add(id)) return;
-		for (String next : graph.getOrDefault(id, List.of())) collectReachable(next, graph, reachable);
-	}
-	private boolean hasCycle(String id, Map<String, List<String>> graph, Set<String> path) {
-		if (!path.add(id)) return true;
-		for (String next : graph.getOrDefault(id, List.of())) if (hasCycle(next, graph, path)) return true;
-		path.remove(id);
-		return false;
-	}
+
+	// ---- turning a row into a record ----
 
 	private ModuleRecord map(ResultSet rs) throws SQLException {
-		@SuppressWarnings("unchecked") Map<String, Object> details = json.readValue(rs.getString("details"), Map.class);
+		Map<String, Object> details = readDetails(rs.getString("details"));
 		return new ModuleRecord(
-			rs.getObject("id", UUID.class), rs.getString("name"), rs.getString("status"), rs.getString("display_name"),
-			rs.getString("account"), rs.getString("description"), rs.getBigDecimal("amount"),
-			rs.getObject("created_at", OffsetDateTime.class).toInstant(),
-			rs.getObject("updated_at", OffsetDateTime.class).toInstant(),
-			rs.getInt("version"),
-			list(details.get("lineItems")), list(details.get("flowNodes")), list(details.get("flowEdges")),
-			(String) details.get("recipient"), strings(details.get("cc")), strings(details.get("bcc")),
-			(String) details.get("bodyHtml"));
+				rs.getObject("id", UUID.class),
+				rs.getString("name"),
+				rs.getString("status"),
+				rs.getString("display_name"),
+				rs.getString("account"),
+				rs.getString("description"),
+				rs.getBigDecimal("amount"),
+				rs.getObject("created_at", OffsetDateTime.class).toInstant(),
+				rs.getObject("updated_at", OffsetDateTime.class).toInstant(),
+				rs.getInt("version"),
+				maps(details.get("lineItems")),
+				maps(details.get("flowNodes")),
+				maps(details.get("flowEdges")),
+				(String) details.get("recipient"),
+				strings(details.get("cc")),
+				strings(details.get("bcc")),
+				(String) details.get("bodyHtml"));
 	}
 
-	private List<String> strings(Object value) {
-		return value instanceof List<?> items ? items.stream().map(String::valueOf).toList() : List.of();
-	}
 	@SuppressWarnings("unchecked")
-	private List<Map<String, Object>> list(Object value) { return value instanceof List<?> ? (List<Map<String, Object>>) value : List.of(); }
-	private String trim(String value, int max) {
-		String result = value == null ? "" : value.strip();
-		if (result.length() > max) throw invalid("A field is too long.");
+	private Map<String, Object> readDetails(String text) {
+		return this.json.readValue(text, Map.class);
+	}
+
+	private static List<String> strings(Object value) {
+		return (value instanceof List<?> items) ? items.stream().map(String::valueOf).toList() : List.of();
+	}
+
+	@SuppressWarnings("unchecked")
+	private static List<Map<String, Object>> maps(Object value) {
+		return (value instanceof List<?>) ? (List<Map<String, Object>>) value : List.of();
+	}
+
+	// ---- small helpers ----
+
+	private static String trim(String value, int max) {
+		String result = (value == null) ? "" : value.strip();
+		if (result.length() > max) {
+			throw invalid("A field is too long.");
+		}
 		return result;
 	}
-	private BigDecimal decimal(Object value) {
-		try { return new BigDecimal(String.valueOf(value)); }
-		catch (NumberFormatException e) { throw invalid("A quote line has an invalid number."); }
+
+	private static BigDecimal decimal(Object value) {
+		try {
+			return new BigDecimal(String.valueOf(value));
+		}
+		catch (NumberFormatException ex) {
+			throw invalid("A quote line has an invalid number.");
+		}
 	}
-	private ApiException invalid(String message) { return new ApiException(ErrorCode.VALIDATION_FAILED, message); }
-	private record Fields(String name, String status, String account, String description, BigDecimal amount, Map<String, Object> details) { }
+
+	private static ApiException invalid(String message) {
+		return new ApiException(ErrorCode.VALIDATION_FAILED, message);
+	}
+
+	private static ApiException changedByAnotherUser() {
+		return new ApiException(ErrorCode.VERSION_CONFLICT, "This record changed. Reload it and try again.");
+	}
+
+	private static String shorten(String text) {
+		return (text.length() > 60) ? text.substring(0, 60) + "…" : text;
+	}
+
 }

@@ -19,7 +19,9 @@ export function RecordEmails({ owner }: { owner: EmailOwner }) {
   return (
     <div>
       <div className="flex items-baseline justify-between gap-3">
-        <h3 className="text-[12px] font-semibold tracking-wide text-ink-3 uppercase">Emails</h3>
+        <h3 className="text-[12px] font-semibold tracking-wide text-ink-3 uppercase">
+          Your emails <span className="font-normal normal-case">· only you can see these</span>
+        </h3>
         <Link href="/settings?section=mail" className="text-[11.5px] font-medium text-brand hover:underline">
           Inbox sync settings
         </Link>
@@ -54,7 +56,7 @@ export function RecordEmails({ owner }: { owner: EmailOwner }) {
                   </time>
                 </div>
                 <p className="truncate text-[12px] text-ink-3">
-                  {m.direction === "IN" ? `From ${m.from}` : `To ${m.to}`} · via {m.mailbox}
+                  {m.direction === "IN" ? `From ${m.from}` : `To ${m.to}`}
                 </p>
                 {m.snippet && <p className="mt-1 line-clamp-2 text-[12.5px] text-ink-2">{m.snippet}</p>}
                 {m.gmailUrl && (

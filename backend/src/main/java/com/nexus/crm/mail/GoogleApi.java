@@ -98,7 +98,7 @@ public class GoogleApi {
 			.query((rs, i) -> new Object[] { rs.getBytes(1), rs.getString(2), rs.getBoolean(3) })
 			.optional()
 			.orElseThrow(() -> new NotConnected("Google is not connected."));
-		if (!configured() || !((String) row[1]).contains(scope)) {
+		if (!configured() || !GoogleScopes.has((String) row[1], scope)) {
 			throw new NotConnected("This feature was not allowed on the Google connection.");
 		}
 		if ((Boolean) row[2]) {
@@ -124,6 +124,26 @@ public class GoogleApi {
 			throw new Unavailable("Google sent no access token.");
 		}
 		return access;
+	}
+
+	/**
+	 * Cancels the whole grant behind a refresh token, so the app can no longer use it and the user's Google account stops
+	 * listing it. Returns false when Google could not be reached or refused. A token Google no longer knows counts as done.
+	 */
+	public boolean revoke(String refreshToken) {
+		try {
+			Response response = post("https://oauth2.googleapis.com/revoke", "application/x-www-form-urlencoded",
+					"token=" + enc(refreshToken), null);
+			return response.ok() || (response.status() == 400 && response.body().contains("invalid_token"));
+		}
+		catch (Unavailable ex) {
+			return false;
+		}
+	}
+
+	/** Posts a form (used to trade a code or refresh token for an access token). */
+	public Response postForm(String url, String form) {
+		return post(url, "application/x-www-form-urlencoded", form, null);
 	}
 
 	public Response call(String method, String url, String bearer, String jsonBody) {

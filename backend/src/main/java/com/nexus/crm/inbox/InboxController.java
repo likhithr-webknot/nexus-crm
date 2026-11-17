@@ -53,8 +53,8 @@ class InboxController {
 			String lastError, long imported) {
 	}
 
-	/** One email on a record. {@code gmailUrl} is only set for the person whose mailbox it came from. */
-	record EmailItem(UUID id, String direction, String from, String to, String subject, String snippet, OffsetDateTime sentAt, String mailbox,
+	/** One email on a record. It always comes from the caller's own mailbox, so {@code gmailUrl} opens it in their Gmail. */
+	record EmailItem(UUID id, String direction, String from, String to, String subject, String snippet, OffsetDateTime sentAt,
 			String gmailUrl) {
 	}
 
@@ -71,8 +71,8 @@ class InboxController {
 
 	/** Turns inbox sync off. Emails already copied stay on their records unless {@code deleteImported} is true. */
 	@DeleteMapping("/inbox")
-	@ResponseStatus(HttpStatus.NO_CONTENT)
-	void disconnect(@AuthenticationPrincipal CurrentUser user, @RequestParam(defaultValue = "false") boolean deleteImported) {
+	MailService.Disconnected disconnect(@AuthenticationPrincipal CurrentUser user,
+			@RequestParam(defaultValue = "false") boolean deleteImported) {
 		this.transactions.executeWithoutResult((tx) -> {
 			boolean was = this.jdbc.sql("delete from mail_sync_state where user_id = :user").param("user", user.id()).update() > 0;
 			int removed = deleteImported ? this.jdbc.sql("delete from email_message where user_id = :user").param("user", user.id()).update() : 0;
@@ -80,6 +80,7 @@ class InboxController {
 				this.audit.record(user.id(), "InboxSync", user.id(), AuditLog.Action.DELETE, null);
 			}
 		});
+		return this.mail.disconnectFeature(user, "inbox");
 	}
 
 	/** The emails on one record, newest first. The caller must be allowed to open that record. */
@@ -103,21 +104,20 @@ class InboxController {
 			contact = deal.getPrimaryContactId();
 			lead = deal.getLeadId();
 		}
+		// Only the caller's own mail. A colleague who can open the same contact never sees it.
 		return this.jdbc.sql("""
-				select * from (
-				  select distinct on (coalesce(e.rfc_message_id, e.id::text)) e.id, e.direction, e.from_addr, e.to_addrs, e.subject, e.snippet,
-				         e.sent_at, e.thread_id, e.user_id, u.display_name
-				  from email_message e join app_user u on u.id = e.user_id
-				  where e.contact_id = :contact or e.lead_id = :lead
-				  order by coalesce(e.rfc_message_id, e.id::text), e.sent_at desc) shown
+				select id, direction, from_addr, to_addrs, subject, snippet, sent_at, thread_id
+				from email_message
+				where user_id = :user and (contact_id = :contact or lead_id = :lead)
 				order by sent_at desc limit :limit
 				""")
-			.param("contact", contact).param("lead", lead).param("limit", LIMIT)
+			.param("user", user.id())
+			.param("contact", contact)
+			.param("lead", lead)
+			.param("limit", LIMIT)
 			.query((rs, i) -> new EmailItem(rs.getObject("id", UUID.class), rs.getString("direction"), rs.getString("from_addr"),
 					rs.getString("to_addrs"), rs.getString("subject"), rs.getString("snippet"), rs.getObject("sent_at", OffsetDateTime.class),
-					rs.getString("display_name"),
-					(user.id().equals(rs.getObject("user_id", UUID.class)) && rs.getString("thread_id") != null)
-							? "https://mail.google.com/mail/u/0/#all/" + rs.getString("thread_id") : null))
+					(rs.getString("thread_id") != null) ? "https://mail.google.com/mail/u/0/#all/" + rs.getString("thread_id") : null))
 			.list();
 	}
 

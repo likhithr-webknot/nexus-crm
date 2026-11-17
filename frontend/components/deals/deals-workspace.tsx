@@ -1,40 +1,28 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import {
-  flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  useReactTable,
-  type ColumnDef,
-  type SortingState,
-} from "@tanstack/react-table";
-import { ArrowRight, LayoutGrid, List, Plus, Search, SearchX } from "lucide-react";
+import { LayoutGrid, List, Plus, Search, SearchX } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { AddDealDialog } from "@/components/pipeline/add-deal-dialog";
-import { useCurrency } from "@/components/currency/currency-provider";
+import { SavedViewsMenu } from "@/components/saved-views/saved-views-menu";
+import { RecordBulkBar } from "@/components/tags/record-bulk-bar";
 import {
   Card,
   EmptyState,
   Page,
   PageHeader,
-  StageBadge,
-  Avatar,
   buttonPrimary,
   buttonSecondary,
   control,
 } from "@/components/ui/primitives";
-import { SavedViewsMenu } from "@/components/saved-views/saved-views-menu";
-import { TagList } from "@/components/tags/tag-chip";
-import { RecordBulkBar } from "@/components/tags/record-bulk-bar";
 import { useDebounced } from "@/hooks/use-debounced";
 import { useTags } from "@/hooks/use-tags";
-import { type Deal, listDeals, listStages } from "@/lib/deals";
-import { formatDay } from "@/lib/format";
-import { moneyValue } from "@/lib/money";
+import { listDeals, listStages } from "@/lib/deals";
 import { KEYS } from "@/lib/query-keys";
+import { DealsTable } from "./deals-table";
 
+/** The deals page: search and filters on top, the table below, and bulk actions when rows are ticked. */
 export function DealsWorkspace() {
   const [query, setQuery] = useState("");
   const [stage, setStage] = useState("");
@@ -42,107 +30,20 @@ export function DealsWorkspace() {
   const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set());
   const [page, setPage] = useState(1);
   const [adding, setAdding] = useState(false);
-  const [sorting, setSorting] = useState<SortingState>([{ id: "expectedCloseDate", desc: false }]);
   const q = useDebounced(query.trim(), 200);
-  const { format } = useCurrency();
   const tags = useTags();
   const stages = useQuery({ queryKey: KEYS.stages, queryFn: listStages });
   const deals = useQuery({
     queryKey: [...KEYS.deals, "workspace", { q, stage, tag, page }],
     queryFn: () => listDeals({ q, stage, tag, page, size: 25 }),
   });
-  const columns = useMemo<ColumnDef<Deal>[]>(
-    () => [
-      {
-        id: "select",
-        header: () => <span className="sr-only">Select</span>,
-        enableSorting: false,
-        cell: ({ row }) => (
-          <input
-            type="checkbox"
-            aria-label={`Select ${row.original.name}`}
-            checked={ticked.has(row.original.id)}
-            onChange={(event) =>
-              setTicked((prev) => {
-                const next = new Set(prev);
-                if (event.target.checked) next.add(row.original.id);
-                else next.delete(row.original.id);
-                return next;
-              })
-            }
-            className="size-4 accent-brand"
-          />
-        ),
-      },
-      {
-        accessorKey: "name",
-        header: "Opportunity",
-        cell: ({ row }) => <span className="block max-w-56 truncate font-medium text-ink">{row.original.name}</span>,
-      },
-      {
-        id: "company",
-        accessorFn: (row) => row.company.name,
-        header: "Company",
-        cell: ({ row }) => <span className="text-ink-2">{row.original.company.name}</span>,
-      },
-      {
-        id: "amount",
-        accessorFn: (row) => moneyValue(row.amount),
-        header: "Value",
-        cell: ({ row }) => (
-          <span className="tnum font-medium">
-            {format(moneyValue(row.original.amount), row.original.amount.currency)}
-          </span>
-        ),
-      },
-      {
-        id: "stage",
-        accessorFn: (row) => row.stageCode,
-        header: "Stage",
-        cell: ({ row }) => <StageBadge stage={row.original.stageCode} />,
-      },
-      {
-        id: "owner",
-        accessorFn: (row) => row.owner.name,
-        header: "Owner",
-        cell: ({ row }) => (
-          <span className="flex items-center gap-2">
-            <Avatar name={row.original.owner.name} />
-            {row.original.owner.name}
-          </span>
-        ),
-      },
-      {
-        id: "tags",
-        accessorFn: (row) => (row.tags ?? []).map((t) => t.name).join(", "),
-        header: "Tags",
-        cell: ({ row }) =>
-          (row.original.tags ?? []).length ? (
-            <TagList tags={row.original.tags ?? []} />
-          ) : (
-            <span className="text-ink-3">—</span>
-          ),
-      },
-      {
-        accessorKey: "expectedCloseDate",
-        header: "Close date",
-        cell: ({ row }) => (
-          <span className="tnum text-ink-2">
-            {row.original.expectedCloseDate ? formatDay(row.original.expectedCloseDate) : "—"}
-          </span>
-        ),
-      },
-    ],
-    [format, ticked],
-  );
-  const table = useReactTable({
-    data: deals.data?.items ?? [],
-    columns,
-    state: { sorting },
-    onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-  });
+  const tick = (id: string, on: boolean) =>
+    setTicked((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
   const pages = Math.ceil((deals.data?.total ?? 0) / 25);
 
   return (
@@ -235,7 +136,7 @@ export function DealsWorkspace() {
               <div key={i} className="h-10 rounded-md skeleton" />
             ))}
           </div>
-        ) : table.getRowModel().rows.length === 0 ? (
+        ) : deals.data.items.length === 0 ? (
           <EmptyState
             icon={SearchX}
             title={query || stage || tag ? "No deals match your filters" : "No deals yet"}
@@ -259,56 +160,7 @@ export function DealsWorkspace() {
             )}
           </EmptyState>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] text-left text-[12.5px]">
-              <thead className="sticky top-0 bg-surface text-[11px] text-ink-3 uppercase">
-                <tr>
-                  {table.getHeaderGroups().map((group) =>
-                    group.headers.map((header) => (
-                      <th key={header.id} className="border-b border-line px-4 py-3">
-                        <button
-                          onClick={header.column.getToggleSortingHandler()}
-                          className="inline-flex items-center gap-1 font-semibold hover:text-ink"
-                        >
-                          {flexRender(header.column.columnDef.header, header.getContext())}
-                          <span aria-hidden>
-                            {header.column.getIsSorted() === "asc"
-                              ? "↑"
-                              : header.column.getIsSorted() === "desc"
-                                ? "↓"
-                                : ""}
-                          </span>
-                        </button>
-                      </th>
-                    )),
-                  )}
-                  <th className="border-b border-line px-4 py-3">
-                    <span className="sr-only">Open</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-canvas">
-                    {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="border-b border-line px-4 py-3">
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
-                    ))}
-                    <td className="border-b border-line px-4 py-3">
-                      <Link
-                        href={`/deals/${row.original.id}`}
-                        aria-label={`Open ${row.original.name}`}
-                        className="grid size-7 place-items-center rounded-md text-ink-3 hover:bg-brand-soft hover:text-brand"
-                      >
-                        <ArrowRight className="size-4" />
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DealsTable rows={deals.data.items} ticked={ticked} onTick={tick} />
         )}
         {pages > 1 && (
           <div className="flex items-center justify-between border-t border-line px-4 py-3 text-[12px] text-ink-2">

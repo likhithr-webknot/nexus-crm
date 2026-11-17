@@ -10,6 +10,8 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -45,6 +47,7 @@ import com.nexus.crm.leads.dto.LeadInput;
 import com.nexus.crm.leads.dto.LeadSummary;
 import com.nexus.crm.leads.dto.LeadView;
 import com.nexus.crm.leads.event.LeadAssigned;
+import com.nexus.crm.leads.event.LeadsAssigned;
 import com.nexus.crm.leads.event.LeadConverted;
 import com.nexus.crm.leads.event.LeadStatusChanged;
 import com.nexus.crm.shared.CurrentUser;
@@ -243,14 +246,45 @@ public class LeadService {
 		}
 	}
 
-	/** Gives several leads to one person, or to nobody. All of them change, or none do. */
+	/**
+	 * Gives several leads to one person, or to nobody. All of them change, or none do. Returns how many really changed:
+	 * a lead the person already owns is left alone.
+	 *
+	 * <p>Unlike {@link #assign(CurrentUser, UUID, UUID)} this reads every lead in one query, checks the new owner once,
+	 * and sends one event for the whole batch, so a large selection does not turn into hundreds of notifications.
+	 */
 	@Transactional
 	public int assign(CurrentUser user, Collection<UUID> ids, UUID ownerId) {
 		Set<UUID> unique = new java.util.LinkedHashSet<>(ids);
+		java.util.Map<UUID, Lead> found = new java.util.HashMap<>();
+		this.leads.findAllById(unique).forEach((lead) -> found.put(lead.getId(), lead));
+
+		// Any lead that does not exist or is out of reach stops the whole request, with the same answer as a single lead.
+		Optional<Set<UUID>> visible = this.users.visibleOwnerIds(user);
 		for (UUID id : unique) {
-			assign(user, id, ownerId);
+			Lead lead = found.get(id);
+			if (lead == null || !canSee(visible, lead)) {
+				throw new ApiException(ErrorCode.NOT_FOUND, "Lead not found.");
+			}
 		}
-		return unique.size();
+		UUID newOwner = (ownerId == null) ? null : this.users.requireCanAssignTo(user, ownerId);
+
+		List<UUID> changed = new ArrayList<>();
+		for (UUID id : unique) {
+			Lead lead = found.get(id);
+			if (Objects.equals(lead.getOwnerId(), newOwner)) {
+				continue;
+			}
+			AuditService.Changes changes = AuditService.changes().field("ownerId", lead.getOwnerId(), newOwner);
+			lead.setOwnerId(newOwner);
+			this.audit.record(user.id(), "Lead", id, AuditLog.Action.UPDATE, changes);
+			changed.add(id);
+		}
+		if (!changed.isEmpty()) {
+			this.leads.saveAll(changed.stream().map(found::get).toList());
+			this.events.publishEvent(new LeadsAssigned(changed, newOwner, user.id()));
+		}
+		return changed.size();
 	}
 
 	/** Moves several leads to one status. If one lead cannot move, nothing changes and the message says why. */
@@ -471,6 +505,11 @@ public class LeadService {
 		if (taken) {
 			throw new ApiException(ErrorCode.DUPLICATE, "A lead with this email already exists.");
 		}
+	}
+
+	/** The same check as {@link #canSee(CurrentUser, Lead)}, for a caller that already looked up who the user may see. */
+	private static boolean canSee(Optional<Set<UUID>> visible, Lead lead) {
+		return lead.getOwnerId() == null || visible.map((ids) -> ids.contains(lead.getOwnerId())).orElse(true);
 	}
 
 	private boolean canSee(CurrentUser user, Lead lead) {

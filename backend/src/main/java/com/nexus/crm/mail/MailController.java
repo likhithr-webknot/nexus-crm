@@ -26,46 +26,73 @@ import com.nexus.crm.shared.CurrentUser;
 @RequestMapping("/api/v1/mail")
 @RequiredArgsConstructor
 class MailController {
+
 	private final MailService mail;
+
 	private final MailBannerService banner;
-	@Value("${nexus.auth.frontend-url}") private String frontendUrl;
+
+	@Value("${nexus.auth.frontend-url}")
+	private String frontendUrl;
 
 	@GetMapping("/status")
-	MailService.Status status(@AuthenticationPrincipal CurrentUser user) { return mail.status(user.id()); }
+	MailService.Status status(@AuthenticationPrincipal CurrentUser user) {
+		return mail.status(user.id());
+	}
 
-	/** {@code feature} is mail (send), calendar (push follow-ups) or inbox (read mail from contacts). */
+	/**
+	 * {@code feature} is mail (send), calendar (push follow-ups) or inbox (read mail from
+	 * contacts).
+	 */
 	@PostMapping("/connect")
-	Map<String, String> connect(@AuthenticationPrincipal CurrentUser user, @RequestParam(defaultValue = "mail") String feature) {
+	Map<String, String> connect(@AuthenticationPrincipal CurrentUser user,
+			@RequestParam(defaultValue = "mail") String feature) {
 		return Map.of("url", mail.connectionUrl(user, feature));
 	}
 
 	@GetMapping("/callback")
-	ResponseEntity<Void> callback(@RequestParam(required = false) String code, @RequestParam(required = false) String state) {
+	ResponseEntity<Void> callback(@RequestParam(required = false) String code,
+			@RequestParam(required = false) String state) {
 		String feature = mail.callback(code, state);
-		String landing = "mail".equals(feature) ? "/communications?mail=connected" : "/settings?section=" + ("calendar".equals(feature) ? "calendar" : "mail") + "&google=" + feature;
+		String landing = "mail".equals(feature) ? "/communications?mail=connected"
+				: "/settings?section=" + ("calendar".equals(feature) ? "calendar" : "mail") + "&google=" + feature;
 		return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(frontendUrl + landing)).build();
 	}
 
 	@PostMapping("/send/{id}")
-	ModuleRecord send(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) { return mail.send(user, id); }
+	ModuleRecord send(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) {
+		return mail.send(user, id);
+	}
 
 	@PostMapping("/mark-unsent/{id}")
-	ModuleRecord markUnsent(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) { return mail.markUnsent(user, id); }
+	ModuleRecord markUnsent(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id) {
+		return mail.markUnsent(user, id);
+	}
 
 	@GetMapping("/banner")
-	MailBannerService.Banner banner(@AuthenticationPrincipal CurrentUser user) { return banner.status(user.id()); }
+	MailBannerService.Banner banner(@AuthenticationPrincipal CurrentUser user) {
+		return banner.status(user.id());
+	}
 
-	/** kind is "banner" (a finished image, the default) or "logo" (laid out with each sender's name). */
-	record BannerInput(String imageBase64, String kind, String companyName) { }
+	/**
+	 * kind is "banner" (a finished image, the default) or "logo" (laid out with each
+	 * sender's name).
+	 */
+	record BannerInput(String imageBase64, String kind, String companyName) {
+	}
+
 	@PostMapping("/banner")
 	@PreAuthorize("hasRole('ADMIN')")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
-	void uploadBanner(@AuthenticationPrincipal CurrentUser user, @org.springframework.web.bind.annotation.RequestBody BannerInput input) {
+	void uploadBanner(@AuthenticationPrincipal CurrentUser user,
+			@org.springframework.web.bind.annotation.RequestBody BannerInput input) {
 		banner.upload(user.id(), input.imageBase64(), input.kind(), input.companyName());
 	}
 
 	@DeleteMapping("/banner")
 	@PreAuthorize("hasRole('ADMIN')")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
-	void removeBanner(@AuthenticationPrincipal CurrentUser user) { banner.remove(user.id()); }
+	void removeBanner(@AuthenticationPrincipal CurrentUser user) {
+		banner.remove(user.id());
+	}
+
 }

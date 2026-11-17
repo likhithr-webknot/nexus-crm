@@ -6,7 +6,9 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verify;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -20,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester.MockMvcRequestBuilder;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
@@ -27,10 +30,16 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import com.nexus.crm.identity.user.AppUser;
 import com.nexus.crm.mail.GoogleApi;
 import com.nexus.crm.shared.Role;
+import com.nexus.crm.shared.SecretBox;
 import com.nexus.crm.support.IntegrationTest;
 
 /** Reading a mailbox: only mail with a known contact or lead is kept, nothing doubles, and access follows the record. */
+@TestPropertySource(properties = { "GOOGLE_CLIENT_ID=test-client", "GOOGLE_CLIENT_SECRET=test-secret",
+		"NEXUS_MAIL_REDIRECT_URI=http://localhost:8080/api/v1/mail/callback",
+		"NEXUS_MAIL_TOKEN_KEY=" + InboxSyncTests.TOKEN_KEY })
 class InboxSyncTests extends IntegrationTest {
+
+	static final String TOKEN_KEY = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=";
 
 	@MockitoSpyBean
 	private GoogleApi google;
@@ -81,7 +90,7 @@ class InboxSyncTests extends IntegrationTest {
 
 	private void connectMailbox(AppUser user, String email) {
 		this.jdbc.sql("insert into mail_connection (user_id, email, refresh_token_cipher, scopes) values (:user, :email, :cipher, :scopes)")
-			.param("user", user.getId()).param("email", email).param("cipher", new byte[] { 1 })
+			.param("user", user.getId()).param("email", email).param("cipher", SecretBox.of(TOKEN_KEY, null).encrypt("saved-refresh-token"))
 			.param("scopes", GoogleApi.GMAIL_READ_SCOPE).update();
 		this.jdbc.sql("insert into mail_sync_state (user_id) values (:user)").param("user", user.getId()).update();
 	}
@@ -242,22 +251,43 @@ class InboxSyncTests extends IntegrationTest {
 	}
 
 	@Test
-	void aMessageHeldInTwoMailboxesIsShownOnce() {
-		String otherEmail = uniqueEmail();
-		AppUser other = invite(otherEmail, Role.REP);
-		connectMailbox(other, otherEmail);
-		// Both mailboxes hold the same message (same Message-ID) with different Gmail ids.
-		this.jdbc.sql("""
-				insert into email_message (id, user_id, provider_message_id, rfc_message_id, direction, from_addr, to_addrs, subject, sent_at, contact_id)
-				select gen_random_uuid(), u, 'mid-' || u, 'shared@x', 'IN', :from, :to, 'Shared thread', now(), cast(:contact as uuid)
-				from unnest(cast(:users as uuid[])) as u
-				""")
-			.param("from", this.contactEmail).param("to", this.repEmail).param("contact", this.contactId)
-			.param("users", new UUID[] { this.rep.getId(), other.getId() }).update();
+	void aColleagueWhoCanOpenTheSameContactNeverSeesMyMail() {
+		gmailHas("m1");
+		this.routes.put("/messages/m1", new GoogleApi.Response(200, message("m1", "[\"INBOX\"]", this.contactEmail, this.repEmail, "Just between us", "k1@x")));
+		run();
+		assertThat(json(get(this.session, "/api/v1/emails?contactId=" + this.contactId))).contains("Just between us");
 
-		String shown = json(get(this.session, "/api/v1/emails?contactId=" + this.contactId));
+		// An admin can open every contact, but the emails belong to the mailbox they were read from.
+		Session admin = signedIn(Role.ADMIN);
+		assertThat(get(admin, "/api/v1/contacts/" + this.contactId)).hasStatusOk();
+		assertThat(json(get(admin, "/api/v1/emails?contactId=" + this.contactId))).isEqualTo("[]");
+	}
 
-		assertThat(shown.split("Shared thread", -1)).hasSize(2);
+	@Test
+	void mailWithSomeoneElsesContactIsNotKeptAtAll() {
+		Session otherRep = signedIn(Role.REP);
+		String othersEmail = "other-" + UUID.randomUUID() + "@client.example";
+		post(otherRep, "/api/v1/contacts", "{\"firstName\":\"Omar\",\"lastName\":\"Khan\",\"email\":\"" + othersEmail + "\",\"companyName\":\"Other Co " + UUID.randomUUID() + "\"}");
+		gmailHas("x1");
+		this.routes.put("/messages/x1", new GoogleApi.Response(200, message("x1", "[\"INBOX\"]", othersEmail, this.repEmail, "Not mine to keep", "l1@x")));
+
+		run();
+
+		assertThat(stored()).isZero();
+	}
+
+	@Test
+	void anAdminsMailIsMatchedAgainstEveryContact() {
+		String adminEmail = uniqueEmail();
+		AppUser admin = invite(adminEmail, Role.ADMIN);
+		Session adminSession = signIn(uniqueGoogleId(), adminEmail);
+		connectMailbox(admin, adminEmail);
+		gmailHas("a1");
+		this.routes.put("/messages/a1", new GoogleApi.Response(200, message("a1", "[\"INBOX\"]", this.contactEmail, adminEmail, "Seen by the admin", "m1@x")));
+
+		run();
+
+		assertThat(json(get(adminSession, "/api/v1/emails?contactId=" + this.contactId))).contains("Seen by the admin");
 	}
 
 	@Test
@@ -277,16 +307,45 @@ class InboxSyncTests extends IntegrationTest {
 	}
 
 	@Test
-	void turningSyncOffCanAlsoDeleteWhatWasImported() {
+	void turningSyncOffCanAlsoDeleteWhatWasImportedAndCancelsTheGoogleGrantWhenNothingElseUsesIt() {
 		gmailHas("m1");
 		this.routes.put("/messages/m1", new GoogleApi.Response(200, message("m1", "[\"INBOX\"]", this.contactEmail, this.repEmail, "Hello", "i1@x")));
 		run();
 		assertThat(stored()).isEqualTo(1);
+		doReturn(true).when(this.google).revoke("saved-refresh-token");
 
-		assertThat(withCsrf(this.mvc.delete().uri("/api/v1/inbox?deleteImported=true")).cookie(this.session.accessToken()).exchange()).hasStatus(204);
+		MvcTestResult result = withCsrf(this.mvc.delete().uri("/api/v1/inbox?deleteImported=true")).cookie(this.session.accessToken()).exchange();
 
+		assertThat(result).hasStatusOk();
+		assertThat(json(result)).contains("\"revokedAtGoogle\":true").contains("\"otherFeaturesStillOn\":false");
 		assertThat(stored()).isZero();
 		assertThat(this.jdbc.sql("select count(*) from mail_sync_state where user_id = :user").param("user", this.rep.getId()).query(Long.class).single()).isZero();
+		// Nothing else used the saved token, so it is gone and Google was told to cancel it.
+		assertThat(this.jdbc.sql("select count(*) from mail_connection where user_id = :user").param("user", this.rep.getId()).query(Long.class).single()).isZero();
+		verify(this.google).revoke("saved-refresh-token");
+	}
+
+	@Test
+	void turningSyncOffKeepsTheGoogleGrantWhileMailSendingStillUsesIt() {
+		this.jdbc.sql("update mail_connection set scopes = :scopes where user_id = :user")
+			.param("scopes", GoogleApi.GMAIL_READ_SCOPE + " " + GoogleApi.GMAIL_SEND_SCOPE).param("user", this.rep.getId()).update();
+
+		MvcTestResult result = withCsrf(this.mvc.delete().uri("/api/v1/inbox")).cookie(this.session.accessToken()).exchange();
+
+		assertThat(json(result)).contains("\"revokedAtGoogle\":false").contains("\"otherFeaturesStillOn\":true");
+		verify(this.google, never()).revoke(anyString());
+		assertThat(this.jdbc.sql("select scopes from mail_connection where user_id = :user").param("user", this.rep.getId()).query(String.class).single())
+			.isEqualTo(GoogleApi.GMAIL_SEND_SCOPE);
+	}
+
+	@Test
+	void ifGoogleCannotBeReachedTheSavedTokenIsStillDeletedAndTheUserIsTold() {
+		doReturn(false).when(this.google).revoke(anyString());
+
+		MvcTestResult result = withCsrf(this.mvc.delete().uri("/api/v1/inbox")).cookie(this.session.accessToken()).exchange();
+
+		assertThat(json(result)).contains("\"revokedAtGoogle\":false").contains("\"otherFeaturesStillOn\":false");
+		assertThat(this.jdbc.sql("select count(*) from mail_connection where user_id = :user").param("user", this.rep.getId()).query(Long.class).single()).isZero();
 	}
 
 	@Test

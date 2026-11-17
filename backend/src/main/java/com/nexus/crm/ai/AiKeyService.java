@@ -3,7 +3,6 @@ package com.nexus.crm.ai;
 import java.time.Instant;
 import java.util.UUID;
 
-
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -19,82 +18,149 @@ import com.nexus.crm.shared.error.ErrorCode;
 @Service
 @RequiredArgsConstructor
 public class AiKeyService {
-  private static final UUID AUDIT_ID = new UUID(0, 2);
-  private final JdbcClient jdbc;
-  private final AuditService audit;
 
-  /** Whose key it is. The row number in ai_key_config is fixed per provider. */
-  public enum Provider { OPENAI(1), SARVAM(2); final int row; Provider(int row) { this.row = row; } }
+	private static final UUID AUDIT_ID = new UUID(0, 2);
 
-  @Value("${OPENAI_API_KEY:}") private String openAiEnvironmentKey;
-  @Value("${SARVAM_API_KEY:}") private String sarvamEnvironmentKey;
-  @Value("${NEXUS_AI_KEY_NAME:primary}") private String environmentName;
-  @Value("${NEXUS_AI_CONFIG_KEY:}") private String configKey;
-  @Value("${NEXUS_MAIL_TOKEN_KEY:}") private String mailKey;
+	private final JdbcClient jdbc;
 
-  public record Credentials(String key, String name) { }
-  public record KeyStatus(boolean configured, String keyName, String source, Instant updatedAt) { }
+	private final AuditService audit;
 
-  /** The OpenAI key in use: the one an admin saved, otherwise the server's. */
-  public Credentials active() { return active(Provider.OPENAI); }
-  public KeyStatus status() { return status(Provider.OPENAI); }
+	/** Whose key it is. The row number in ai_key_config is fixed per provider. */
+	public enum Provider {
 
-  public Credentials active(Provider provider) {
-    var saved = jdbc.sql("select key_cipher,key_name from ai_key_config where id=:row").param("row", provider.row)
-      .query((rs, row) -> new Credentials(decrypt(rs.getBytes("key_cipher")), rs.getString("key_name"))).optional();
-    return saved.orElseGet(() -> new Credentials(environmentKey(provider), environmentName));
-  }
+		OPENAI(1), SARVAM(2);
 
-  public KeyStatus status(Provider provider) {
-    var saved = jdbc.sql("select key_name,updated_at from ai_key_config where id=:row").param("row", provider.row)
-      .query((rs, row) -> new KeyStatus(true, rs.getString("key_name"), "ADMIN", rs.getObject("updated_at", java.time.OffsetDateTime.class).toInstant())).optional();
-    boolean onServer = !environmentKey(provider).isBlank();
-    return saved.orElseGet(() -> new KeyStatus(onServer, onServer ? environmentName : "", onServer ? "SERVER" : "NONE", null));
-  }
+		final int row;
 
-  @Transactional
-  public void set(UUID adminId, Provider provider, String key, String name) {
-    boolean plausible = key != null && key.length() >= 16 && key.length() <= 1000 && key.chars().noneMatch(Character::isWhitespace);
-    if (provider == Provider.OPENAI && (!plausible || !key.startsWith("sk-") || key.length() < 32)) throw invalid("Enter a valid OpenAI API key.");
-    if (provider == Provider.SARVAM && !plausible) throw invalid("Enter a valid Sarvam AI API key.");
-    if (name == null || !name.matches("[A-Za-z0-9][A-Za-z0-9 ._-]{1,79}"))
-      throw invalid("Give this key a short name.");
-    byte[] cipher = encrypt(key);
-    jdbc.sql("insert into ai_key_config (id,key_cipher,key_name,updated_by) values (:row,:cipher,:name,:user) "
-        + "on conflict (id) do update set key_cipher=excluded.key_cipher,key_name=excluded.key_name,updated_by=excluded.updated_by,updated_at=now()")
-      .param("row", provider.row).param("cipher", cipher).param("name", name.strip()).param("user", adminId).update();
-    audit.record(adminId, "AiKeyConfig", auditId(provider), AuditLog.Action.UPDATE, null);
-  }
+		Provider(int row) {
+			this.row = row;
+		}
 
-  @Transactional
-  public void clear(UUID adminId, Provider provider) {
-    int removed = jdbc.sql("delete from ai_key_config where id=:row").param("row", provider.row).update();
-    if (removed == 0) throw invalid("There is no admin-managed key to remove.");
-    audit.record(adminId, "AiKeyConfig", auditId(provider), AuditLog.Action.DELETE, null);
-  }
+	}
 
-  private String environmentKey(Provider provider) { return provider == Provider.OPENAI ? openAiEnvironmentKey : sarvamEnvironmentKey; }
-  /** OpenAI keeps the id it always had; Sarvam gets its own, so the audit log tells them apart. */
-  private UUID auditId(Provider provider) { return provider == Provider.OPENAI ? AUDIT_ID : new UUID(0, 3); }
+	@Value("${OPENAI_API_KEY:}")
+	private String openAiEnvironmentKey;
 
-  /** Keys are saved with NEXUS_AI_CONFIG_KEY only. It is never shared with the mail key, so one leak cannot open both. */
-  private static final String CONTEXT = "nexus-ai-key-v1";
+	@Value("${SARVAM_API_KEY:}")
+	private String sarvamEnvironmentKey;
 
-  private byte[] encrypt(String value) {
-    SecretBox box = SecretBox.of(configKey, CONTEXT);
-    if (box == null) throw invalid("AI key storage is not configured on the server. Set NEXUS_AI_CONFIG_KEY.");
-    return box.encrypt(value);
-  }
+	@Value("${NEXUS_AI_KEY_NAME:primary}")
+	private String environmentName;
 
-  /**
-   * Also tries the mail key, because older installs saved AI keys with it. Saving the key again re-encrypts it with
-   * NEXUS_AI_CONFIG_KEY, and then the mail key can be taken out of the list.
-   */
-  private String decrypt(byte[] stored) {
-    SecretBox box = SecretBox.of(configKey + "," + mailKey, CONTEXT);
-    if (box == null) throw invalid("AI key storage is not configured on the server. Set NEXUS_AI_CONFIG_KEY.");
-    return box.decrypt(stored);
-  }
+	@Value("${NEXUS_AI_CONFIG_KEY:}")
+	private String configKey;
 
-  private ApiException invalid(String message) { return new ApiException(ErrorCode.VALIDATION_FAILED, message); }
+	@Value("${NEXUS_MAIL_TOKEN_KEY:}")
+	private String mailKey;
+
+	public record Credentials(String key, String name) {
+	}
+
+	public record KeyStatus(boolean configured, String keyName, String source, Instant updatedAt) {
+	}
+
+	/** The OpenAI key in use: the one an admin saved, otherwise the server's. */
+	public Credentials active() {
+		return active(Provider.OPENAI);
+	}
+
+	public KeyStatus status() {
+		return status(Provider.OPENAI);
+	}
+
+	public Credentials active(Provider provider) {
+		var saved = jdbc.sql("select key_cipher,key_name from ai_key_config where id=:row")
+			.param("row", provider.row)
+			.query((rs, row) -> new Credentials(decrypt(rs.getBytes("key_cipher")), rs.getString("key_name")))
+			.optional();
+		return saved.orElseGet(() -> new Credentials(environmentKey(provider), environmentName));
+	}
+
+	public KeyStatus status(Provider provider) {
+		var saved = jdbc.sql("select key_name,updated_at from ai_key_config where id=:row")
+			.param("row", provider.row)
+			.query((rs, row) -> new KeyStatus(true, rs.getString("key_name"), "ADMIN",
+					rs.getObject("updated_at", java.time.OffsetDateTime.class).toInstant()))
+			.optional();
+		boolean onServer = !environmentKey(provider).isBlank();
+		return saved.orElseGet(
+				() -> new KeyStatus(onServer, onServer ? environmentName : "", onServer ? "SERVER" : "NONE", null));
+	}
+
+	@Transactional
+	public void set(UUID adminId, Provider provider, String key, String name) {
+		boolean plausible = key != null && key.length() >= 16 && key.length() <= 1000
+				&& key.chars().noneMatch(Character::isWhitespace);
+		if (provider == Provider.OPENAI && (!plausible || !key.startsWith("sk-") || key.length() < 32)) {
+			throw invalid("Enter a valid OpenAI API key.");
+		}
+		if (provider == Provider.SARVAM && !plausible) {
+			throw invalid("Enter a valid Sarvam AI API key.");
+		}
+		if (name == null || !name.matches("[A-Za-z0-9][A-Za-z0-9 ._-]{1,79}")) {
+			throw invalid("Give this key a short name.");
+		}
+		byte[] cipher = encrypt(key);
+		jdbc.sql("insert into ai_key_config (id,key_cipher,key_name,updated_by) values (:row,:cipher,:name,:user) "
+				+ "on conflict (id) do update set key_cipher=excluded.key_cipher,key_name=excluded.key_name,updated_by=excluded.updated_by,updated_at=now()")
+			.param("row", provider.row)
+			.param("cipher", cipher)
+			.param("name", name.strip())
+			.param("user", adminId)
+			.update();
+		audit.record(adminId, "AiKeyConfig", auditId(provider), AuditLog.Action.UPDATE, null);
+	}
+
+	@Transactional
+	public void clear(UUID adminId, Provider provider) {
+		int removed = jdbc.sql("delete from ai_key_config where id=:row").param("row", provider.row).update();
+		if (removed == 0) {
+			throw invalid("There is no admin-managed key to remove.");
+		}
+		audit.record(adminId, "AiKeyConfig", auditId(provider), AuditLog.Action.DELETE, null);
+	}
+
+	private String environmentKey(Provider provider) {
+		return provider == Provider.OPENAI ? openAiEnvironmentKey : sarvamEnvironmentKey;
+	}
+
+	/**
+	 * OpenAI keeps the id it always had; Sarvam gets its own, so the audit log tells them
+	 * apart.
+	 */
+	private UUID auditId(Provider provider) {
+		return provider == Provider.OPENAI ? AUDIT_ID : new UUID(0, 3);
+	}
+
+	/**
+	 * Keys are saved with NEXUS_AI_CONFIG_KEY only. It is never shared with the mail key,
+	 * so one leak cannot open both.
+	 */
+	private static final String CONTEXT = "nexus-ai-key-v1";
+
+	private byte[] encrypt(String value) {
+		SecretBox box = SecretBox.of(configKey, CONTEXT);
+		if (box == null) {
+			throw invalid("AI key storage is not configured on the server. Set NEXUS_AI_CONFIG_KEY.");
+		}
+		return box.encrypt(value);
+	}
+
+	/**
+	 * Also tries the mail key, because older installs saved AI keys with it. Saving the
+	 * key again re-encrypts it with NEXUS_AI_CONFIG_KEY, and then the mail key can be
+	 * taken out of the list.
+	 */
+	private String decrypt(byte[] stored) {
+		SecretBox box = SecretBox.of(configKey + "," + mailKey, CONTEXT);
+		if (box == null) {
+			throw invalid("AI key storage is not configured on the server. Set NEXUS_AI_CONFIG_KEY.");
+		}
+		return box.decrypt(stored);
+	}
+
+	private ApiException invalid(String message) {
+		return new ApiException(ErrorCode.VALIDATION_FAILED, message);
+	}
+
 }

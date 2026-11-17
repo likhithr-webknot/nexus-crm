@@ -73,7 +73,7 @@ What we are building next, in order, and why. Each slice is finished (backend, f
 | --- | --- | --- |
 | 6.1 | **Calendar link** (Apple Calendar, Outlook, any app that reads `.ics`): a private link per user that shows their follow-ups. Stored only as a hash, replaceable, removable. One way. | **Done** (backend, frontend, tests) |
 | 6.2 | **Google Calendar push**: follow-ups become 30-minute events in the user's own calendar, within a minute or two of a change. One way; an event deleted in Google stays deleted. Needs the Calendar API and the `calendar.events` scope. | **Done** against a stubbed Google; not yet run against real Google |
-| 6.3 | **Inbox sync**: mail to or from a known contact or lead is copied onto that record (subject, people, Gmail's snippet). Read-only `gmail.readonly` scope, which Google treats as restricted. | **Done** against a stubbed Gmail; not yet run against real Google |
+| 6.3 | **Inbox sync**: mail to or from a known contact or lead is copied onto that record (subject, people, Gmail's snippet). Read-only `gmail.readonly` scope, which Google treats as restricted. **Private to the mailbox owner**: mail is attached only to contacts and leads that person can open, and only that person sees it, never a colleague, manager or admin. | **Done** against a stubbed Gmail; not yet run against real Google |
 
 ## Operations, in parallel with the phases
 

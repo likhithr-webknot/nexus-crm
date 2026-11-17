@@ -160,7 +160,7 @@ class SavedViewController {
 		return clean;
 	}
 
-	private static Map<String, String> cleanFilters(String type, Map<String, String> filters) {
+	private Map<String, String> cleanFilters(String type, Map<String, String> filters) {
 		Map<String, String> clean = new LinkedHashMap<>();
 		if (filters != null) {
 			filters.forEach((key, value) -> {
@@ -175,7 +175,37 @@ class SavedViewController {
 				}
 			});
 		}
+		requireKnownReferences(clean);
 		return clean;
+	}
+
+	/**
+	 * A view stores ids (a tag, a person), so it must not point at something that does not exist: it would silently show
+	 * an empty list. The words "me" and "unassigned" are allowed for the owner. Deleting a tag later removes it from the
+	 * views that used it (see {@code TagService.delete}).
+	 */
+	private void requireKnownReferences(Map<String, String> filters) {
+		String tag = filters.get("tag");
+		if (tag != null && !exists("select count(*) from tag where id = :id", tag)) {
+			throw new ApiException(ErrorCode.VALIDATION_FAILED, "That tag no longer exists. Choose another tag.");
+		}
+		String owner = filters.get("ownerId");
+		boolean words = "me".equals(owner) || "unassigned".equals(owner);
+		if (owner != null && !words && !exists("select count(*) from app_user where id = :id", owner)) {
+			throw new ApiException(ErrorCode.VALIDATION_FAILED, "That person does not exist. Choose someone else.");
+		}
+	}
+
+	/** True when the text is an id that the query finds. Text that is not an id counts as not found. */
+	private boolean exists(String countQuery, String id) {
+		UUID parsed;
+		try {
+			parsed = UUID.fromString(id);
+		}
+		catch (IllegalArgumentException ex) {
+			return false;
+		}
+		return this.jdbc.sql(countQuery).param("id", parsed).query(Long.class).single() > 0;
 	}
 
 }

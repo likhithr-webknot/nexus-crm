@@ -81,6 +81,10 @@ public class TagService {
 		if (removed == 0) {
 			throw new ApiException(ErrorCode.NOT_FOUND, "Tag not found.");
 		}
+		// Saved views keep the tag id inside their filters. Take it out, or those views would show an empty list.
+		this.jdbc.sql("update saved_view set filters = filters - 'tag', updated_at = now() where filters ->> 'tag' = :id")
+			.param("id", id.toString())
+			.update();
 		this.audit.record(user.id(), "Tag", id, AuditLog.Action.DELETE, null);
 	}
 

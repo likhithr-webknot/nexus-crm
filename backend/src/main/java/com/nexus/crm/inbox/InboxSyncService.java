@@ -11,6 +11,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -21,16 +22,22 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import com.nexus.crm.identity.user.UserService;
 import com.nexus.crm.mail.GoogleApi;
+import com.nexus.crm.shared.CurrentUser;
 
 /**
- * Copies mail to and from known contacts and leads onto their records. It reads each connected mailbox with the
- * read-only Gmail permission, keeps a message only when one of its addresses belongs to a contact or lead, and stores the
- * subject, the people and Gmail's short snippet, never the full text. Everything else is dropped as soon as it is read.
+ * Copies mail to and from known contacts and leads onto their records. It reads each
+ * connected mailbox with the read-only Gmail permission, keeps a message only when one of
+ * its addresses belongs to a contact or lead, and stores the subject, the people and
+ * Gmail's short snippet, never the full text. Everything else is dropped as soon as it is
+ * read.
  *
- * <p>First the last 30 days are read, a page at a time over several runs. After that only what is new since the saved
- * history marker is read. If Google no longer has that marker, the last 30 days are read again (messages already
- * stored are skipped, so nothing doubles).
+ * <p>
+ * First the last 30 days are read, a page at a time over several runs. After that only
+ * what is new since the saved history marker is read. If Google no longer has that
+ * marker, the last 30 days are read again (messages already stored are skipped, so
+ * nothing doubles).
  */
 @Slf4j
 @Service
@@ -39,7 +46,10 @@ public class InboxSyncService {
 
 	private static final String API = "https://gmail.googleapis.com/gmail/v1/users/me";
 
-	/** How many messages one user's run reads. Keeps one big mailbox from using all of the run. */
+	/**
+	 * How many messages one user's run reads. Keeps one big mailbox from using all of the
+	 * run.
+	 */
 	private static final int MESSAGES_PER_RUN = 100;
 
 	private static final int USERS_PER_RUN = 10;
@@ -53,6 +63,8 @@ public class InboxSyncService {
 	private final JdbcClient jdbc;
 
 	private final GoogleApi google;
+
+	private final UserService users;
 
 	@Value("${nexus.inbox.sync:true}")
 	private boolean enabled;
@@ -73,8 +85,11 @@ public class InboxSyncService {
 				                  order by last_run_at nulls first limit :limit for update skip locked)
 				returning user_id
 				""")
-			.param("now", at(now)).param("due", at(now.minusSeconds(240))).param("limit", USERS_PER_RUN)
-			.query(UUID.class).list();
+			.param("now", at(now))
+			.param("due", at(now.minusSeconds(240)))
+			.param("limit", USERS_PER_RUN)
+			.query(UUID.class)
+			.list();
 		int stored = 0;
 		for (UUID user : users) {
 			try {
@@ -104,9 +119,15 @@ public class InboxSyncService {
 			recordError(user, "Google could not be reached. It will try again shortly.");
 			return 0;
 		}
-		String own = this.jdbc.sql("select lower(email::text) from mail_connection where user_id = :user").param("user", user).query(String.class).single();
-		State state = this.jdbc.sql("select history_id, backfill_token, backfilling from mail_sync_state where user_id = :user").param("user", user)
-			.query((rs, i) -> new State(rs.getString(1), rs.getString(2), rs.getBoolean(3))).single();
+		String own = this.jdbc.sql("select lower(email::text) from mail_connection where user_id = :user")
+			.param("user", user)
+			.query(String.class)
+			.single();
+		State state = this.jdbc
+			.sql("select history_id, backfill_token, backfilling from mail_sync_state where user_id = :user")
+			.param("user", user)
+			.query((rs, i) -> new State(rs.getString(1), rs.getString(2), rs.getBoolean(3)))
+			.single();
 
 		List<String> ids = new ArrayList<>();
 		String newHistoryId = state.historyId();
@@ -115,7 +136,8 @@ public class InboxSyncService {
 
 		if (state.backfilling()) {
 			if (state.historyId() == null) {
-				// Take the marker before reading, so mail that arrives while reading is picked up by the next run.
+				// Take the marker before reading, so mail that arrives while reading is
+				// picked up by the next run.
 				GoogleApi.Response profile = this.google.call("GET", API + "/profile", token, null);
 				if (!profile.ok()) {
 					return fail(user, profile);
@@ -134,11 +156,16 @@ public class InboxSyncService {
 			backfilling = !nextBackfillToken.isEmpty();
 		}
 		else {
-			String url = API + "/history?startHistoryId=" + enc(state.historyId()) + "&historyTypes=messageAdded&maxResults=" + MESSAGES_PER_RUN;
+			String url = API + "/history?startHistoryId=" + enc(state.historyId())
+					+ "&historyTypes=messageAdded&maxResults=" + MESSAGES_PER_RUN;
 			GoogleApi.Response page = this.google.call("GET", url, token, null);
 			if (page.status() == 404) {
-				// Google keeps history for about a week. After a longer gap, read the last 30 days again.
-				this.jdbc.sql("update mail_sync_state set history_id = null, backfill_token = null, backfilling = true where user_id = :user").param("user", user).update();
+				// Google keeps history for about a week. After a longer gap, read the
+				// last 30 days again.
+				this.jdbc.sql(
+						"update mail_sync_state set history_id = null, backfill_token = null, backfilling = true where user_id = :user")
+					.param("user", user)
+					.update();
 				return 0;
 			}
 			if (!page.ok()) {
@@ -149,7 +176,8 @@ public class InboxSyncService {
 				for (Object entry : history) {
 					if (entry instanceof Map<?, ?> map && map.get("messagesAdded") instanceof List<?> added) {
 						for (Object a : added) {
-							if (a instanceof Map<?, ?> m && m.get("message") instanceof Map<?, ?> msg && msg.get("id") instanceof String id) {
+							if (a instanceof Map<?, ?> m && m.get("message") instanceof Map<?, ?> msg
+									&& msg.get("id") instanceof String id) {
 								ids.add(id);
 							}
 						}
@@ -158,7 +186,8 @@ public class InboxSyncService {
 			}
 			newHistoryId = string(parsed.get("historyId"));
 			// A long history continues on the next run from where this page ended.
-			if (!string(parsed.get("nextPageToken")).isEmpty() && parsed.get("history") instanceof List<?> h && !h.isEmpty()) {
+			if (!string(parsed.get("nextPageToken")).isEmpty() && parsed.get("history") instanceof List<?> h
+					&& !h.isEmpty()) {
 				Object last = h.getLast();
 				if (last instanceof Map<?, ?> lastEntry && lastEntry.get("id") instanceof String lastId) {
 					newHistoryId = lastId;
@@ -168,8 +197,11 @@ public class InboxSyncService {
 
 		List<Fetched> fetched = new ArrayList<>();
 		for (String id : new LinkedHashSet<>(ids)) {
-			GoogleApi.Response message = this.google.call("GET", API + "/messages/" + enc(id) + "?format=metadata&metadataHeaders=From&metadataHeaders=To"
-					+ "&metadataHeaders=Cc&metadataHeaders=Subject&metadataHeaders=Message-ID", token, null);
+			GoogleApi.Response message = this.google
+				.call("GET",
+						API + "/messages/" + enc(id) + "?format=metadata&metadataHeaders=From&metadataHeaders=To"
+								+ "&metadataHeaders=Cc&metadataHeaders=Subject&metadataHeaders=Message-ID",
+						token, null);
 			if (message.status() == 404) {
 				continue;
 			}
@@ -187,26 +219,35 @@ public class InboxSyncService {
 				update mail_sync_state set history_id = :history, backfill_token = :token, backfilling = :backfilling,
 				  last_synced_at = :now, last_error = null where user_id = :user
 				""")
-			.param("history", newHistoryId).param("token", (nextBackfillToken == null || nextBackfillToken.isEmpty()) ? null : nextBackfillToken)
-			.param("backfilling", backfilling).param("now", at(now)).param("user", user).update();
+			.param("history", newHistoryId)
+			.param("token", (nextBackfillToken == null || nextBackfillToken.isEmpty()) ? null : nextBackfillToken)
+			.param("backfilling", backfilling)
+			.param("now", at(now))
+			.param("user", user)
+			.update();
 		return stored;
 	}
 
 	/** What is kept from one message before it is matched. */
-	record Fetched(String providerId, String threadId, String rfcId, String direction, String from, Set<String> people, String toLine,
-			String subject, String snippet, Instant sentAt) {
+	record Fetched(String providerId, String threadId, String rfcId, String direction, String from, Set<String> people,
+			String toLine, String subject, String snippet, Instant sentAt) {
 	}
 
-	/** Reads a Gmail "metadata" message. Returns null for mail that should not be kept (spam, trash, drafts) or has no usable people. */
+	/**
+	 * Reads a Gmail "metadata" message. Returns null for mail that should not be kept
+	 * (spam, trash, drafts) or has no usable people.
+	 */
 	@SuppressWarnings("unchecked")
 	Fetched parseMessage(Map<String, Object> message, String ownAddress) {
-		if (message.get("labelIds") instanceof List<?> labels && labels.stream().anyMatch((l) -> SKIPPED_LABELS.contains(l))) {
+		if (message.get("labelIds") instanceof List<?> labels
+				&& labels.stream().anyMatch((l) -> SKIPPED_LABELS.contains(l))) {
 			return null;
 		}
 		Map<String, String> headers = new HashMap<>();
 		if (message.get("payload") instanceof Map<?, ?> payload && payload.get("headers") instanceof List<?> list) {
 			for (Object h : list) {
-				if (h instanceof Map<?, ?> header && header.get("name") instanceof String name && header.get("value") instanceof String value) {
+				if (h instanceof Map<?, ?> header && header.get("name") instanceof String name
+						&& header.get("value") instanceof String value) {
 					headers.putIfAbsent(name.toLowerCase(Locale.ROOT), value);
 				}
 			}
@@ -229,20 +270,34 @@ public class InboxSyncService {
 		}
 		String direction = from.contains(ownAddress) ? "OUT" : "IN";
 		String subject = clip(headers.getOrDefault("subject", ""), SUBJECT_MAX);
-		return new Fetched(id, string(message.get("threadId")), emptyToNull(clip(headers.get("message-id"), 300)), direction, from.iterator().next(), people,
-				String.join(", ", to), subject.isBlank() ? "(no subject)" : subject, clip(string(message.get("snippet")), SNIPPET_MAX), Instant.ofEpochMilli(millis));
+		return new Fetched(id, string(message.get("threadId")), emptyToNull(clip(headers.get("message-id"), 300)),
+				direction, from.iterator().next(), people, String.join(", ", to),
+				subject.isBlank() ? "(no subject)" : subject, clip(string(message.get("snippet")), SNIPPET_MAX),
+				Instant.ofEpochMilli(millis));
 	}
 
-	/** Keeps the messages whose people include a contact or lead. One row per message per matching record. */
+	/**
+	 * Keeps the messages whose people include a contact or lead. One row per message per
+	 * matching record.
+	 */
 	private int store(UUID user, List<Fetched> messages) {
 		if (messages.isEmpty()) {
 			return 0;
 		}
 		Set<String> addresses = new LinkedHashSet<>();
 		messages.forEach((m) -> addresses.addAll(m.people()));
+
+		// Mail is only attached to records this person can open themselves. A contact owned by someone else never
+		// gets this mailbox's mail, even when the address matches.
+		Optional<Set<UUID>> owners = visibleOwners(user);
+		String contactScope = owners.isPresent() ? " and owner_id in (:owners)" : "";
+		String leadScope = owners.isPresent() ? " and (owner_id in (:owners) or owner_id is null)" : "";
+
 		// lower(...) because the stored addresses are case-insensitive but a bound parameter is plain text.
-		Map<String, List<UUID>> contacts = lookup("select id, lower(email::text) from contact where deleted_at is null and lower(email::text) in (:addresses)", addresses);
-		Map<String, List<UUID>> leads = lookup("select id, lower(email::text) from lead where deleted_at is null and lower(email::text) in (:addresses)", addresses);
+		Map<String, List<UUID>> contacts = lookup("select id, lower(email::text) from contact where deleted_at is null"
+				+ " and lower(email::text) in (:addresses)" + contactScope, addresses, owners);
+		Map<String, List<UUID>> leads = lookup("select id, lower(email::text) from lead where deleted_at is null"
+				+ " and lower(email::text) in (:addresses)" + leadScope, addresses, owners);
 
 		int stored = 0;
 		for (Fetched m : messages) {
@@ -262,38 +317,61 @@ public class InboxSyncService {
 		return stored;
 	}
 
-	private Map<String, List<UUID>> lookup(String sql, Set<String> addresses) {
+	private Map<String, List<UUID>> lookup(String sql, Set<String> addresses, Optional<Set<UUID>> owners) {
 		Map<String, List<UUID>> found = new HashMap<>();
-		this.jdbc.sql(sql).param("addresses", addresses)
-			.query((rs, i) -> {
-				found.computeIfAbsent(rs.getString(2), (k) -> new ArrayList<>()).add(rs.getObject(1, UUID.class));
-				return null;
-			}).list();
+		var query = this.jdbc.sql(sql).param("addresses", addresses);
+		// An empty IN () is not valid SQL, so someone with nobody in scope matches no one.
+		owners.ifPresent((ids) -> query.param("owners", ids.isEmpty() ? Set.of(new UUID(0, 0)) : ids));
+		query.query((rs, i) -> {
+			found.computeIfAbsent(rs.getString(2), (k) -> new ArrayList<>()).add(rs.getObject(1, UUID.class));
+			return null;
+		}).list();
 		return found;
 	}
 
+	/** Whose records this user may open. Empty means everyone's (an admin). A user who is no longer active sees none. */
+	private Optional<Set<UUID>> visibleOwners(UUID user) {
+		return this.users.activeRole(user)
+			.map((role) -> this.users.visibleOwnerIds(new CurrentUser(user, role, null)))
+			.orElse(Optional.of(Set.of()));
+	}
+
 	private int insert(UUID user, Fetched m, UUID contact, UUID lead) {
-		return this.jdbc.sql("""
-				insert into email_message (id, user_id, provider_message_id, thread_id, rfc_message_id, direction, from_addr, to_addrs, subject, snippet, sent_at, contact_id, lead_id)
-				values (:id, :user, :provider, :thread, :rfc, :direction, :from, :to, :subject, :snippet, :sent, :contact, :lead)
-				on conflict do nothing
-				""")
-			.param("id", UUID.randomUUID()).param("user", user).param("provider", m.providerId()).param("thread", emptyToNull(m.threadId()))
-			.param("rfc", m.rfcId()).param("direction", m.direction()).param("from", m.from()).param("to", m.toLine())
-			.param("subject", m.subject()).param("snippet", m.snippet()).param("sent", at(m.sentAt()))
-			.param("contact", contact).param("lead", lead)
+		return this.jdbc
+			.sql("""
+					insert into email_message (id, user_id, provider_message_id, thread_id, rfc_message_id, direction, from_addr, to_addrs, subject, snippet, sent_at, contact_id, lead_id)
+					values (:id, :user, :provider, :thread, :rfc, :direction, :from, :to, :subject, :snippet, :sent, :contact, :lead)
+					on conflict do nothing
+					""")
+			.param("id", UUID.randomUUID())
+			.param("user", user)
+			.param("provider", m.providerId())
+			.param("thread", emptyToNull(m.threadId()))
+			.param("rfc", m.rfcId())
+			.param("direction", m.direction())
+			.param("from", m.from())
+			.param("to", m.toLine())
+			.param("subject", m.subject())
+			.param("snippet", m.snippet())
+			.param("sent", at(m.sentAt()))
+			.param("contact", contact)
+			.param("lead", lead)
 			.update();
 	}
 
 	private int fail(UUID user, GoogleApi.Response response) {
-		recordError(user, (response.status() == 429 || response.status() >= 500)
-				? "Google asked us to slow down (HTTP " + response.status() + "). It will try again shortly."
-				: "Google refused the request (HTTP " + response.status() + "). Try connecting again.");
+		recordError(user,
+				(response.status() == 429 || response.status() >= 500)
+						? "Google asked us to slow down (HTTP " + response.status() + "). It will try again shortly."
+						: "Google refused the request (HTTP " + response.status() + "). Try connecting again.");
 		return 0;
 	}
 
 	private void recordError(UUID user, String message) {
-		this.jdbc.sql("update mail_sync_state set last_error = :message where user_id = :user").param("message", message).param("user", user).update();
+		this.jdbc.sql("update mail_sync_state set last_error = :message where user_id = :user")
+			.param("message", message)
+			.param("user", user)
+			.update();
 	}
 
 	private static List<String> idsOf(Object messages) {

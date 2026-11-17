@@ -20,33 +20,52 @@ import com.nexus.crm.shared.CurrentUser;
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ADMIN')")
 class AiKeyController {
-  private final AiKeyService keys;
-  record Input(String key, String name) { }
 
-  /* "/api/v1/ai/admin/key" alone is the OpenAI key, as before. "/sarvam" is the voice key. */
+	private final AiKeyService keys;
 
-  @GetMapping
-  AiKeyService.KeyStatus status() { return keys.status(Provider.OPENAI); }
+	record Input(String key, String name) {
+	}
 
-  @PutMapping
-  AiKeyService.KeyStatus save(@AuthenticationPrincipal CurrentUser user, @RequestBody Input input) { return save(user, Provider.OPENAI, input); }
+	/*
+	 * "/api/v1/ai/admin/key" alone is the OpenAI key, as before. "/sarvam" is the voice
+	 * key.
+	 */
 
-  @DeleteMapping
-  @ResponseStatus(HttpStatus.NO_CONTENT)
-  void clear(@AuthenticationPrincipal CurrentUser user) { keys.clear(user.id(), Provider.OPENAI); }
+	@GetMapping
+	AiKeyService.KeyStatus status() {
+		return keys.status(Provider.OPENAI);
+	}
 
-  @GetMapping("/sarvam")
-  AiKeyService.KeyStatus sarvamStatus() { return keys.status(Provider.SARVAM); }
+	@PutMapping
+	AiKeyService.KeyStatus save(@AuthenticationPrincipal CurrentUser user, @RequestBody Input input) {
+		return save(user, Provider.OPENAI, input);
+	}
 
-  @PutMapping("/sarvam")
-  AiKeyService.KeyStatus saveSarvam(@AuthenticationPrincipal CurrentUser user, @RequestBody Input input) { return save(user, Provider.SARVAM, input); }
+	@DeleteMapping
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	void clear(@AuthenticationPrincipal CurrentUser user) {
+		keys.clear(user.id(), Provider.OPENAI);
+	}
 
-  @DeleteMapping("/sarvam")
-  @ResponseStatus(HttpStatus.NO_CONTENT)
-  void clearSarvam(@AuthenticationPrincipal CurrentUser user) { keys.clear(user.id(), Provider.SARVAM); }
+	@GetMapping("/sarvam")
+	AiKeyService.KeyStatus sarvamStatus() {
+		return keys.status(Provider.SARVAM);
+	}
 
-  private AiKeyService.KeyStatus save(CurrentUser user, Provider provider, Input input) {
-    keys.set(user.id(), provider, input.key(), input.name());
-    return keys.status(provider);
-  }
+	@PutMapping("/sarvam")
+	AiKeyService.KeyStatus saveSarvam(@AuthenticationPrincipal CurrentUser user, @RequestBody Input input) {
+		return save(user, Provider.SARVAM, input);
+	}
+
+	@DeleteMapping("/sarvam")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	void clearSarvam(@AuthenticationPrincipal CurrentUser user) {
+		keys.clear(user.id(), Provider.SARVAM);
+	}
+
+	private AiKeyService.KeyStatus save(CurrentUser user, Provider provider, Input input) {
+		keys.set(user.id(), provider, input.key(), input.name());
+		return keys.status(provider);
+	}
+
 }

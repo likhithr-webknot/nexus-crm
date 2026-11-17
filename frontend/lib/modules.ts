@@ -1,4 +1,5 @@
 import { api, qs } from "@/lib/api";
+import { finished, keyFor } from "@/lib/idempotency";
 import type { PageResponse } from "@/lib/page";
 
 export type ModuleKind = "campaigns" | "products" | "quotes" | "communications" | "automations";
@@ -58,12 +59,17 @@ export const modulesApi = {
     }
   },
   get: (kind: ModuleKind, id: string) => api<ModuleRecord>(`/workspaces/${kind}/${id}`),
-  create: (kind: ModuleKind, values: ModuleValues) =>
-    api<ModuleRecord>(`/workspaces/${kind}`, {
+  /** Creates a record. The same request sent twice returns the first record: the key only changes when the request does. */
+  create: async (kind: ModuleKind, values: ModuleValues) => {
+    const scope = `modules.create:${kind}`;
+    const record = await api<ModuleRecord>(`/workspaces/${kind}`, {
       method: "POST",
-      headers: { "Idempotency-Key": crypto.randomUUID() },
+      headers: { "Idempotency-Key": keyFor(scope, values) },
       body: JSON.stringify(values),
-    }),
+    });
+    finished(scope);
+    return record;
+  },
   update: async (kind: ModuleKind, id: string, changes: Partial<ModuleRecord>) => {
     const current = await modulesApi.get(kind, id);
     return api<ModuleRecord>(`/workspaces/${kind}/${id}`, {

@@ -9,6 +9,7 @@ import com.nexus.crm.deals.event.DealReassigned;
 import com.nexus.crm.deals.event.DealStageChanged;
 import com.nexus.crm.identity.user.UserService;
 import com.nexus.crm.leads.event.LeadAssigned;
+import com.nexus.crm.leads.event.LeadsAssigned;
 import com.nexus.crm.leads.event.LeadConverted;
 import com.nexus.crm.leads.event.LeadStatusChanged;
 
@@ -26,6 +27,16 @@ class ActivityListener {
 		String text = (e.newOwnerId() == null) ? "Moved back to the unassigned queue."
 				: "Assigned to " + this.users.displayNames(java.util.Set.of(e.newOwnerId())).get(e.newOwnerId()) + ".";
 		this.activities.system("Lead assigned", text, e.actorId(), e.leadId(), null, null);
+	}
+
+	/** A batch assignment still leaves one timeline entry on each lead, but the new owner's name is looked up only once. */
+	@EventListener
+	void onLeadsAssigned(LeadsAssigned e) {
+		String text = (e.newOwnerId() == null) ? "Moved back to the unassigned queue."
+				: "Assigned to " + this.users.displayNames(java.util.Set.of(e.newOwnerId())).get(e.newOwnerId()) + ".";
+		for (java.util.UUID leadId : e.leadIds()) {
+			this.activities.system("Lead assigned", text, e.actorId(), leadId, null, null);
+		}
 	}
 
 	@EventListener

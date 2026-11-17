@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -31,6 +32,7 @@ import com.nexus.crm.deals.dto.UpdateDealRequest;
 import com.nexus.crm.shared.CurrentUser;
 import com.nexus.crm.shared.Ref;
 import com.nexus.crm.shared.currency.Money;
+import com.nexus.crm.shared.persistence.IdempotentRequests;
 import com.nexus.crm.shared.web.PageResponse;
 import com.nexus.crm.tags.TagService;
 import com.nexus.crm.tags.dto.BulkIdsRequest;
@@ -46,6 +48,8 @@ class DealController {
 	private final DealService deals;
 
 	private final TagService tags;
+
+	private final IdempotentRequests idempotent;
 
 	@GetMapping("/pipeline/stages")
 	List<PipelineStageResponse> stages() {
@@ -77,12 +81,20 @@ class DealController {
 		return responses(List.of(this.deals.get(user, id))).getFirst();
 	}
 
+	/**
+	 * Creates a deal. With an {@code Idempotency-Key} header, sending the same request again returns the deal made the
+	 * first time instead of creating a second one.
+	 */
 	@PostMapping("/deals")
 	@ResponseStatus(HttpStatus.CREATED)
-	DealResponse create(@AuthenticationPrincipal CurrentUser user, @Valid @RequestBody CreateDealRequest r) {
-		Deal deal = this.deals.create(user, new DealInput(r.name(), r.companyId(), r.primaryContactId(),
-				r.ownerId(), r.stageCode(), r.amount(), r.expectedCloseDate(), null, null));
-		return responses(List.of(deal)).getFirst();
+	DealResponse create(@AuthenticationPrincipal CurrentUser user,
+			@RequestHeader(name = "Idempotency-Key", required = false) String key,
+			@Valid @RequestBody CreateDealRequest r) {
+		return this.idempotent.run(user.id(), "deals.create", key, r, DealResponse.class, () -> {
+			Deal deal = this.deals.create(user, new DealInput(r.name(), r.companyId(), r.primaryContactId(),
+					r.ownerId(), r.stageCode(), r.amount(), r.expectedCloseDate(), null, null));
+			return responses(List.of(deal)).getFirst();
+		});
 	}
 
 	@PatchMapping("/deals/{id}")

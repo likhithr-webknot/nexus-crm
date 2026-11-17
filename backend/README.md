@@ -167,9 +167,23 @@ the Settings screens ask the user to connect again.
   Google's verification and a security assessment. Every five minutes each
   connected mailbox is read; only messages to or from an address that matches a
   contact or lead are kept, as subject, people and Gmail's snippet (no full
-  body, no attachments). Spam, trash and drafts are skipped. Anyone who can
-  open the contact or lead can see those emails. Turn it off for everyone with
-  `nexus.inbox.sync=false`.
+  body, no attachments). Spam, trash and drafts are skipped. Turn it off for
+  everyone with `nexus.inbox.sync=false`.
+
+  **Privacy rule: a person's mail is only ever theirs.** Mail is attached only to
+  contacts and leads that person can open themselves (their own, their team's if
+  they manage it, everyone's for an admin; unassigned leads for anyone), so it
+  never lands on a colleague's contact. `GET /api/v1/emails` returns only the
+  caller's own rows, so a colleague, a manager or an admin who opens the same
+  contact sees none of it. Each user can switch it off and delete what was copied.
+- **Disconnecting.** Google keeps one grant per user, shared by mail, calendar
+  and inbox, and cannot cancel a single feature. Turning a feature off removes
+  its permission from the saved connection. When the *last* feature is turned
+  off, the grant is cancelled at Google (`oauth2.googleapis.com/revoke`) and the
+  saved token is deleted. If Google cannot be reached, the token is still
+  deleted and the user is told to remove the app at
+  myaccount.google.com/permissions. Permissions are compared as whole words of
+  Google's scope list, never as substrings.
 - **Alerts.** An hourly job tells deal owners (and their team lead and admins)
   about open deals with no activity for `nexus.alerts.stale-deal-days` days,
   and assignees about follow-ups overdue by `nexus.alerts.overdue-follow-up-hours`
@@ -195,6 +209,23 @@ test-user list in Google Cloud. Public use of the Gmail scope needs Google's
 verification. When accessing this laptop from another computer, tunnel both
 ports 3000 and 8080 and use `http://localhost:3000`; the registered OAuth
 callbacks and frontend redirect currently use `localhost`.
+
+## Repeated requests and duplicate notifications
+
+- **Idempotency keys.** `POST /api/v1/deals` (and the workspace creates) accept an
+  `Idempotency-Key` header. The key is saved in the same transaction as the
+  create, with the answer, so a repeat of the same request returns the first deal
+  instead of making a second. A key belongs to one person and one kind of
+  request, and remembers a fingerprint of the request: reusing it for different
+  details is refused (422) instead of answering with the wrong deal. A failed
+  create saves nothing, so a retry really runs. Keys are kept for 24 hours. The
+  frontend sends one key per request (`lib/idempotency.ts`): the same request
+  keeps its key until it succeeds.
+- **Notifications.** The same message (same person, type, title and link) is not
+  added again while an identical one is still unread (a unique index, so two
+  requests at once cannot both add it). After it is read, it can be sent again.
+  A batch assignment of leads sends the new owner one notification, not one per
+  lead.
 
 ## Layout
 

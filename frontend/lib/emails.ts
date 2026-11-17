@@ -1,6 +1,7 @@
 /* Emails copied onto records by inbox sync (backend: InboxController). */
 
 import { api, qs } from "@/lib/api";
+import type { Disconnected } from "@/lib/google";
 
 export type EmailItem = {
   id: string;
@@ -10,9 +11,7 @@ export type EmailItem = {
   subject: string;
   snippet: string | null;
   sentAt: string;
-  /** Whose mailbox the message was read from. */
-  mailbox: string;
-  /** Only set for the person whose mailbox it is. */
+  /** Opens the message in the signed-in user's Gmail. Emails are only ever the user's own. */
   gmailUrl: string | null;
 };
 
@@ -33,4 +32,5 @@ export const listEmails = (owner: EmailOwner) => api<EmailItem[]>(`/emails${qs(o
 
 export const inboxStatus = () => api<InboxStatus>("/inbox/status");
 
-export const turnOffInbox = (deleteImported: boolean) => api(`/inbox${qs({ deleteImported })}`, { method: "DELETE" });
+export const turnOffInbox = (deleteImported: boolean) =>
+  api<Disconnected>(`/inbox${qs({ deleteImported })}`, { method: "DELETE" });

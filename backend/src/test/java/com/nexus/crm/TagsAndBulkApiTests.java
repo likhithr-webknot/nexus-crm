@@ -165,4 +165,64 @@ class TagsAndBulkApiTests extends IntegrationTest {
 				"{\"entityType\":\"contact\",\"name\":\"Odd\",\"filters\":{\"status\":\"NEW\"}}")).hasStatus(422);
 	}
 
+	@Test
+	void aViewCannotPointAtATagThatDoesNotExist() {
+		String ghost = UUID.randomUUID().toString();
+
+		MvcTestResult result = send(this.mvc.post().uri("/api/v1/saved-views"), this.admin,
+				"{\"entityType\":\"lead\",\"name\":\"Ghost tag\",\"filters\":{\"tag\":\"" + ghost + "\"}}");
+
+		assertThat(result).hasStatus(422);
+		assertThat(json(result)).contains("That tag no longer exists");
+	}
+
+	@Test
+	void aTagThatIsNotAnIdIsRefusedToo() {
+		assertThat(send(this.mvc.post().uri("/api/v1/saved-views"), this.admin,
+				"{\"entityType\":\"lead\",\"name\":\"Odd tag\",\"filters\":{\"tag\":\"not-an-id\"}}")).hasStatus(422);
+	}
+
+	@Test
+	void aViewMayUseARealTagAndTheWordsMeAndUnassigned() {
+		String tag = newTag();
+
+		assertThat(send(this.mvc.post().uri("/api/v1/saved-views"), this.admin,
+				"{\"entityType\":\"lead\",\"name\":\"Mine " + tag + "\",\"filters\":{\"tag\":\"" + tag + "\",\"ownerId\":\"me\"}}")).hasStatus(201);
+		assertThat(send(this.mvc.post().uri("/api/v1/saved-views"), this.admin,
+				"{\"entityType\":\"lead\",\"name\":\"Nobody " + tag + "\",\"filters\":{\"ownerId\":\"unassigned\"}}")).hasStatus(201);
+	}
+
+	@Test
+	void anOwnerThatDoesNotExistIsRefused() {
+		MvcTestResult result = send(this.mvc.post().uri("/api/v1/saved-views"), this.admin,
+				"{\"entityType\":\"lead\",\"name\":\"Ghost owner\",\"filters\":{\"ownerId\":\"" + UUID.randomUUID() + "\"}}");
+
+		assertThat(result).hasStatus(422);
+		assertThat(json(result)).contains("That person does not exist");
+	}
+
+	@Test
+	void deletingATagTakesItOutOfEverySavedViewThatUsedIt() {
+		String tag = newTag();
+		String name = "Uses tag " + UUID.randomUUID();
+		String view = field(json(send(this.mvc.post().uri("/api/v1/saved-views"), this.admin,
+				"{\"entityType\":\"lead\",\"name\":\"" + name + "\",\"shared\":true,\"filters\":{\"tag\":\"" + tag + "\",\"status\":\"NEW\"}}")), "id");
+
+		assertThat(send(this.mvc.delete().uri("/api/v1/tags/" + tag), this.admin, null)).hasStatus(204);
+
+		String listed = json(get("/api/v1/saved-views?entityType=lead", this.admin));
+		int at = listed.indexOf(view);
+		String thisView = listed.substring(at, listed.indexOf("}", listed.indexOf("filters", at)) + 1);
+		assertThat(thisView).doesNotContain(tag).contains("\"status\":\"NEW\"");
+	}
+
+	@Test
+	void updatingAViewAlsoChecksItsReferences() {
+		String view = field(json(send(this.mvc.post().uri("/api/v1/saved-views"), this.admin,
+				"{\"entityType\":\"lead\",\"name\":\"Editable " + UUID.randomUUID() + "\",\"filters\":{}}")), "id");
+
+		assertThat(send(this.mvc.patch().uri("/api/v1/saved-views/" + view), this.admin,
+				"{\"filters\":{\"tag\":\"" + UUID.randomUUID() + "\"}}")).hasStatus(422);
+	}
+
 }

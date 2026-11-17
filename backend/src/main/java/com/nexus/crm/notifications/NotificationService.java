@@ -22,6 +22,7 @@ import com.nexus.crm.followups.event.FollowUpDue;
 import com.nexus.crm.identity.team.TeamService;
 import com.nexus.crm.identity.user.UserService;
 import com.nexus.crm.leads.event.LeadAssigned;
+import com.nexus.crm.leads.event.LeadsAssigned;
 
 /** The messages in a user's bell menu. */
 @Slf4j
@@ -32,6 +33,8 @@ public class NotificationService {
 	private static final Duration KEEP_FOR = Duration.ofDays(90);
 
 	private final NotificationRepository notifications;
+
+	private final org.springframework.jdbc.core.simple.JdbcClient jdbc;
 
 	private final UserService users;
 
@@ -58,15 +61,39 @@ public class NotificationService {
 		}
 	}
 
+	/**
+	 * Adds a notification, unless the same one (same person, type, title and link) is still unread. That keeps a repeated
+	 * event, a retry or a job that runs twice from filling the bell with copies. Once the person reads it, the same message
+	 * can be sent again. The database enforces this with a unique index, so two requests at once cannot both add it.
+	 */
 	@Transactional
 	public void send(UUID recipientId, String type, String title, String link) {
-		this.notifications.save(new Notification(recipientId, type, title, link));
+		this.jdbc.sql("""
+				insert into notification (id, recipient_id, type, title, link) values (:id, :recipient, :type, :title, :link)
+				on conflict do nothing
+				""")
+			.param("id", UUID.randomUUID())
+			.param("recipient", recipientId)
+			.param("type", type)
+			.param("title", title)
+			.param("link", link)
+			.update();
 	}
 
 	@EventListener
 	void onLeadAssigned(LeadAssigned e) {
 		if (e.newOwnerId() != null && !e.newOwnerId().equals(e.actorId())) {
 			send(e.newOwnerId(), "LEAD_ASSIGNED", "A lead was assigned to you: " + e.name(), "/leads");
+		}
+	}
+
+	/** A batch of leads gives their new owner one notification, not one per lead. */
+	@EventListener
+	void onLeadsAssigned(LeadsAssigned e) {
+		if (e.newOwnerId() != null && !e.newOwnerId().equals(e.actorId())) {
+			int count = e.leadIds().size();
+			send(e.newOwnerId(), "LEAD_ASSIGNED",
+					count + (count == 1 ? " lead was" : " leads were") + " assigned to you", "/leads");
 		}
 	}
 

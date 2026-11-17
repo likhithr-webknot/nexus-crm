@@ -13,7 +13,7 @@ import { createCompany, listCompanies } from "@/lib/contacts";
 import { createDeal } from "@/lib/deals";
 import { KEYS } from "@/lib/query-keys";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useStages } from "./use-deal-board";
 
 export function AddDealDialog({ open, onClose, onAdded }: { open: boolean; onClose: () => void; onAdded: () => void }) {
@@ -28,12 +28,16 @@ export function AddDealDialog({ open, onClose, onAdded }: { open: boolean; onClo
     enabled: open,
   });
   const [error, setError] = useState<string | null>(null);
+  const madeCompany = useRef<{ name: string; id: string } | null>(null);
 
   const add = useMutation({
     mutationFn: async (f: Record<string, string>) => {
-      // The deal belongs to a company: use the one with this name, or create it.
+      // The deal belongs to a company: use the one with this name, or create it. A company made by an attempt that then
+      // failed is reused on the retry, so the retry is the same request and the server can recognise it.
       const existing = companies.data?.items.find((c) => c.name.toLowerCase() === f.company.toLowerCase());
-      const companyId = existing?.id ?? (await createCompany({ name: f.company })).id;
+      const justMade = madeCompany.current?.name === f.company ? madeCompany.current.id : undefined;
+      const companyId = existing?.id ?? justMade ?? (await createCompany({ name: f.company })).id;
+      madeCompany.current = { name: f.company, id: companyId };
       return createDeal({
         name: f.name || f.company,
         companyId,
@@ -44,6 +48,7 @@ export function AddDealDialog({ open, onClose, onAdded }: { open: boolean; onClo
       });
     },
     onSuccess: (deal) => {
+      madeCompany.current = null;
       toast(`${deal.company.name} added to the pipeline.`);
       onAdded();
       onClose();

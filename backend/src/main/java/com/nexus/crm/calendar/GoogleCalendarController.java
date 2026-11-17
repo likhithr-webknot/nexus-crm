@@ -3,13 +3,11 @@ package com.nexus.crm.calendar;
 import java.time.OffsetDateTime;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.nexus.crm.mail.MailService;
@@ -42,10 +40,11 @@ class GoogleCalendarController {
 				syncing ? (OffsetDateTime) state.get()[0] : null, syncing ? (String) state.get()[1] : null);
 	}
 
+	/** Turns sync off and removes the CRM's events. The Google permission is cancelled too once nothing else uses it. */
 	@DeleteMapping
-	@ResponseStatus(HttpStatus.NO_CONTENT)
-	void disconnect(@AuthenticationPrincipal CurrentUser user) {
+	MailService.Disconnected disconnect(@AuthenticationPrincipal CurrentUser user) {
 		this.sync.disconnect(user);
+		return this.mail.disconnectFeature(user, "calendar");
 	}
 
 }

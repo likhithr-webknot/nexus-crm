@@ -1,5 +1,6 @@
 /* The pipeline and deals (backend: DealController). */
 
+import { finished, keyFor } from "@/lib/idempotency";
 import type { Tag } from "@/lib/tags";
 import { api, qs } from "@/lib/api";
 import type { Money } from "@/lib/money";
@@ -74,7 +75,16 @@ export async function listAllDeals(limit = 2000) {
 
 export const getDeal = (id: string) => api<Deal>(`/deals/${id}`);
 
-export const createDeal = (body: NewDeal) => api<Deal>("/deals", { method: "POST", body: JSON.stringify(body) });
+/** Creates a deal. Sending the same request twice (a double click, a retry) returns the first deal instead of making another. */
+export const createDeal = async (body: NewDeal) => {
+  const deal = await api<Deal>("/deals", {
+    method: "POST",
+    headers: { "Idempotency-Key": keyFor("deals.create", body) },
+    body: JSON.stringify(body),
+  });
+  finished("deals.create");
+  return deal;
+};
 
 export const moveDeal = (id: string, body: { stageCode: string; version: number; lostReason?: string }) =>
   api<Deal>(`/deals/${id}/stage`, { method: "PATCH", body: JSON.stringify(body) });

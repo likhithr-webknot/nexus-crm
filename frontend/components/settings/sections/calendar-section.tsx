@@ -7,6 +7,7 @@ import { Card, CardHeader, buttonPrimary, buttonSecondary, fieldControl } from "
 import { toast } from "@/components/ui/toast";
 import { useRefresh } from "@/hooks/use-refresh";
 import { api, errorMessage } from "@/lib/api";
+import { disconnectMessage, type Disconnected } from "@/lib/google";
 import { cn } from "@/lib/format";
 
 type FeedStatus = { enabled: boolean };
@@ -172,9 +173,9 @@ function GoogleCard() {
     },
   });
   const disconnect = useMutation({
-    mutationFn: () => api("/calendar/google", { method: "DELETE" }),
-    onSuccess: () => {
-      toast("Google Calendar disconnected. Events made by the CRM were removed where possible.");
+    mutationFn: () => api<Disconnected>("/calendar/google", { method: "DELETE" }),
+    onSuccess: (result) => {
+      toast(`${disconnectMessage("Google Calendar sync", result)} Events the CRM made were removed where possible.`);
       void refresh([GOOGLE_KEY, ["mail-status"]]);
     },
   });

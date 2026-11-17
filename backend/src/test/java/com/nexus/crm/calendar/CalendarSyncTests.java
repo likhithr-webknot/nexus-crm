@@ -21,6 +21,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester.MockMvcRequestBuilder;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
@@ -31,6 +32,9 @@ import com.nexus.crm.shared.Role;
 import com.nexus.crm.support.IntegrationTest;
 
 /** Pushing follow-ups to Google Calendar. Google itself is replaced by a stub that records what was asked of it. */
+@TestPropertySource(properties = { "GOOGLE_CLIENT_ID=test-client", "GOOGLE_CLIENT_SECRET=test-secret",
+		"NEXUS_MAIL_REDIRECT_URI=http://localhost:8080/api/v1/mail/callback",
+		"NEXUS_MAIL_TOKEN_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=" })
 class CalendarSyncTests extends IntegrationTest {
 
 	private static final String EVENTS = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
@@ -261,6 +265,48 @@ class CalendarSyncTests extends IntegrationTest {
 
 	private MvcTestResult withCsrfPost(String uri, Session who, String body) {
 		return withCsrf(this.mvc.post().uri(uri)).cookie(who.accessToken()).contentType(MediaType.APPLICATION_JSON).content(body).exchange();
+	}
+
+	private void saveConnection(String scopes) {
+		byte[] cipher = com.nexus.crm.shared.SecretBox.of("MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=", null).encrypt("saved-refresh-token");
+		this.jdbc.sql("insert into mail_connection (user_id, email, refresh_token_cipher, scopes) values (:user, 'rep@acme.example', :cipher, :scopes)")
+			.param("user", this.rep.getId()).param("cipher", cipher).param("scopes", scopes).update();
+	}
+
+	private MvcTestResult disconnect() {
+		return withCsrf(this.mvc.delete().uri("/api/v1/calendar/google")).cookie(this.session.accessToken()).exchange();
+	}
+
+	@Test
+	void disconnectingRemovesTheEventsAndCancelsTheGoogleGrantWhenNothingElseUsesIt() {
+		newFollowUp("Call Priya");
+		runSync();
+		saveConnection(GoogleApi.CALENDAR_SCOPE);
+		when(this.google.revoke("saved-refresh-token")).thenReturn(true);
+
+		MvcTestResult result = disconnect();
+
+		assertThat(result).hasStatusOk();
+		assertThat(new String(result.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8))
+			.contains("\"revokedAtGoogle\":true").contains("\"otherFeaturesStillOn\":false");
+		verify(this.google).call(eq("DELETE"), anyString(), eq("token"), eq(null));
+		verify(this.google).revoke("saved-refresh-token");
+		assertThat(links()).isZero();
+		assertThat(this.jdbc.sql("select count(*) from calendar_google_sync where user_id = :user").param("user", this.rep.getId()).query(Long.class).single()).isZero();
+		assertThat(this.jdbc.sql("select count(*) from mail_connection where user_id = :user").param("user", this.rep.getId()).query(Long.class).single()).isZero();
+	}
+
+	@Test
+	void disconnectingKeepsTheGrantWhileMailSendingStillUsesIt() {
+		saveConnection(GoogleApi.CALENDAR_SCOPE + " " + GoogleApi.GMAIL_SEND_SCOPE);
+
+		MvcTestResult result = disconnect();
+
+		assertThat(new String(result.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8))
+			.contains("\"revokedAtGoogle\":false").contains("\"otherFeaturesStillOn\":true");
+		verify(this.google, never()).revoke(anyString());
+		assertThat(this.jdbc.sql("select scopes from mail_connection where user_id = :user").param("user", this.rep.getId()).query(String.class).single())
+			.isEqualTo(GoogleApi.GMAIL_SEND_SCOPE);
 	}
 
 }
