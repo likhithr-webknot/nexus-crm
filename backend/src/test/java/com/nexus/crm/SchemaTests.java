@@ -119,7 +119,7 @@ class SchemaTests extends IntegrationTest {
 		assertThat(this.currencies.findByBaseTrue()).get().extracting("code").isEqualTo("INR");
 		assertThat(this.currencies.findByEnabledTrue()).extracting("code").contains("INR", "USD", "AUD", "SAR");
 		assertThat(this.stages.findAllByOrderByPositionAsc()).extracting("code")
-			.containsExactly("QUALIFIED", "DEMO", "PROPOSAL", "NEGOTIATION", "WON", "LOST");
+			.containsExactly("QUALIFIED", "IN_PROGRESS", "WON", "LOST");
 	}
 
 	@Test
@@ -199,7 +199,7 @@ class SchemaTests extends IntegrationTest {
 		AppUser owner = newUser();
 		Company company = this.companies.save(new Company("Closing Co", owner.getId()));
 		Deal deal = this.deals
-			.save(new Deal("Big one", company.getId(), owner.getId(), "NEGOTIATION", new BigDecimal("1000.00")));
+			.save(new Deal("Big one", company.getId(), owner.getId(), "IN_PROGRESS", new BigDecimal("1000.00")));
 
 		deal.win(Instant.now(), new BigDecimal("83000.0000"), new BigDecimal("83.00000000"), LocalDate.now());
 		this.deals.save(deal);
@@ -207,12 +207,12 @@ class SchemaTests extends IntegrationTest {
 		Deal saved = this.deals.findById(deal.getId()).orElseThrow();
 		assertThat(saved.getStageCode()).isEqualTo("WON");
 		assertThat(saved.getBaseAmount()).isEqualByComparingTo("83000");
-		assertThatThrownBy(() -> saved.moveTo("DEMO")).isInstanceOf(IllegalStateException.class);
+		assertThatThrownBy(() -> saved.moveTo("IN_PROGRESS")).isInstanceOf(IllegalStateException.class);
 	}
 
 	@Test
 	void aLostDealNeedsAReason() {
-		Deal deal = new Deal("Lost one", UUID.randomUUID(), UUID.randomUUID(), "DEMO", BigDecimal.TEN);
+		Deal deal = new Deal("Lost one", UUID.randomUUID(), UUID.randomUUID(), "IN_PROGRESS", BigDecimal.TEN);
 		assertThatThrownBy(() -> deal.lose(" ", Instant.now(), BigDecimal.TEN, BigDecimal.ONE, LocalDate.now()))
 			.isInstanceOf(IllegalArgumentException.class);
 	}

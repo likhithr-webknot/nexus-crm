@@ -400,7 +400,7 @@ List leads: `GET /api/v1/leads?status=NEW&ownerId=me&sort=createdAt,desc&limit=2
 Move a deal: `PATCH /api/v1/deals/{id}/stage`
 
 ```json
-{ "stageId": "PROPOSAL", "version": 3 }
+{ "stageId": "IN_PROGRESS", "version": 3 }
 ```
 
 The response is the updated deal with `"version": 4`. If someone else moved the deal first, the response is 409 `version_conflict` (see Error handling).
@@ -567,7 +567,7 @@ CREATE INDEX ON lead_status_history (lead_id);
 
 -- deals ------------------------------------------------------------------
 CREATE TABLE pipeline_stage (
-  code             text PRIMARY KEY,     -- 'QUALIFIED','DEMO','PROPOSAL','NEGOTIATION','WON','LOST'
+  code             text PRIMARY KEY,     -- 'QUALIFIED','IN_PROGRESS','WON','LOST'
   name             text NOT NULL,
   position         smallint NOT NULL UNIQUE,
   kind             text NOT NULL CHECK (kind IN ('OPEN','WON','LOST')),
@@ -988,7 +988,7 @@ Thirteen questions remain. Questions 1, 2, 11 and 13 affect phases 0 and 1, so t
 | 3 | May reps see each other's contacts and companies (read-only)? | Prevents two reps calling the same account, but widens data access | No: own records only | Phase 2 | Open |
 | 4 | How should website leads be assigned? | Decides who follows up first, and how fast | Unassigned queue; managers assign | Phase 2 | Open |
 | 5 | What existing data must be imported, and from where? | Shapes the CSV import and the launch plan | One-off CSV import of leads and contacts in phase 6 | Phase 2 | Open |
-| 6 | Confirm the pipeline stages: Qualified, Demo, Proposal, Negotiation, Won, Lost | Stage history and reports depend on them; changing them after launch means a data migration | Those six, fixed in v1 | Phase 3 | Open |
+| 6 | Pipeline stages: Qualified, In progress, Won, Lost (simplified from Demo, Proposal and Negotiation in migration V26) | Stage history and reports depend on them; changing them after launch means a data migration | Those six, fixed in v1 | Phase 3 | Open |
 | 7 | Which currencies are enabled at launch, beyond INR (base), USD, AUD and SAR? For example AED, EUR, GBP | Each enabled currency needs a daily exchange rate | Those four; an admin can enable any other ISO 4217 currency later without a release | Phase 3 | Open |
 | 8 | Exchange rates: an automatic daily feed, or monthly rates set by finance? And which source (for example RBI reference rates)? | Decides how reported revenue in INR is calculated; finance teams often require their own fixed rates | Daily rates fetched automatically from one configured provider; an admin can override any day's rate | Phase 3 | Open |
 | 9 | Conversion rate: "converted in period ÷ created in period", or "share of leads created in the period that ever converted" (cohort)? | The two give different numbers; the cohort figure keeps changing after the period ends | Converted in period ÷ created in period | Phase 5 | Open |

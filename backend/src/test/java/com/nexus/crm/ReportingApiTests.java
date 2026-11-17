@@ -38,7 +38,9 @@ class ReportingApiTests extends IntegrationTest {
 				org.assertj.core.api.InstanceOfAssertFactories.DOUBLE).isGreaterThanOrEqualTo(1.0);
 		assertThat(result).bodyJson().extractingPath("$.data.kpis").asArray().hasSize(7);
 		assertThat(result).bodyJson().extractingPath("$.data.leadSources[*].source").asArray().contains("REFERRAL");
-		assertThat(result).bodyJson().extractingPath("$.data.pipeline").asArray().hasSize(4);
+		// The dashboard lists the open stages only: Qualified and In progress.
+		assertThat(result).bodyJson().extractingPath("$.data.pipeline[*].stageCode").asArray()
+			.containsExactly("QUALIFIED", "IN_PROGRESS");
 	}
 
 	@Test

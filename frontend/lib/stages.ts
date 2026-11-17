@@ -10,9 +10,7 @@ export const STAGE_LABELS: Record<string, string> = {
   QUALIFIED: "Qualified",
   DISQUALIFIED: "Disqualified",
   CONVERTED: "Converted",
-  DEMO: "Demo",
-  PROPOSAL: "Proposal",
-  NEGOTIATION: "Negotiation",
+  IN_PROGRESS: "In progress",
   WON: "Won",
   LOST: "Lost",
 };

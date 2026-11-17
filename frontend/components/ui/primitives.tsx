@@ -186,9 +186,7 @@ const STAGE_TONES: Record<string, string> = {
   QUALIFIED: "tone-brand",
   DISQUALIFIED: "tone-neutral",
   CONVERTED: "tone-green",
-  DEMO: "tone-violet",
-  PROPOSAL: "tone-amber",
-  NEGOTIATION: "tone-orange",
+  IN_PROGRESS: "tone-violet",
   WON: "tone-green",
   LOST: "tone-red",
 };

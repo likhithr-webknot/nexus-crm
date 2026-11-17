@@ -96,8 +96,8 @@ class CrudCycleTests extends IntegrationTest {
 
 		assertThat(send(this.mvc.patch().uri("/api/v1/deals/" + id), "{\"name\":\"Bigger deal\"}")).hasStatusOk()
 			.bodyJson().extractingPath("$.name").isEqualTo("Bigger deal");
-		assertThat(send(this.mvc.patch().uri("/api/v1/deals/" + id + "/stage"), "{\"stageCode\":\"DEMO\"}")).hasStatusOk()
-			.bodyJson().extractingPath("$.stageCode").isEqualTo("DEMO");
+		assertThat(send(this.mvc.patch().uri("/api/v1/deals/" + id + "/stage"), "{\"stageCode\":\"IN_PROGRESS\"}")).hasStatusOk()
+			.bodyJson().extractingPath("$.stageCode").isEqualTo("IN_PROGRESS");
 
 		assertThat(send(this.mvc.delete().uri("/api/v1/deals/" + id), null)).hasStatus(204);
 		assertThat(get("/api/v1/deals/" + id)).hasStatus(404);

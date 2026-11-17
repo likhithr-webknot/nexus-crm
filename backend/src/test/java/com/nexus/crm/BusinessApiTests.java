@@ -156,7 +156,7 @@ class BusinessApiTests extends IntegrationTest {
 
 		assertThat(won).hasStatusOk().bodyJson().extractingPath("$.baseAmount").isEqualTo("1500.5000");
 		assertThat(won).bodyJson().extractingPath("$.closedAt").isNotNull();
-		assertThat(patch("/api/v1/deals/" + dealId + "/stage", rep, "{\"stageCode\":\"DEMO\"}")).hasStatus(409);
+		assertThat(patch("/api/v1/deals/" + dealId + "/stage", rep, "{\"stageCode\":\"IN_PROGRESS\"}")).hasStatus(409);
 	}
 
 	@Test
