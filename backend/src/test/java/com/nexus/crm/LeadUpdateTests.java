@@ -71,6 +71,66 @@ class LeadUpdateTests extends IntegrationTest {
 		assertThat(send(this.mvc.patch().uri("/api/v1/leads/" + id), this.admin, "{\"companyName\":\"Second\",\"version\":1}")).hasStatusOk();
 	}
 
+	private String idOf(MvcTestResult result) {
+		return json(result).replaceAll("^\\{\"id\":\"([^\"]+)\".*", "$1");
+	}
+
+	private String createCompany(String name) {
+		MvcTestResult created = send(this.mvc.post().uri("/api/v1/companies"), this.admin, "{\"name\":\"" + name + "\"}");
+		assertThat(created).hasStatus(201);
+		return idOf(created);
+	}
+
+	@Test
+	void aLeadCanBeLinkedToAnExistingCompanyAndUnlinked() {
+		String leadId = createLead(this.admin);
+		String name = "Linked " + uniqueEmail();
+		String companyId = createCompany(name);
+
+		MvcTestResult linked = send(this.mvc.patch().uri("/api/v1/leads/" + leadId), this.admin,
+				"{\"companyId\":\"" + companyId + "\",\"version\":0}");
+		assertThat(linked).hasStatusOk();
+		assertThat(json(linked)).contains("\"company\":{\"id\":\"" + companyId + "\"").contains("\"companyName\":\"" + name + "\"");
+
+		// An empty company name is how the edit dialog says "no company".
+		MvcTestResult unlinked = send(this.mvc.patch().uri("/api/v1/leads/" + leadId), this.admin,
+				"{\"companyName\":\"\",\"version\":1}");
+		assertThat(unlinked).hasStatusOk();
+		assertThat(json(unlinked)).contains("\"company\":null");
+	}
+
+	@Test
+	void aCompanyNameFindsTheExistingCompanyInsteadOfDuplicatingIt() {
+		String name = "Reused " + uniqueEmail();
+		String companyId = createCompany(name);
+
+		MvcTestResult created = send(this.mvc.post().uri("/api/v1/leads"), this.admin,
+				"{\"firstName\":\"Ada\",\"email\":\"" + uniqueEmail() + "\",\"companyName\":\"" + name.toUpperCase() + "\"}");
+		assertThat(created).hasStatus(201);
+		assertThat(json(created)).contains("\"company\":{\"id\":\"" + companyId + "\"");
+	}
+
+	@Test
+	void renamingACompanyReachesItsLeads() {
+		String leadId = createLead(this.admin);
+		String companyId = createCompany("Before " + uniqueEmail());
+		assertThat(send(this.mvc.patch().uri("/api/v1/leads/" + leadId), this.admin,
+				"{\"companyId\":\"" + companyId + "\",\"version\":0}")).hasStatusOk();
+
+		assertThat(send(this.mvc.patch().uri("/api/v1/companies/" + companyId), this.admin, "{\"name\":\"Renamed Co\",\"version\":0}"))
+			.hasStatusOk();
+
+		assertThat(json(send(this.mvc.get().uri("/api/v1/leads/" + leadId), this.admin, null))).contains("\"companyName\":\"Renamed Co\"");
+	}
+
+	@Test
+	void aLeadCannotBeLinkedToAnUnknownCompany() {
+		String leadId = createLead(this.admin);
+
+		assertThat(send(this.mvc.patch().uri("/api/v1/leads/" + leadId), this.admin,
+				"{\"companyId\":\"" + java.util.UUID.randomUUID() + "\",\"version\":0}")).hasStatus(404);
+	}
+
 	@Test
 	void anInvalidEmailIsReportedNotSwallowed() {
 		String id = createLead(this.admin);

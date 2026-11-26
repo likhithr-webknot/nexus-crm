@@ -1,5 +1,7 @@
 package com.nexus.crm.leads.dto;
 
+import java.util.UUID;
+
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Size;
@@ -14,6 +16,7 @@ public record UpdateLeadRequest(
 	@Size(max = 120) String lastName,
 	@Email @Size(max = 254) String email,
 	@Size(max = 40) String phone,
+	UUID companyId,
 	@Size(max = 160) String companyName,
 	@Size(max = 120) String jobTitle,
 	Lead.Source source,

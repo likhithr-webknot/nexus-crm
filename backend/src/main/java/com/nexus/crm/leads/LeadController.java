@@ -93,7 +93,7 @@ class LeadController {
 	@ResponseStatus(HttpStatus.CREATED)
 	LeadResponse create(@AuthenticationPrincipal CurrentUser user, @Valid @RequestBody CreateLeadRequest r) {
 		Lead lead = this.leads.create(user, new LeadInput(r.firstName(), r.lastName(), r.email(), r.phone(),
-				r.companyName(), r.jobTitle(), r.source(), r.ownerId(), Boolean.TRUE.equals(r.unassigned()), r.estimatedValue()));
+				r.companyId(), r.companyName(), r.jobTitle(), r.source(), r.ownerId(), Boolean.TRUE.equals(r.unassigned()), r.estimatedValue()));
 		return responses(List.of(lead)).getFirst();
 	}
 
@@ -101,7 +101,7 @@ class LeadController {
 	LeadResponse update(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID id,
 			@Valid @RequestBody UpdateLeadRequest r) {
 		Lead lead = this.leads.update(user, id, r.version(), new LeadInput(r.firstName(), r.lastName(),
-				r.email(), r.phone(), r.companyName(), r.jobTitle(), r.source(), null, false, r.estimatedValue()));
+				r.email(), r.phone(), r.companyId(), r.companyName(), r.jobTitle(), r.source(), null, false, r.estimatedValue()));
 		return responses(List.of(lead)).getFirst();
 	}
 
@@ -183,7 +183,8 @@ class LeadController {
 		Map<UUID, List<TagRef>> tagged = this.tags.tagsFor("lead", list.stream().map(Lead::getId).toList());
 		return list.stream()
 			.map((l) -> new LeadResponse(l.getId(), l.getFirstName(), l.getLastName(), LeadService.fullName(l), l.getEmail(),
-					l.getPhone(), l.getCompanyName(), l.getJobTitle(), l.getSource(), l.getStatus(),
+					l.getPhone(),
+					(l.getCompanyId() == null) ? null : new Ref(l.getCompanyId(), l.getCompanyName()), l.getCompanyName(), l.getJobTitle(), l.getSource(), l.getStatus(),
 					(l.getOwnerId() == null) ? null : new Ref(l.getOwnerId(), owners.get(l.getOwnerId())),
 					Money.of(l.getEstimatedValue(), l.getCurrency()), l.getDisqualifyReason(), l.getConvertedDealId(),
 					l.getCreatedAt(), l.getUpdatedAt(), l.getVersion(), tagged.getOrDefault(l.getId(), List.of())))

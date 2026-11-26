@@ -1,5 +1,6 @@
 "use client";
 
+import { CompanySelect, companyFromForm } from "@/components/companies/company-select";
 import { useCurrency } from "@/components/currency/currency-provider";
 import { FormDialog } from "@/components/ui/dialog";
 import { Field, fieldControl } from "@/components/ui/primitives";
@@ -55,7 +56,7 @@ export function EditLeadDialog({ lead, onClose }: { lead: Lead | null; onClose: 
             ...splitName(f.name),
             email: f.email,
             phone: f.phone,
-            companyName: f.company,
+            ...companyFromForm(f, true),
             source: f.source as LeadSource,
             estimatedValue: f.value ? { amount: f.value, currency: f.currency } : undefined,
             version: lead.version,
@@ -66,15 +67,7 @@ export function EditLeadDialog({ lead, onClose }: { lead: Lead | null; onClose: 
       <Field label="Full name">
         <input name="name" required maxLength={240} defaultValue={name} autoComplete="off" className={fieldControl} />
       </Field>
-      <Field label="Company" optional>
-        <input
-          name="company"
-          maxLength={160}
-          defaultValue={lead?.companyName ?? ""}
-          autoComplete="off"
-          className={fieldControl}
-        />
-      </Field>
+      <CompanySelect current={lead?.company} enabled={lead !== null} />
       <Field label="Email">
         <input
           name="email"

@@ -1,5 +1,6 @@
 "use client";
 
+import { CompanySelect, companyFromForm } from "@/components/companies/company-select";
 import { useSession } from "@/components/auth/session";
 import { FormDialog } from "@/components/ui/dialog";
 import { Field, fieldControl } from "@/components/ui/primitives";
@@ -51,7 +52,7 @@ export function AddContactDialog({
         add.mutate({
           ...splitName(f.name),
           jobTitle: f.title || undefined,
-          companyName: f.company || undefined,
+          ...companyFromForm(f),
           ownerId: f.owner || undefined,
           email: f.email || undefined,
           phone: f.phone || undefined,
@@ -64,9 +65,7 @@ export function AddContactDialog({
       <Field label="Job title" optional>
         <input name="title" maxLength={120} autoComplete="off" className={fieldControl} />
       </Field>
-      <Field label="Company" optional>
-        <input name="company" maxLength={160} autoComplete="off" className={fieldControl} />
-      </Field>
+      <CompanySelect enabled={open} />
       <Field label="Owner">
         <select name="owner" defaultValue={session.id} className={fieldControl}>
           {owners.map((u) => (

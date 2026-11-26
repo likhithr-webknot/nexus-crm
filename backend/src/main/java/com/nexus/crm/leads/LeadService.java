@@ -162,6 +162,7 @@ public class LeadService {
 				in.source() == null ? Lead.Source.MANUAL : in.source());
 		fill(lead, in);
 		lead.setOwnerId(in.unassigned() ? null : ownerFor(user, in.ownerId()));
+		linkCompany(user, lead, in);
 		this.leads.save(lead);
 		this.history.save(new LeadStatusHistory(lead.getId(), null, Lead.Status.NEW, user.id()));
 		this.audit.record(user.id(), "Lead", lead.getId(), AuditLog.Action.CREATE, null);
@@ -187,6 +188,7 @@ public class LeadService {
 			throw new ApiException(ErrorCode.INVALID_STATE, "A converted lead cannot be edited.");
 		}
 		fill(lead, in);
+		linkCompany(user, lead, in);
 		this.leads.save(lead);
 		this.audit.record(user.id(), "Lead", id, AuditLog.Action.UPDATE, changes);
 		return lead;
@@ -316,8 +318,9 @@ public class LeadService {
 		UUID ownerId = (lead.getOwnerId() != null) ? lead.getOwnerId() : user.id();
 		this.users.requireCanAssignTo(user, ownerId);
 
-		String companyName = (lead.getCompanyName() == null || lead.getCompanyName().isBlank()) ? fullName(lead) : lead.getCompanyName();
-		Company company = this.contacts.findOrCreateCompany(user, companyName, ownerId);
+		Company company = (lead.getCompanyId() != null) ? this.contacts.getCompany(user, lead.getCompanyId())
+				: this.contacts.findOrCreateCompany(user, (lead.getCompanyName() == null || lead.getCompanyName().isBlank()) ? fullName(lead) : lead.getCompanyName(), ownerId);
+		String companyName = company.getName();
 		Contact contact = this.contacts.findOrCreateContact(user, new ContactInput(lead.getFirstName(),
 				lead.getLastName(), lead.getEmail(), lead.getPhone(), lead.getJobTitle(), company.getId(), null, ownerId), ownerId);
 
@@ -471,9 +474,6 @@ public class LeadService {
 		if (in.phone() != null) {
 			lead.setPhone(blankToNull(in.phone()));
 		}
-		if (in.companyName() != null) {
-			lead.setCompanyName(blankToNull(in.companyName()));
-		}
 		if (in.jobTitle() != null) {
 			lead.setJobTitle(blankToNull(in.jobTitle()));
 		}
@@ -484,6 +484,29 @@ public class LeadService {
 			this.currencies.validate(in.estimatedValue());
 			lead.setEstimatedValue(in.estimatedValue().amount());
 			lead.setCurrency(in.estimatedValue().currency().toUpperCase(Locale.ROOT));
+		}
+	}
+
+	/**
+	 * Links the lead to a company. An ID must be a company the user can see; a bare name finds or creates the
+	 * user's company of that name; a blank name unlinks. With neither, the link is left as it is.
+	 */
+	private void linkCompany(CurrentUser user, Lead lead, LeadInput in) {
+		if (in.companyId() != null) {
+			Company company = this.contacts.getCompany(user, in.companyId());
+			lead.setCompanyId(company.getId());
+			lead.setCompanyName(company.getName());
+		}
+		else if (in.companyName() != null) {
+			String name = blankToNull(in.companyName());
+			if (name == null) {
+				lead.setCompanyId(null);
+				lead.setCompanyName(null);
+				return;
+			}
+			Company company = this.contacts.findOrCreateCompany(user, name, (lead.getOwnerId() != null) ? lead.getOwnerId() : user.id());
+			lead.setCompanyId(company.getId());
+			lead.setCompanyName(company.getName());
 		}
 	}
 

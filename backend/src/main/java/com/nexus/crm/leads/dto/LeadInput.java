@@ -11,6 +11,7 @@ public record LeadInput(
 	String lastName,
 	String email,
 	String phone,
+	UUID companyId,
 	String companyName,
 	String jobTitle,
 	Lead.Source source,

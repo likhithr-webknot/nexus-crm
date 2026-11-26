@@ -29,7 +29,7 @@ export function EditCompanyDialog({ company, onClose }: { company: Ref | null; o
     mutationFn: (changes: Parameters<typeof updateCompany>[1]) => updateCompany(company!.id, changes),
     onSuccess: (updated) => {
       toast(`${updated.name} updated.`);
-      void refresh([...AFTER.contact, KEYS.companies]);
+      void refresh([...AFTER.contact, KEYS.leads]);
       close();
     },
     onError: (e) => setError(errorMessage(e)),

@@ -179,6 +179,11 @@ public class ContactService {
 			.field("domain", company.getDomain(), in.domain() == null ? company.getDomain() : Emails.normalize(in.domain()));
 		if (in.name() != null) {
 			company.setName(in.name().strip());
+			// Leads show the company's name, so a rename has to reach them.
+			this.jdbc.sql("update lead set company_name = :name where company_id = :id")
+				.param("name", company.getName())
+				.param("id", id)
+				.update();
 		}
 		if (in.domain() != null) {
 			company.setDomain(in.domain());

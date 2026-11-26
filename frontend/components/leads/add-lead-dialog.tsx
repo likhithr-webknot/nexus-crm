@@ -1,5 +1,6 @@
 "use client";
 
+import { CompanySelect, companyFromForm } from "@/components/companies/company-select";
 import { useSession } from "@/components/auth/session";
 import { useCurrency } from "@/components/currency/currency-provider";
 import { FormDialog } from "@/components/ui/dialog";
@@ -45,7 +46,7 @@ export function AddLeadDialog({ open, onClose }: { open: boolean; onClose: () =>
       ...splitName(f.name),
       email: f.email,
       phone: f.phone || undefined,
-      companyName: f.company || undefined,
+      ...companyFromForm(f),
       source: f.source as LeadSource,
       unassigned: f.owner === "unassigned",
       ownerId: f.owner && f.owner !== "unassigned" ? f.owner : undefined,
@@ -67,9 +68,7 @@ export function AddLeadDialog({ open, onClose }: { open: boolean; onClose: () =>
       <Field label="Full name">
         <input name="name" required maxLength={240} autoComplete="off" className={fieldControl} />
       </Field>
-      <Field label="Company" optional>
-        <input name="company" maxLength={160} autoComplete="off" className={fieldControl} />
-      </Field>
+      <CompanySelect enabled={open} />
       <Field label="Email">
         <input name="email" type="email" required maxLength={254} autoComplete="off" className={fieldControl} />
       </Field>

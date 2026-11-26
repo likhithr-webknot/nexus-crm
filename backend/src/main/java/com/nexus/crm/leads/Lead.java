@@ -54,6 +54,11 @@ public class Lead extends BaseEntity {
 
 	private String phone;
 
+	/** The linked company record. Empty for an imported lead whose company is not in the CRM yet. */
+	@Column(name = "company_id")
+	private UUID companyId;
+
+	/** The linked company's name, kept in step with it. Free text only while {@code companyId} is empty. */
 	@Column(name = "company_name")
 	private String companyName;
 

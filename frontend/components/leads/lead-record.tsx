@@ -233,7 +233,13 @@ export function LeadRecord({ id }: { id: string }) {
               {c.companyName && (
                 <p className="flex items-center gap-2 pt-2 text-[12.5px] text-ink-2">
                   <Building2 className="size-4" />
-                  {c.companyName}
+                  {c.company ? (
+                    <Link href={`/companies/${c.company.id}`} className="hover:text-brand hover:underline">
+                      {c.companyName}
+                    </Link>
+                  ) : (
+                    c.companyName
+                  )}
                 </p>
               )}
             </div>

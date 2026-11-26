@@ -16,6 +16,7 @@ public record LeadResponse(
 	String name,
 	String email,
 	String phone,
+	Ref company,
 	String companyName,
 	String jobTitle,
 	Lead.Source source,

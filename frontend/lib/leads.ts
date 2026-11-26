@@ -13,6 +13,7 @@ export type Lead = {
   name: string;
   email: string | null;
   phone: string | null;
+  company: Ref | null;
   companyName: string | null;
   jobTitle: string | null;
   source: LeadSource;
@@ -58,6 +59,7 @@ export type NewLead = {
   lastName: string;
   email: string;
   phone?: string;
+  companyId?: string;
   companyName?: string;
   source: LeadSource;
   ownerId?: string;

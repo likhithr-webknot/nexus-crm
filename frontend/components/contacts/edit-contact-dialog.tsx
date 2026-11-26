@@ -1,5 +1,6 @@
 "use client";
 
+import { CompanySelect, companyFromForm } from "@/components/companies/company-select";
 import { FormDialog } from "@/components/ui/dialog";
 import { Field, fieldControl } from "@/components/ui/primitives";
 import { toast } from "@/components/ui/toast";
@@ -51,7 +52,7 @@ export function EditContactDialog({
         save.mutate({
           ...splitName(f.name),
           jobTitle: f.title,
-          companyName: f.company || undefined,
+          ...companyFromForm(f, true),
           email: f.email,
           phone: f.phone,
           version: contact.version,
@@ -77,15 +78,7 @@ export function EditContactDialog({
           className={fieldControl}
         />
       </Field>
-      <Field label="Company" optional>
-        <input
-          name="company"
-          maxLength={160}
-          defaultValue={contact.company?.name ?? ""}
-          autoComplete="off"
-          className={fieldControl}
-        />
-      </Field>
+      <CompanySelect current={contact.company} enabled={open} />
       <Field label="Email">
         <input
           name="email"
